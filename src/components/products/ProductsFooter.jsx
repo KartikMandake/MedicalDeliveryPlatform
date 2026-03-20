@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function ProductsFooter() {
   return (
     <footer className="w-full py-12 px-8 bg-slate-50 border-t border-slate-200">
@@ -14,17 +16,17 @@ export default function ProductsFooter() {
         <div className="space-y-4">
           <h5 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Quick Links</h5>
           <nav className="flex flex-col gap-2 text-sm text-slate-500">
-            <a className="hover:text-[#2E7D32] transition-colors" href="#">About Us</a>
-            <a className="hover:text-[#2E7D32] transition-colors" href="#">Contact Support</a>
-            <a className="hover:text-[#2E7D32] transition-colors" href="#">Medicine Categories</a>
+            <Link className="hover:text-[#2E7D32] transition-colors" to="/dashboard">About Us</Link>
+            <Link className="hover:text-[#2E7D32] transition-colors" to="/upload">Contact Support</Link>
+            <Link className="hover:text-[#2E7D32] transition-colors" to="/products">Medicine Categories</Link>
           </nav>
         </div>
         <div className="space-y-4">
           <h5 className="text-sm font-bold text-slate-900 uppercase tracking-widest">Legal</h5>
           <nav className="flex flex-col gap-2 text-sm text-slate-500">
-            <a className="hover:text-[#2E7D32] transition-colors" href="#">Privacy Policy</a>
-            <a className="hover:text-[#2E7D32] transition-colors" href="#">Terms &amp; Conditions</a>
-            <a className="hover:text-[#2E7D32] transition-colors" href="#">Refund Policy</a>
+            <Link className="hover:text-[#2E7D32] transition-colors" to="/upload">Privacy Policy</Link>
+            <Link className="hover:text-[#2E7D32] transition-colors" to="/upload">Terms &amp; Conditions</Link>
+            <Link className="hover:text-[#2E7D32] transition-colors" to="/payments">Refund Policy</Link>
           </nav>
         </div>
         <div className="space-y-4">

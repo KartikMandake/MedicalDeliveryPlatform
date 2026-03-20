@@ -1,144 +1,95 @@
-export default function ProductsGrid() {
+export default function ProductsGrid({ products, onAddToCart, addingMedicineId }) {
   return (
     <div className="flex-1">
-      <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-slate-500">Showing <span className="font-bold text-slate-900">1-12</span> of 240 results</p>
-        <div className="flex items-center gap-4">
-          <select className="text-sm font-semibold border-none bg-transparent focus:ring-0 cursor-pointer">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-7">
+        <div>
+          <h1 className="text-[1.35rem] font-headline font-bold text-on-surface tracking-tight">Pharmaceutical Inventory</h1>
+          <p className="text-sm text-zinc-500 mt-1">Showing 1-{products.length} of 240 results</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Sort By:</span>
+          <select className="bg-surface-container-lowest border-none text-sm font-semibold text-on-surface rounded-xl shadow-sm focus:ring-primary/20 pr-10">
             <option>Most Popular</option>
-            <option>Newest first</option>
+            <option>Price Low to High</option>
+            <option>Price High to Low</option>
           </select>
-          <div className="flex gap-1">
-            <button className="p-1.5 bg-emerald-50 text-[#2E7D32] rounded border border-emerald-100">
-              <span className="material-symbols-outlined text-[20px]">grid_view</span>
-            </button>
-            <button className="p-1.5 text-slate-400 hover:text-[#2E7D32] transition-colors">
-              <span className="material-symbols-outlined text-[20px]">view_list</span>
-            </button>
-          </div>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Product Card 1 */}
-        <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 tonal-card flex flex-col transition-all duration-300 hover:shadow-xl">
-          <div className="relative aspect-[4/3] product-image-container overflow-hidden">
-            <img className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500" data-alt="Omeprazole medicine" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAtAr2G6oLMC24sWFObYW5Z0r8NvZIQYtxqyoK5ylKgUQrK4gqatRhLrM9sw4ETuaSVuHAidjmjs1t7VJf5wcOKQ8azDqrc-vXBLyygj7_fjxtyMUUaUGW4nIj1W9chSRZxDgdcaK6vqLLBPdmdFm7RsPRqzvXABDozNMantY8gCc0gqXk7Jul9ztB9Ql76Z48wlBzGyiePgMk6NKLb5nbcPUtHrBkfYGbocnw4W3P6XA7_o6dS-Jzof4AD8Wy8UNrBZduq903oFgPS"/>
-          </div>
-          <div className="p-5 flex-1 flex flex-col">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Dr. Reddy's</span>
-            <h3 className="font-bold text-base text-slate-900 mb-1">Omeprazole 20mg</h3>
-            <p className="text-xs text-slate-500 line-clamp-2 mb-3">Reduces stomach acid for heartburn and ulcer relief...</p>
-            <div className="flex items-center gap-1 mb-4">
-              <span className="material-symbols-outlined text-yellow-400 text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-              <span className="text-xs font-bold text-slate-900">4.6</span>
-              <span className="text-xs text-slate-400">(345)</span>
-            </div>
-            <div className="mt-auto flex items-center justify-between">
-              <span className="text-xl font-extrabold text-[#2E7D32]">₹95</span>
-              <button className="w-10 h-10 bg-[#00c2a7] text-white rounded-lg flex items-center justify-center hover:bg-[#00a891] transition-colors shadow-lg shadow-emerald-100">
-                <span className="material-symbols-outlined text-[20px]">add</span>
-              </button>
-            </div>
-          </div>
-        </div>
 
-        {/* Product Card 2 (Rx Required) */}
-        <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 tonal-card flex flex-col transition-all duration-300 hover:shadow-xl">
-          <div className="relative aspect-[4/3] product-image-container overflow-hidden">
-            <div className="absolute top-3 left-3 z-10">
-              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Rx Required</span>
-            </div>
-            <img className="w-full h-full object-contain p-6 group-hover:scale-110 transition-transform duration-500" data-alt="Metformin medicine" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAz0qdTEeItjdMoLgnJHEMFew2huXz8pnH3iJUdn8zD61DaMXveZFd1yvGx2510RbZ2lyiTL19QEu_lm7E77pIn8HPKCTdDZbLItANxdN_nR9yMBomYapI3VsnrdN4ovz9Njkq0zlsUpixE6V18x5D1UQbruOA4F5jWGEYmqdHH8eEV0zdlmwlyDUMU0ymdr3_gQq3tBLgDMgUr5c9VbnzxOaRV_j9y66DN2iHmcJhqXEtCPPN3BFjMlLKmE4doReut8MHPicw9w1I_"/>
-          </div>
-          <div className="p-5 flex-1 flex flex-col">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Sun Pharma</span>
-            <h3 className="font-bold text-base text-slate-900 mb-1">Metformin 500mg</h3>
-            <p className="text-xs text-slate-500 line-clamp-2 mb-3">Diabetes medication to control blood sugar levels.</p>
-            <div className="flex items-center gap-1 mb-4">
-              <span className="material-symbols-outlined text-yellow-400 text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-              <span className="text-xs font-bold text-slate-900">4.7</span>
-              <span className="text-xs text-slate-400">(678)</span>
-            </div>
-            <div className="mt-auto flex items-center justify-between">
-              <span className="text-xl font-extrabold text-[#2E7D32]">₹125</span>
-              <button className="w-10 h-10 bg-[#00c2a7] text-white rounded-lg flex items-center justify-center hover:bg-[#00a891] transition-colors shadow-lg shadow-emerald-100">
-                <span className="material-symbols-outlined text-[20px]">add</span>
-              </button>
-            </div>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
+        {products.map((product) => {
+          const isAdding = addingMedicineId === product.id;
+          return (
+            <div
+              key={product.id}
+              className={`group bg-surface-container-lowest rounded-xl overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 flex flex-col border border-outline-variant/10 ${
+                product.inStock ? '' : 'opacity-75 grayscale-[0.5]'
+              }`}
+            >
+              <div className="relative h-44 overflow-hidden bg-zinc-50 p-5 flex items-center justify-center">
+                {!product.inStock && (
+                  <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px] flex items-center justify-center z-10">
+                    <span className="px-3 py-1 bg-zinc-900 text-white text-[10px] font-bold rounded-full uppercase tracking-widest">Out of Stock</span>
+                  </div>
+                )}
+                {product.requiresRx && (
+                  <span className="absolute top-4 left-4 px-2 py-1 bg-white/90 backdrop-blur-md rounded-md text-[10px] font-bold text-error uppercase tracking-wider border border-error/10 z-20">
+                    RX Required
+                  </span>
+                )}
+                <img
+                  className="max-h-full object-contain group-hover:scale-110 transition-transform duration-500"
+                  alt={product.name}
+                  src={product.image}
+                />
+              </div>
+              <div className="p-5 flex flex-col flex-1">
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-[10px] font-extrabold text-primary uppercase tracking-wider">{product.manufacturer}</span>
+                  <div className="flex items-center text-amber-500 gap-0.5">
+                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>
+                    star
+                  </span>
+                    <span className="text-xs font-bold text-on-surface">{product.rating}</span>
+                  </div>
+                </div>
+                <h3 className="font-headline font-bold text-base text-on-surface leading-tight mb-1 group-hover:text-primary transition-colors">{product.name}</h3>
+                <p className="text-xs text-zinc-500 line-clamp-2 mb-4 leading-relaxed">{product.description}</p>
 
-        {/* Product Card 3 (Out of Stock) */}
-        <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 tonal-card flex flex-col transition-all duration-300 hover:shadow-xl opacity-90">
-          <div className="relative aspect-[4/3] product-image-container overflow-hidden">
-            <div className="absolute inset-0 bg-slate-900/40 z-10 flex items-center justify-center">
-              <span className="bg-white/90 text-slate-900 font-bold px-4 py-2 rounded-lg text-sm shadow-xl">Out of Stock</span>
+                <div className="mt-auto flex items-center justify-between">
+                  <div>
+                    <span className="text-xs text-zinc-400 font-medium block">Price</span>
+                    <span className="text-lg font-headline font-bold text-on-surface">${Number(product.price).toFixed(2)}</span>
+                  </div>
+                  <button
+                    disabled={!product.inStock || isAdding}
+                    onClick={() => onAddToCart(product.id)}
+                    className={`h-10 w-10 rounded-full flex items-center justify-center transition-all active:scale-90 ${
+                      !product.inStock || isAdding
+                        ? 'bg-zinc-100 text-zinc-300 cursor-not-allowed'
+                        : 'bg-surface-container-high text-primary hover:bg-primary hover:text-white'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined">{isAdding ? 'hourglass_top' : 'add'}</span>
+                  </button>
+                </div>
+              </div>
             </div>
-            <div className="absolute top-3 left-3 z-20">
-              <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Rx Required</span>
-            </div>
-            <img className="w-full h-full object-contain p-6" data-alt="Amoxicillin medicine" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQOMoYtylNo1sYfLjTeMTAF-70GPB-Y_ckmHROrHhcCVw1ehgmBlWzs24wbYaXNtZJRsW_GnxGjrzqSIgzCtauK4xzPacf4ZrdW8wsXcL8xVeAW0YEz8zT9C2roCnm3XUjdEAXvngz2F_7WHDGBnjbd6xhaCHRqHsKKUEBxaONumly_NLDOEhkTfXqgZvxrHrbpkAHIpZU3qB2umvitag1YhyKDnY1tHgILTKKoKxk0m-koyTUnFobaOSLZIEbd1PSvFW4I-EXOZBb"/>
-          </div>
-          <div className="p-5 flex-1 flex flex-col">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Dr. Reddy's</span>
-            <h3 className="font-bold text-base text-slate-900 mb-1">Amoxicillin 500mg</h3>
-            <p className="text-xs text-slate-500 line-clamp-2 mb-3">Broad-spectrum antibiotic for various infections.</p>
-            <div className="flex items-center gap-1 mb-4">
-              <span className="material-symbols-outlined text-yellow-400 text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-              <span className="text-xs font-bold text-slate-900">4.5</span>
-              <span className="text-xs text-slate-400">(289)</span>
-            </div>
-            <div className="mt-auto flex items-center justify-between">
-              <span className="text-xl font-extrabold text-[#2E7D32]">₹165</span>
-              <button className="w-10 h-10 bg-emerald-100 text-emerald-400 rounded-lg flex items-center justify-center cursor-not-allowed">
-                <span className="material-symbols-outlined text-[20px]">add</span>
-              </button>
-            </div>
-          </div>
-        </div>
+          );
+        })}
 
-        {/* Additional Grid Items Skeletons */}
-        <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 tonal-card flex flex-col transition-all duration-300">
-          <div className="relative aspect-[4/3] product-image-container flex items-center justify-center p-8">
-            <div className="w-full h-full bg-slate-50 rounded animate-pulse"></div>
-          </div>
-          <div className="p-5 space-y-3">
-            <div className="h-2 w-16 bg-slate-100 rounded"></div>
-            <div className="h-4 w-40 bg-slate-100 rounded"></div>
-            <div className="h-3 w-full bg-slate-50 rounded"></div>
-            <div className="flex justify-between items-center pt-4">
-              <div className="h-6 w-16 bg-emerald-50 rounded"></div>
-              <div className="h-10 w-10 bg-slate-50 rounded-lg"></div>
+        <div className="group rounded-xl overflow-hidden flex flex-col p-7 border border-primary/20 relative bg-gradient-to-br from-white to-[rgba(74,225,118,0.05)]">
+          <div className="relative z-10 h-full flex flex-col">
+            <div className="bg-primary/10 w-11 h-11 rounded-xl flex items-center justify-center text-primary mb-5">
+              <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
             </div>
+            <h3 className="font-headline font-bold text-lg text-primary leading-tight mb-3">AI Recommended for Heart Care</h3>
+            <p className="text-sm text-zinc-600 mb-7 leading-relaxed">Based on your recent purchases, our engine suggests reviewing Vitamin D3 supplements for better care continuity.</p>
+            <button className="mt-auto px-5 py-2.5 bg-white border border-primary/20 rounded-full text-[11px] font-bold text-primary hover:bg-primary hover:text-white transition-all uppercase tracking-wider self-start">
+              View Bundle
+            </button>
           </div>
-        </div>
-        <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 tonal-card flex flex-col transition-all duration-300">
-          <div className="relative aspect-[4/3] product-image-container flex items-center justify-center p-8">
-            <div className="w-full h-full bg-slate-50 rounded animate-pulse"></div>
-          </div>
-          <div className="p-5 space-y-3">
-            <div className="h-2 w-16 bg-slate-100 rounded"></div>
-            <div className="h-4 w-40 bg-slate-100 rounded"></div>
-            <div className="h-3 w-full bg-slate-50 rounded"></div>
-            <div className="flex justify-between items-center pt-4">
-              <div className="h-6 w-16 bg-emerald-50 rounded"></div>
-              <div className="h-10 w-10 bg-slate-50 rounded-lg"></div>
-            </div>
-          </div>
-        </div>
-        <div className="group bg-white rounded-2xl overflow-hidden border border-slate-100 tonal-card flex flex-col transition-all duration-300">
-          <div className="relative aspect-[4/3] product-image-container flex items-center justify-center p-8">
-            <div className="w-full h-full bg-slate-50 rounded animate-pulse"></div>
-          </div>
-          <div className="p-5 space-y-3">
-            <div className="h-2 w-16 bg-slate-100 rounded"></div>
-            <div className="h-4 w-40 bg-slate-100 rounded"></div>
-            <div className="h-3 w-full bg-slate-50 rounded"></div>
-            <div className="flex justify-between items-center pt-4">
-              <div className="h-6 w-16 bg-emerald-50 rounded"></div>
-              <div className="h-10 w-10 bg-slate-50 rounded-lg"></div>
-            </div>
-          </div>
+          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
         </div>
       </div>
     </div>

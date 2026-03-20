@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function Footer() {
   return (
     <footer className="bg-slate-100 border-t border-slate-200/50 py-12 px-8">
@@ -11,17 +13,17 @@ export default function Footer() {
         <div>
           <h4 className="font-headline font-bold text-emerald-800 mb-4 text-xs uppercase tracking-widest">Company</h4>
           <ul className="space-y-2 text-xs uppercase tracking-widest font-['Inter']">
-            <li><a className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" href="#">About</a></li>
-            <li><a className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" href="#">Contact</a></li>
-            <li><a className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" href="#">Careers</a></li>
+            <li><Link className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" to="/dashboard">About</Link></li>
+            <li><Link className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" to="/upload">Contact</Link></li>
+            <li><Link className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" to="/agent">Careers</Link></li>
           </ul>
         </div>
         <div>
           <h4 className="font-headline font-bold text-emerald-800 mb-4 text-xs uppercase tracking-widest">Legal</h4>
           <ul className="space-y-2 text-xs uppercase tracking-widest font-['Inter']">
-            <li><a className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" href="#">Privacy</a></li>
-            <li><a className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" href="#">Terms</a></li>
-            <li><a className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" href="#">Pharmacy Policy</a></li>
+            <li><Link className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" to="/upload">Privacy</Link></li>
+            <li><Link className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" to="/upload">Terms</Link></li>
+            <li><Link className="text-slate-500 hover:text-emerald-700 underline decoration-2 underline-offset-4 transition-all" to="/products">Pharmacy Policy</Link></li>
           </ul>
         </div>
         <div>

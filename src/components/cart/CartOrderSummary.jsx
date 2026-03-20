@@ -1,42 +1,71 @@
-export default function CartOrderSummary() {
+import React from 'react';
+import { ArrowRight } from 'lucide-react';
+import { motion as Motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
+import CartSupportCard from './CartSupportCard';
+
+const CartOrderSummary = ({ summary, totalItems, subtotal, deliveryFee, tax, total }) => {
+  const navigate = useNavigate();
+  const resolvedSubtotal = Number(summary?.subtotal ?? subtotal ?? 0);
+  const resolvedDeliveryFee = Number(summary?.deliveryFee ?? deliveryFee ?? 0);
+  const resolvedTotal = Number(summary?.totalAmount ?? total ?? resolvedSubtotal + resolvedDeliveryFee);
+  const resolvedItems = Number(summary?.totalItems ?? totalItems ?? 0);
+  const resolvedTax = Number(tax ?? 0);
+
   return (
-    <div className="bg-surface-container-lowest rounded-xl p-8 shadow-sm border border-transparent">
-      <h2 className="font-headline text-xl font-bold mb-6">Order Summary</h2>
-      <div className="space-y-4 text-sm mb-8">
-        <div className="flex justify-between text-on-surface-variant">
-          <span>Subtotal (3 items)</span>
-          <span className="font-bold text-on-surface">$61.00</span>
-        </div>
-        <div className="flex justify-between text-on-surface-variant">
-          <span>Delivery Fee</span>
-          <span className="font-bold text-on-surface text-secondary">FREE</span>
-        </div>
-        <div className="flex justify-between text-on-surface-variant">
-          <span>Est. Taxes &amp; Fees</span>
-          <span className="font-bold text-on-surface">$4.85</span>
-        </div>
-        <div className="h-px bg-surface-container-high my-2"></div>
-        <div className="flex justify-between text-lg font-headline font-extrabold text-on-surface pt-2">
-          <span>Total</span>
-          <span>$65.85</span>
-        </div>
+  <Motion.div 
+    initial={{ opacity: 0, x: 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    className="bg-surface-container-lowest rounded-xl p-8 shadow-[0_16px_32px_rgba(0,110,47,0.08)] insight-glow"
+  >
+    <h2 className="text-xl font-bold font-headline text-on-surface mb-6">Order Intelligence</h2>
+    
+    <div className="space-y-4 mb-8">
+      <div className="flex justify-between text-sm">
+        <span className="text-on-surface-variant font-medium">Total Items</span>
+        <span className="font-bold">{resolvedItems.toString().padStart(2, '0')}</span>
       </div>
-      <button className="w-full bg-primary-container text-on-primary-container py-4 rounded-xl font-headline font-bold text-lg flex items-center justify-center gap-3 transition-all active:scale-[0.98] hover:shadow-lg hover:shadow-primary-container/20 group">
-        Proceed to Checkout
-        <span className="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
-      </button>
-      <div className="mt-6 flex items-center gap-3 p-4 bg-primary-fixed/20 rounded-lg">
-        <span className="material-symbols-outlined text-primary">local_shipping</span>
-        <p className="text-xs font-medium text-on-primary-fixed-variant">Complimentary climate-controlled delivery active for medical orders.</p>
+      <div className="flex justify-between text-sm">
+        <span className="text-on-surface-variant font-medium">Subtotal</span>
+        <span className="font-bold">${resolvedSubtotal.toFixed(2)}</span>
       </div>
-      <div className="mt-8">
-        <p className="text-[10px] uppercase font-bold tracking-widest text-outline mb-4">ACCEPTED PAYMENTS</p>
-        <div className="flex gap-3 opacity-60">
-          <span className="material-symbols-outlined">credit_card</span>
-          <span className="material-symbols-outlined">account_balance</span>
-          <span className="material-symbols-outlined">contactless</span>
-        </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-on-surface-variant font-medium">Clinical Delivery Fee</span>
+        <span className="font-bold text-primary">{resolvedDeliveryFee === 0 ? 'FREE' : `$${resolvedDeliveryFee.toFixed(2)}`}</span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-on-surface-variant font-medium">Estimated Tax</span>
+        <span className="font-bold">${resolvedTax.toFixed(2)}</span>
       </div>
     </div>
+
+    <div className="bg-surface-container-low h-[1px] mb-6" />
+
+    <div className="flex justify-between items-baseline mb-8">
+      <span className="text-lg font-bold font-headline">Total Price</span>
+      <div className="text-right">
+        <span className="text-3xl font-extrabold font-headline text-primary tracking-tight">
+          ${resolvedTotal.toFixed(2)}
+        </span>
+        <p className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mt-1">
+          USD • Inc. All Taxes
+        </p>
+      </div>
+    </div>
+
+    <button
+      className="w-full py-4 px-6 rounded-full bg-gradient-to-r from-[#0d631b] to-[#2e7d32] text-white font-bold font-headline flex items-center justify-center gap-3 transition-all hover:scale-[1.02] hover:brightness-105 active:scale-95 shadow-lg shadow-[#0d631b]/25 border border-[#0d631b]/20 disabled:opacity-50 disabled:cursor-not-allowed"
+      disabled={resolvedItems <= 0}
+      onClick={() => navigate('/checkout')}
+      type="button"
+    >
+      Proceed to Checkout
+      <ArrowRight className="w-5 h-5" />
+    </button>
+
+    <CartSupportCard />
+  </Motion.div>
   );
-}
+};
+
+export default CartOrderSummary;

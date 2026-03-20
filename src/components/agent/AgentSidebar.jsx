@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function AgentSidebar() {
   return (
     <nav className="hidden md:flex flex-col py-4 space-y-2 bg-slate-50 w-64 border-r border-slate-100 h-full fixed left-0">
@@ -13,33 +15,33 @@ export default function AgentSidebar() {
         </div>
       </div>
       <div className="flex-1 space-y-1">
-        <a className="bg-white text-green-700 shadow-sm rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-3 font-medium transition-all duration-200" href="#">
+        <Link className="bg-white text-green-700 shadow-sm rounded-lg mx-2 my-1 px-4 py-3 flex items-center gap-3 font-medium transition-all duration-200" to="/tracking">
           <span className="material-symbols-outlined">map</span>
           <span>Live Map</span>
-        </a>
-        <a className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" href="#">
+        </Link>
+        <Link className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" to="/agent">
           <span className="material-symbols-outlined">local_shipping</span>
           <span>Active Deliveries</span>
-        </a>
-        <a className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" href="#">
+        </Link>
+        <Link className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" to="/payments">
           <span className="material-symbols-outlined">payments</span>
           <span>Earnings</span>
-        </a>
-        <a className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" href="#">
+        </Link>
+        <Link className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" to="/dashboard">
           <span className="material-symbols-outlined">account_circle</span>
           <span>Profile</span>
-        </a>
+        </Link>
       </div>
       <div className="px-4 pb-4 space-y-4">
         <div className="h-px bg-slate-200 mx-2"></div>
-        <a className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" href="#">
+        <Link className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" to="/upload">
           <span className="material-symbols-outlined">help_outline</span>
           <span>Support</span>
-        </a>
-        <a className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" href="#">
+        </Link>
+        <Link className="text-slate-600 hover:text-green-600 hover:bg-slate-200/50 rounded-lg px-4 py-3 mx-2 flex items-center gap-3 font-medium transition-all duration-200" to="/admin">
           <span className="material-symbols-outlined">settings</span>
           <span>Settings</span>
-        </a>
+        </Link>
         <button className="w-full mt-4 py-3 px-4 bg-red-100 text-red-800 font-bold rounded-xl active:scale-95 transition-transform">
           Go Offline
         </button>

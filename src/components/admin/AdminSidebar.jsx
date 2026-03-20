@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function AdminSidebar() {
   return (
     <aside className="flex flex-col py-6 bg-slate-50 dark:bg-slate-900 h-screen w-64 border-r-0 fixed left-0 top-0 z-50">
@@ -6,26 +8,26 @@ export default function AdminSidebar() {
         <p className="text-xs text-slate-500 font-medium tracking-wide">Precision Logistics</p>
       </div>
       <nav className="flex-1 px-4 space-y-2">
-        <a className="flex items-center gap-3 px-4 py-3 text-emerald-700 dark:text-emerald-300 font-bold border-r-4 border-emerald-600 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 transition-colors" href="#">
+        <Link className="flex items-center gap-3 px-4 py-3 text-emerald-700 dark:text-emerald-300 font-bold border-r-4 border-emerald-600 dark:border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 transition-colors" to="/admin">
           <span className="material-symbols-outlined">dashboard</span>
           <span className="font-label">Dashboard</span>
-        </a>
-        <a className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" href="#">
+        </Link>
+        <Link className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" to="/tracking">
           <span className="material-symbols-outlined">package_2</span>
           <span className="font-label">Orders</span>
-        </a>
-        <a className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" href="#">
+        </Link>
+        <Link className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" to="/payments">
           <span className="material-symbols-outlined">payments</span>
           <span className="font-label">Payments</span>
-        </a>
-        <a className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" href="#">
+        </Link>
+        <Link className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" to="/dashboard">
           <span className="material-symbols-outlined">group</span>
           <span className="font-label">Users</span>
-        </a>
-        <a className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" href="#">
+        </Link>
+        <Link className="flex items-center gap-3 px-4 py-3 text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-95" to="/products">
           <span className="material-symbols-outlined">local_pharmacy</span>
           <span className="font-label">Pharmacies</span>
-        </a>
+        </Link>
       </nav>
       <div className="px-6 mt-auto">
         <div className="flex items-center gap-3 p-3 bg-slate-100 dark:bg-slate-800 rounded-xl">

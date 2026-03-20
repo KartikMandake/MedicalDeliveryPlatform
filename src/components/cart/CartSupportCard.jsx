@@ -1,9 +1,13 @@
-export default function CartSupportCard() {
-  return (
-    <div className="bg-emerald-900 text-white rounded-xl p-6">
-      <h3 className="font-headline font-bold mb-2">Need assistance?</h3>
-      <p className="text-sm opacity-80 mb-4">Our clinical logistics team is available 24/7 for urgent delivery inquiries.</p>
-      <button className="w-full py-3 bg-white/10 hover:bg-white/20 transition-colors rounded-lg font-bold text-sm">Chat with a Pharmacist</button>
-    </div>
-  );
-}
+import React from 'react';
+import { ShieldCheck } from 'lucide-react';
+
+const CartSupportCard = () => (
+  <div className="mt-8 flex items-center gap-3 p-4 bg-primary-container/10 rounded-xl border border-primary/10">
+    <ShieldCheck className="w-5 h-5 text-primary fill-primary/20" />
+    <p className="text-[11px] font-medium leading-relaxed text-on-primary-fixed-variant">
+      Clinical-grade encryption protects your medical and payment data during checkout.
+    </p>
+  </div>
+);
+
+export default CartSupportCard;

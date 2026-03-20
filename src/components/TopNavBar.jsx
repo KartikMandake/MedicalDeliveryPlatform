@@ -14,8 +14,8 @@ export default function TopNavBar() {
         <nav className="hidden lg:flex items-center gap-8 font-headline font-semibold text-sm tracking-tight">
           <Link className="text-emerald-700 border-b-2 border-emerald-600 pb-1" to="/">Home</Link>
           <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/products">Categories</Link>
-          <a className="text-slate-600 hover:text-emerald-800 transition-all" href="#">Orders</a>
-          <a className="text-slate-600 hover:text-emerald-800 transition-all" href="#">Help</a>
+          <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/tracking">Orders</Link>
+          <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/upload">Help</Link>
         </nav>
         <div className="flex items-center gap-4 ml-8">
           <button className="p-2 rounded-full hover:bg-emerald-50/50 transition-all">

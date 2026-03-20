@@ -1,4 +1,4 @@
-import TopNavBar from '../components/TopNavBar';
+import CartNavBar from '../components/cart/CartNavBar';
 import HeroSection from '../components/HeroSection';
 import CategoriesSection from '../components/CategoriesSection';
 import FeaturesSection from '../components/FeaturesSection';
@@ -10,7 +10,7 @@ import Footer from '../components/Footer';
 export default function HomePage() {
   return (
     <>
-      <TopNavBar />
+      <CartNavBar />
       <main className="pt-24 space-y-24 pb-32">
         <HeroSection />
         <CategoriesSection />

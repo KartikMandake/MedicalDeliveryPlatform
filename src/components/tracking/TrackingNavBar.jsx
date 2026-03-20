@@ -7,10 +7,10 @@ export default function TrackingNavBar() {
         <div className="flex items-center gap-8">
           <Link to="/" className="text-xl font-bold text-emerald-900 dark:text-emerald-100 tracking-tighter font-headline">Clinical Curator</Link>
           <nav className="hidden md:flex gap-6 items-center">
-            <a className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" href="#">Deliveries</a>
-            <a className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" href="#">Inventory</a>
-            <a className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" href="#">Reports</a>
-            <a className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" href="#">Compliance</a>
+            <Link className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" to="/tracking">Deliveries</Link>
+            <Link className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" to="/products">Inventory</Link>
+            <Link className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" to="/dashboard">Reports</Link>
+            <Link className="text-slate-500 dark:text-slate-400 hover:text-emerald-600 font-['Manrope'] font-semibold text-sm tracking-tight transition-colors" to="/admin">Compliance</Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">

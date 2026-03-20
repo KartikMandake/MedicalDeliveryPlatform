@@ -7,9 +7,9 @@ export default function UploadNavBar() {
         <Link to="/" className="text-2xl font-extrabold text-[#0d631b] tracking-tight font-['Manrope']">MediFlow</Link>
         <nav className="hidden md:flex items-center gap-8">
           <Link to="/upload" className="text-[#0d631b] border-b-2 border-[#0d631b] pb-1 font-['Manrope'] font-bold text-lg">Upload</Link>
-          <a className="text-[#40493d] hover:text-[#0d631b] transition-colors font-['Manrope'] font-bold text-lg" href="#">Orders</a>
-          <a className="text-[#40493d] hover:text-[#0d631b] transition-colors font-['Manrope'] font-bold text-lg" href="#">Pharmacy</a>
-          <a className="text-[#40493d] hover:text-[#0d631b] transition-colors font-['Manrope'] font-bold text-lg" href="#">Support</a>
+          <Link className="text-[#40493d] hover:text-[#0d631b] transition-colors font-['Manrope'] font-bold text-lg" to="/tracking">Orders</Link>
+          <Link className="text-[#40493d] hover:text-[#0d631b] transition-colors font-['Manrope'] font-bold text-lg" to="/products">Pharmacy</Link>
+          <Link className="text-[#40493d] hover:text-[#0d631b] transition-colors font-['Manrope'] font-bold text-lg" to="/dashboard">Support</Link>
         </nav>
         <div className="flex items-center gap-4">
           <Link to="/cart" className="p-2 hover:bg-slate-50 rounded-full transition-all duration-200">
