@@ -62,6 +62,12 @@
     backdrop-filter: blur(20px);
     background-color: rgba(247, 249, 252, 0.7);
   }
+  .primary-gradient {
+    background: linear-gradient(135deg, #0d631b 0%, #2e7d32 100%);
+  }
+  .soft-shadow {
+    box-shadow: 0 12px 32px -4px rgba(25, 28, 30, 0.06);
+  }
   .tonal-lift {
     box-shadow: 0 12px 32px -4px rgba(25, 28, 30, 0.06);
   }

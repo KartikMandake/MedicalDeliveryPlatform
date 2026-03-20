@@ -8,6 +8,7 @@ import AgentDashboardPage from './pages/AgentDashboardPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import PaymentsPage from './pages/PaymentsPage';
 import UploadPage from './pages/UploadPage';
+import LoginPage from './pages/LoginPage';
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/payments" element={<PaymentsPage />} />
         <Route path="/upload" element={<UploadPage />} />
+        <Route path="/login" element={<LoginPage />} />
       </Routes>
     </Router>
   );
