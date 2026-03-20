@@ -3,7 +3,7 @@ export default function Footer() {
     <footer className="bg-slate-100 border-t border-slate-200/50 py-12 px-8">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-7xl mx-auto">
         <div className="space-y-4">
-          <div className="text-lg font-bold text-slate-900 font-headline uppercase tracking-tight">MedPrecision</div>
+          <div className="text-lg font-bold text-slate-900 font-headline uppercase tracking-tight">MediFlow</div>
           <p className="text-slate-500 text-sm leading-relaxed">
             Connecting healthcare providers and patients with high-speed, temperature-controlled delivery logistics.
           </p>
@@ -33,7 +33,7 @@ export default function Footer() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-slate-200/50 flex flex-col md:flex-row justify-between items-center gap-4">
-        <p className="font-['Inter'] text-xs uppercase tracking-widest text-slate-500">© 2024 MedPrecision Delivery. Surgical Precision in Every Parcel.</p>
+        <p className="font-['Inter'] text-xs uppercase tracking-widest text-slate-500">© 2024 MediFlow Delivery. Surgical Precision in Every Parcel.</p>
         <div className="flex gap-4">
           <img alt="Visa" className="h-6 grayscale hover:grayscale-0 transition-all" data-alt="Visa payment icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuATSKe1h0HpBUDbHpIYRf5V6yHbbMldML7ZWOYYgoB3Fm6FJEjlO92QodzQQ8opmTwZaN1ZFydoF0p2w41SmxCfoS2bR7Tn0Njj6-KlGW940xW-OyMZnVKWqLc9CX_HEuVSirQNblpXiGPsSgmgcv_3WJF8CpJWnp54RMbLt9UNa6-BeICHYI59OJ9B202tLRi8DHgKw6JMAtC15IuFUnEZ9J_2lIE4UENq__KNYrbTZGRru44CAnWSWk6mkNMJc9IB_zQP-r1XyJBG"/>
           <img alt="Mastercard" className="h-6 grayscale hover:grayscale-0 transition-all" data-alt="Mastercard payment icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCTILB9OUrApruavpgAUP0KSckG48veY2QmipZes936srb2SCfkKG6MBlTQDT5yTwHnwzfKyd6PGWASPHKF28PWZtQeAuEpmUXBReszkhyf4zW11yDRZqarG_FE6RtDqAt_bzoes85wTCl-fkpWgmXxLXekzsqGUPElNMwBdfJ4QWyUnnSkjewESXnFBVYIdad0JBI6LqqXHdmi_UVO4cRncsLYtmBrpHtSxR91Q-4r0XVmrT6xfbkfNBBewaKXEOUEs0DrBjLZdU9J"/>

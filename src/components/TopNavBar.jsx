@@ -4,7 +4,7 @@ export default function TopNavBar() {
   return (
     <header className="fixed top-0 w-full z-50 glass-header shadow-sm">
       <div className="flex items-center justify-between px-8 py-4 max-w-full mx-auto">
-        <Link to="/" className="text-2xl font-bold tracking-tighter text-emerald-900 dark:text-emerald-100 font-headline">MedPrecision</Link>
+        <Link to="/" className="text-2xl font-bold tracking-tighter text-emerald-900 dark:text-emerald-100 font-headline">MediFlow</Link>
         <div className="hidden md:flex flex-1 max-w-md mx-12">
           <div className="relative w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>

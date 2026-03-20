@@ -2,7 +2,7 @@ export default function AdminSidebar() {
   return (
     <aside className="flex flex-col py-6 bg-slate-50 dark:bg-slate-900 h-screen w-64 border-r-0 fixed left-0 top-0 z-50">
       <div className="px-6 mb-10">
-        <h1 className="text-xl font-bold text-emerald-900 dark:text-emerald-100 font-headline">CareChain Admin</h1>
+        <h1 className="text-xl font-bold text-emerald-900 dark:text-emerald-100 font-headline">MediFlow Admin</h1>
         <p className="text-xs text-slate-500 font-medium tracking-wide">Precision Logistics</p>
       </div>
       <nav className="flex-1 px-4 space-y-2">

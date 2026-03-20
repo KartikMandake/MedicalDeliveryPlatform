@@ -9,7 +9,7 @@ export default function ProductsNavBar() {
             <div className="w-10 h-10 bg-[#2E7D32] rounded-lg flex items-center justify-center">
               <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>medical_services</span>
             </div>
-            <span className="text-2xl font-bold tracking-tighter text-emerald-900 font-headline">MedPrecision</span>
+            <span className="text-2xl font-bold tracking-tighter text-emerald-900 font-headline">MediFlow</span>
           </Link>
           <div className="hidden lg:flex items-center gap-8 font-['Manrope'] font-semibold text-sm tracking-tight">
             <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/">Home</Link>

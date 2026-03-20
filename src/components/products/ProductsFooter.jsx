@@ -7,7 +7,7 @@ export default function ProductsFooter() {
             <div className="w-8 h-8 bg-[#2E7D32] rounded flex items-center justify-center">
               <span className="material-symbols-outlined text-white text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>medical_services</span>
             </div>
-            <span className="text-lg font-bold text-slate-900 font-headline">MedPrecision</span>
+            <span className="text-lg font-bold text-slate-900 font-headline">MediFlow</span>
           </div>
           <p className="text-sm text-slate-500">Surgical Precision in Every Parcel. Your trusted partner in healthcare delivery.</p>
         </div>
@@ -38,7 +38,7 @@ export default function ProductsFooter() {
         </div>
       </div>
       <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-slate-200 text-center">
-        <p className="text-xs text-slate-400 font-medium">© 2024 MedPrecision Delivery. All rights reserved.</p>
+        <p className="text-xs text-slate-400 font-medium">© 2024 MediFlow Delivery. All rights reserved.</p>
       </div>
     </footer>
   );
