@@ -8,8 +8,12 @@ function Login() {
     const selectedRole = document.querySelector('input[name="role"]:checked')?.value;
     if (selectedRole === 'patient') {
       navigate('/dashboard-patient');
+    } else if (selectedRole === 'pharmacy') {
+      navigate('/dashboard-retailer');
+    } else if (selectedRole === 'delivery') {
+      navigate('/dashboard-delivery');
     } else {
-      alert(`Login for ${selectedRole} is not yet implemented. Try "Patient" role.`);
+      alert(`Login for ${selectedRole} is not yet implemented. Try "Patient", "Retailer Partner" or "Delivery Agent" role.`);
     }
   };
 
@@ -124,7 +128,7 @@ function Login() {
                       storefront
                     </span>
                     <span className="text-xs font-semibold text-center">
-                      Pharmacy Partner
+                      Retailer Partner
                     </span>
                   </div>
                 </label>

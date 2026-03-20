@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 function ShoppingCart() {
+  const navigate = useNavigate();
   const [items, setItems] = useState([
     {
       id: 1,
@@ -178,7 +179,10 @@ function ShoppingCart() {
                   <p className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mt-1">USD • Inc. All Taxes</p>
                 </div>
               </div>
-              <button className="w-full py-4 px-6 rounded-full btn-primary-gradient text-white font-bold font-headline flex items-center justify-center gap-3 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20">
+              <button 
+                onClick={() => navigate('/checkout')}
+                className="w-full py-4 px-6 rounded-full btn-primary-gradient text-white font-bold font-headline flex items-center justify-center gap-3 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+              >
                 Proceed to Checkout
                 <span className="material-symbols-outlined">arrow_forward</span>
               </button>
