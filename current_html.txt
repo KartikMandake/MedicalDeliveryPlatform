@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@400;500;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "on-surface": "#191c1e",
+              "surface-container-lowest": "#ffffff",
+              "surface-dim": "#d8dadd",
+              "surface-variant": "#e0e3e6",
+              "on-secondary-fixed": "#002204",
+              "secondary-container": "#91f78e",
+              "tertiary": "#006153",
+              "primary-container": "#2e7d32",
+              "outline": "#707a6c",
+              "on-error": "#ffffff",
+              "inverse-primary": "#88d982",
+              "on-primary-fixed": "#002204",
+              "on-primary-fixed-variant": "#005312",
+              "on-background": "#191c1e",
+              "primary-fixed-dim": "#88d982",
+              "secondary-fixed": "#94f990",
+              "on-tertiary-container": "#baffed",
+              "error-container": "#ffdad6",
+              "primary-fixed": "#a3f69c",
+              "inverse-surface": "#2d3133",
+              "on-primary-container": "#cbffc2",
+              "surface-container-high": "#e6e8eb",
+              "on-error-container": "#93000a",
+              "surface-container": "#eceef1",
+              "on-tertiary-fixed": "#00201a",
+              "surface-tint": "#1b6d24",
+              "surface-container-low": "#f2f4f7",
+              "on-tertiary": "#ffffff",
+              "surface-bright": "#f7f9fc",
+              "on-tertiary-fixed-variant": "#005145",
+              "on-secondary-fixed-variant": "#005313",
+              "inverse-on-surface": "#eff1f4",
+              "tertiary-fixed-dim": "#44ddc1",
+              "on-secondary": "#ffffff",
+              "secondary-fixed-dim": "#78dc77",
+              "tertiary-fixed": "#68fadd",
+              "error": "#ba1a1a",
+              "background": "#f7f9fc",
+              "on-primary": "#ffffff",
+              "surface": "#f7f9fc",
+              "outline-variant": "#bfcaba",
+              "on-secondary-container": "#00731e",
+              "secondary": "#006e1c",
+              "primary": "#0d631b",
+              "tertiary-container": "#007c6b",
+              "surface-container-highest": "#e0e3e6",
+              "on-surface-variant": "#40493d"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .glass-header {
+        backdrop-filter: blur(20px);
+      }
+      .tonal-layering {
+        background: linear-gradient(180deg, #f7f9fc 0%, #f2f4f7 100%);
+      }
+    </style>
+</head>
+<body class="bg-surface font-body text-on-surface">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md shadow-sm">
+<div class="flex items-center justify-between px-6 py-3 max-w-7xl mx-auto">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-emerald-900 font-headline">MediFlow</span>
+<nav class="hidden md:flex items-center gap-6 font-manrope text-sm font-semibold tracking-tight">
+<a class="text-slate-500 hover:text-emerald-600" href="#">Deliveries</a>
+<a class="text-slate-500 hover:text-emerald-600" href="#">Inventory</a>
+<a class="text-slate-500 hover:text-emerald-600" href="#">Analytics</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<input class="bg-surface-container border-none rounded-full px-4 py-2 text-sm w-64 focus:ring-2 focus:ring-primary/20" placeholder="Search medicines..." type="text"/>
+</div>
+<button class="material-symbols-outlined text-emerald-800 hover:bg-slate-50 p-2 rounded-full transition-colors" data-icon="shopping_cart">shopping_cart</button>
+<button class="material-symbols-outlined text-emerald-800 hover:bg-slate-50 p-2 rounded-full transition-colors" data-icon="notifications">notifications</button>
+<img class="w-8 h-8 rounded-full border border-outline-variant/15" data-alt="User medical professional profile photo" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJgL0pB1SxdL6GJ3CV_PbUTL0w0Dr-_O5sXNaK7u4ABQ9Ur7YmZtXcid0gUz3S5pF_m5yb6uMQIqNC8gtw38Vxo2Ak8ITnepAtj0tVspEgyHt20SrpdA4R4XFFpkdIS6TdcdF8c57sQgBabpYHZAI6nqhwimdxoPB4Xv9LiovrYY-hWkQg80gXLXJ9Sw8_eGLNO6N_hbiYX3GGTWn9_1Su5B0Ajg4Z3moTFzNG3Mv7rGfomzr87VXv_sN3T1gvyYTfc4yoImn4d-JT"/>
+</div>
+</div>
+<div class="bg-slate-200/50 h-[1px] w-full"></div>
+</header>
+<main class="pt-24 pb-16 px-6 max-w-7xl mx-auto">
+<!-- Breadcrumb -->
+<nav class="flex items-center gap-2 text-xs font-medium text-on-surface-variant mb-8">
+<a class="hover:text-primary transition-colors" href="#">Home</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="#">Antibiotics</a>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-semibold">Amoxicillin 500mg</span>
+</nav>
+<!-- Product Grid Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
+<!-- Left: Product Visualization -->
+<div class="lg:col-span-5 space-y-6">
+<div class="bg-surface-container-lowest rounded-xl p-8 aspect-square flex items-center justify-center relative overflow-hidden group">
+<div class="absolute top-4 left-4 flex flex-col gap-2 z-10">
+<span class="bg-tertiary-fixed-dim text-on-tertiary-fixed text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">Refrigerated</span>
+</div>
+<img class="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" data-alt="High quality pharmaceutical medicine box of Amoxicillin" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC0WLQzbacwhazBcGU9MHO73eyQJC9fvFtxgXGO1Bd0M_7_yTfoI2-2LjWn02Bgbu91KFU6PGTIHrm6gyZJ47FE7iO3dyAMQyqS8a9ofAJV1OfLQa8D6QJL23-MBChw5E7ZyrKTsQCtThvuoqo6ENWVZ8TIydBYx3B7qHTChWOW6xfUcpFYw7ITfHp_l00OvwoVL-im7UbVKJVBHZ4zOmdRIPfnMoLJaWL4vJPQpmA6jjH8mZt9Uprviqeii_OKzhXF0-_l-xQHu3qw"/>
+</div>
+<!-- Trust Markers -->
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low rounded-lg p-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-700" data-icon="verified_user">verified_user</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Quality</p>
+<p class="text-xs font-semibold">Verified Pharmacy</p>
+</div>
+</div>
+<div class="bg-surface-container-low rounded-lg p-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-700" data-icon="calendar_today">calendar_today</span>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Expiry</p>
+<p class="text-xs font-semibold">Exp: Dec 2025</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Right: Product Controls -->
+<div class="lg:col-span-7">
+<div class="space-y-6">
+<div>
+<div class="inline-flex items-center gap-2 bg-error-container text-on-error-container px-3 py-1 rounded-full mb-4">
+<span class="material-symbols-outlined text-sm" data-icon="description">description</span>
+<span class="text-[10px] font-bold uppercase tracking-wider">Prescription Required</span>
+</div>
+<h1 class="text-4xl font-extrabold text-emerald-900 font-headline mb-2 leading-tight">Amoxicillin 500mg</h1>
+<p class="text-on-surface-variant font-medium text-lg">Hard Gelatin Capsules • Strip of 10</p>
+</div>
+<div class="flex items-baseline gap-4">
+<span class="text-3xl font-bold text-emerald-900">$18.50</span>
+<span class="text-on-surface-variant line-through text-lg">$24.00</span>
+<span class="text-primary-container font-bold text-sm bg-primary-fixed px-2 py-0.5 rounded">25% OFF</span>
+</div>
+<!-- Delivery Check -->
+<div class="bg-surface-container p-4 rounded-xl flex items-center justify-between border border-outline-variant/15">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-emerald-700" data-icon="location_on">location_on</span>
+<div class="flex flex-col">
+<span class="text-[11px] font-bold text-slate-500 uppercase">Check Delivery</span>
+<span class="text-sm font-semibold">Enter Pincode</span>
+</div>
+</div>
+<div class="flex gap-2">
+<input class="w-24 bg-surface-container-lowest border-none rounded-lg text-sm font-medium focus:ring-2 focus:ring-primary/20" placeholder="10001" type="text"/>
+<button class="text-primary font-bold text-sm px-3">Check</button>
+</div>
+</div>
+<!-- Actions -->
+<div class="flex flex-wrap items-center gap-4 pt-4">
+<div class="flex items-center bg-surface-container-highest rounded-full p-1 border border-outline-variant/20">
+<button class="w-10 h-10 flex items-center justify-center hover:bg-white rounded-full transition-all">-</button>
+<span class="w-12 text-center font-bold">1</span>
+<button class="w-10 h-10 flex items-center justify-center hover:bg-white rounded-full transition-all">+</button>
+</div>
+<button class="flex-1 min-w-[200px] py-4 rounded-full bg-gradient-to-r from-primary to-primary-container text-white font-bold text-lg shadow-lg hover:shadow-xl active:scale-95 transition-all">
+                            Add to Cart
+                        </button>
+</div>
+</div>
+<!-- Tabs/Details Section -->
+<div class="mt-12 space-y-10">
+<!-- Description Island -->
+<section class="space-y-4">
+<h3 class="text-xl font-bold font-headline text-emerald-900 border-b-2 border-primary-container/20 pb-2 inline-block">Product Overview</h3>
+<p class="text-on-surface-variant leading-relaxed text-sm">
+                            Amoxicillin is a penicillin antibiotic that fights bacteria. It is used to treat many different types of infection caused by bacteria, such as tonsillitis, bronchitis, pneumonia, and infections of the ear, nose, throat, skin, or urinary tract. Amoxicillin is also sometimes used together with another antibiotic called clarithromycin to treat stomach ulcers caused by Helicobacter pylori infection.
+                        </p>
+</section>
+<!-- Bento Information Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<h4 class="font-bold text-emerald-800 mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">science</span> Composition
+                            </h4>
+<ul class="text-xs text-on-surface-variant space-y-2">
+<li class="flex justify-between"><span>Amoxicillin Trihydrate</span> <span class="font-bold">500mg</span></li>
+<li class="flex justify-between"><span>Magnesium Stearate</span> <span class="font-bold">2.5mg</span></li>
+<li class="flex justify-between"><span>Gelatin Shell</span> <span class="font-bold">q.s.</span></li>
+</ul>
+</div>
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-outline-variant/10">
+<h4 class="font-bold text-emerald-800 mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">warning</span> Side Effects
+                            </h4>
+<div class="flex flex-wrap gap-2">
+<span class="bg-surface-container px-2 py-1 rounded text-[10px] font-medium">Nausea</span>
+<span class="bg-surface-container px-2 py-1 rounded text-[10px] font-medium">Diarrhea</span>
+<span class="bg-surface-container px-2 py-1 rounded text-[10px] font-medium">Skin Rash</span>
+</div>
+</div>
+</div>
+<!-- Manufacturer -->
+<div class="flex items-center gap-6 p-6 bg-surface-container-low rounded-xl">
+<div class="w-12 h-12 bg-white rounded-lg flex items-center justify-center text-emerald-900 font-bold">M</div>
+<div>
+<p class="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Manufacturer</p>
+<p class="text-sm font-bold">MediFlow Pharmaceuticals Ltd.</p>
+<p class="text-xs text-on-surface-variant">GMP Certified Facility, New Jersey, USA</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Substitutes Section (Horizontal Scroll/Grid) -->
+<section class="mt-24">
+<div class="flex justify-between items-end mb-8">
+<div>
+<h2 class="text-3xl font-extrabold text-emerald-900 font-headline">Generic Alternatives</h2>
+<p class="text-on-surface-variant">Same composition, lower price points</p>
+</div>
+<button class="text-primary font-bold flex items-center gap-1 hover:gap-2 transition-all">
+                    View All <span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+<!-- Alternative Card -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/10 hover:shadow-lg transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold px-2 py-1 rounded">GENERIC</span>
+<span class="text-emerald-700 font-bold">$12.40</span>
+</div>
+<h4 class="font-bold text-lg mb-1">Amoxi-Pure 500</h4>
+<p class="text-xs text-on-surface-variant mb-4">By AlphaGen Labs</p>
+<button class="w-full py-2 rounded-lg border border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors">Add to Cart</button>
+</div>
+<!-- Alternative Card 2 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/10 hover:shadow-lg transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold px-2 py-1 rounded">GENERIC</span>
+<span class="text-emerald-700 font-bold">$11.90</span>
+</div>
+<h4 class="font-bold text-lg mb-1">Cillin-Max</h4>
+<p class="text-xs text-on-surface-variant mb-4">By Global Pharma</p>
+<button class="w-full py-2 rounded-lg border border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors">Add to Cart</button>
+</div>
+<!-- Alternative Card 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/10 hover:shadow-lg transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<span class="bg-primary-fixed text-on-primary-fixed-variant text-[10px] font-bold px-2 py-1 rounded">GENERIC</span>
+<span class="text-emerald-700 font-bold">$14.00</span>
+</div>
+<h4 class="font-bold text-lg mb-1">Bacto-Shield 500</h4>
+<p class="text-xs text-on-surface-variant mb-4">By HealthFirst Inc.</p>
+<button class="w-full py-2 rounded-lg border border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-colors">Add to Cart</button>
+</div>
+</div>
+</section>
+<!-- Related Products -->
+<section class="mt-24">
+<h2 class="text-3xl font-extrabold text-emerald-900 font-headline mb-8">Related Medicines</h2>
+<div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+<!-- Small Card 1 -->
+<div class="group">
+<div class="aspect-square bg-surface-container rounded-xl mb-3 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform" data-alt="Paracetamol 500mg medicine strip" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA_aC22FFlBt_GKeFuwRujSx9c5tgtRFcg0ZWG9CjpyUtz5cuYrTBa-09zEn1fTwpbfYTViXKX0J9CiOyp1EeEewyzFkT632NvTG2lcze7Pb0NYxpJU69brZs36bRZUWFldVr-Oce4CpJf4W8bOxo1757WMJsKSzhQ0VDHxu3ZcHqy7x_705pfzmdVw54dOw0oNnejioe6b0gIHsMGZRgsFZi_96mv5hwOWMIKWOpfa-gzhRlayEpXp9VY1W5pfxOqfCnaNyJDwZ-lR"/>
+</div>
+<h5 class="font-bold text-sm">Paracetamol 500mg</h5>
+<p class="text-xs text-on-surface-variant mb-2">Pain Relief</p>
+<p class="text-emerald-700 font-bold">$4.50</p>
+</div>
+<!-- Small Card 2 -->
+<div class="group">
+<div class="aspect-square bg-surface-container rounded-xl mb-3 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform" data-alt="Vitamin C 1000mg chewable tablets bottle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWa8QnF49Oz95cZng-iWbjazoQkKYMDAdM579rX8rls7em6rqXUFgK4-STGCLxq1ORaRooeDlbgepY67Vy4oBw-Fm7Y0mR08ff_rjmEsyiOLaJ7kulyI6c-S8fmHgLLCcg8HAxaBYaIn3kpSjkfKov1HDBoiWvIiK-bovGyGmrWlZje-FxXhCZAD-zQdqZBVUK1pOT6wxTyG39G1Qec2Ps0gc9E7x_VMFVkOm1D1o7Kmmf8B0VCMi1YaGdDzE9_whODw6nuWIy1YTC"/>
+</div>
+<h5 class="font-bold text-sm">Vitamin C 1000mg</h5>
+<p class="text-xs text-on-surface-variant mb-2">Supplements</p>
+<p class="text-emerald-700 font-bold">$12.00</p>
+</div>
+<!-- Small Card 3 -->
+<div class="group">
+<div class="aspect-square bg-surface-container rounded-xl mb-3 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform" data-alt="Ibuprofen 200mg capsules" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2-gPAsuCzG9cEHFbh2IxM0mrGhMoyxqMpyHpTW0u5F9fG87dEOaoFfUeFfgflGCZg6g4UK0ZaeKpxWYebp1x14SNZdT7kFNmtyMwIgDla7FQfEnQVBtYpBLJ5XystOOtgTJd7YiF7YovLu2SBc0BS-kSSREyydpiSZ5uxSYtaFzwep-E9SyBzW_N3oOtVLp1Of_uUYNyjFj3vKZifHDlsRBL2ZgGajbUHH7mya0EV7d6KTsYycnhcuE9-pKJoePQQ-OW8Al_quz7e"/>
+</div>
+<h5 class="font-bold text-sm">Ibuprofen 200mg</h5>
+<p class="text-xs text-on-surface-variant mb-2">NSAID</p>
+<p class="text-emerald-700 font-bold">$6.25</p>
+</div>
+<!-- Small Card 4 -->
+<div class="group">
+<div class="aspect-square bg-surface-container rounded-xl mb-3 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform" data-alt="Cough Syrup expectorant bottle" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB6LrSPvlZ_jqFKmU3UdZ4TfRieCcDAme8Ri0QnLXh0VY_dYhMEcNuUIhueKYfSGtXU3KT14CysWYYY7ZrHVQ2SO3Eb6OU7QHDQSPLPf_SOSu7Gaka2czJ87kuLKcTmSjFNX1Z3o7oXWhiGl2Oa9AQWZpsACH90eDR9zpw-J9S5gnmXwpZ15UuI0eh2gySCGPnRuuEV1mWfIwPPxliJ278_gYHmpAxrXmBq-ScOztp1BxhYWP3IPPoXVbwTNjE-V5NYt2Rs0HAXdauS"/>
+</div>
+<h5 class="font-bold text-sm">Chest-Eze Syrup</h5>
+<p class="text-xs text-on-surface-variant mb-2">Cough Care</p>
+<p class="text-emerald-700 font-bold">$8.90</p>
+</div>
+<!-- Small Card 5 -->
+<div class="group">
+<div class="aspect-square bg-surface-container rounded-xl mb-3 overflow-hidden">
+<img class="w-full h-full object-cover group-hover:scale-110 transition-transform" data-alt="Azithromycin 250mg tablets" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBviDBNSIr7Nt1HA6b0lJtCkpjJ4CRujDaNJXxETZJHpBZGBd50x33fx37zoKpiH7kPTVuzRtCd-Pr5CfhcTlh1VKlM8bJoXYmwYQwcfyqP9Wg4RNhIaDOr9S89ku065nE5rUPKJu9rmcA2YPXpQ0d_hacmtrBqbiy4KtX9xOjMXJ1nfXGzUGA-EF62znRZN_pQhdRO8lVpkU3mcM0fnuKtYPQLWqNOIHQ-n6f9Ddhnpc-660kCliAs-Ukqa-ieBGQGPyw0oalai9sB"/>
+</div>
+<h5 class="font-bold text-sm">Azithromycin 250mg</h5>
+<p class="text-xs text-on-surface-variant mb-2">Antibiotics</p>
+<p class="text-emerald-700 font-bold">$22.00</p>
+</div>
+</div>
+</section>
+</main>
+<!-- Track Order Floating Glass Bar -->
+<div class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 w-full max-w-md px-4">
+<div class="bg-emerald-900/90 backdrop-blur-md rounded-full px-6 py-4 shadow-2xl flex items-center justify-between text-white">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary-fixed" data-icon="local_shipping">local_shipping</span>
+<div>
+<p class="text-[10px] font-bold uppercase text-primary-fixed/70 leading-none mb-1">Active Shipment</p>
+<p class="text-sm font-bold">Arriving in 14 mins</p>
+</div>
+</div>
+<button class="bg-white text-emerald-900 px-4 py-1.5 rounded-full text-xs font-bold hover:scale-105 transition-transform">Live Map</button>
+</div>
+</div>
+<!-- Footer -->
+<footer class="w-full py-12 mt-auto bg-slate-100 border-t border-slate-200">
+<div class="flex flex-col md:flex-row justify-between items-center px-8 gap-6 max-w-7xl mx-auto">
+<div class="flex flex-col gap-1">
+<span class="text-lg font-bold text-emerald-900 font-headline">MediFlow</span>
+<p class="font-inter text-xs text-slate-500">© 2024 MediFlow. HIPAA Compliant Secure Logistics.</p>
+</div>
+<div class="flex flex-wrap justify-center gap-8">
+<a class="font-inter text-xs text-slate-500 hover:text-emerald-600 transition-colors" href="#">Privacy Policy</a>
+<a class="font-inter text-xs text-slate-500 hover:text-emerald-600 transition-colors" href="#">Terms of Service</a>
+<a class="font-inter text-xs text-slate-500 hover:text-emerald-600 transition-colors" href="#">HIPAA Statement</a>
+<a class="font-inter text-xs text-slate-500 hover:text-emerald-600 transition-colors" href="#">Support</a>
+</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-slate-400">security</span>
+<span class="material-symbols-outlined text-slate-400">health_and_safety</span>
+</div>
+</div>
+</footer>
+</body></html>

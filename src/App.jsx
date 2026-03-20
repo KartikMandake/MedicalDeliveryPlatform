@@ -9,6 +9,10 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import PaymentsPage from './pages/PaymentsPage';
 import UploadPage from './pages/UploadPage';
 import LoginPage from './pages/LoginPage';
+import CheckoutPage from './pages/CheckoutPage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
+import ProfilePage from './pages/ProfilePage';
+import ProductDetailPage from './pages/ProductDetailPage';
 
 function App() {
   return (
@@ -16,6 +20,7 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/products" element={<ProductsPage />} />
+        <Route path="/product" element={<ProductDetailPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/tracking" element={<TrackingPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
@@ -24,6 +29,9 @@ function App() {
         <Route path="/payments" element={<PaymentsPage />} />
         <Route path="/upload" element={<UploadPage />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/orders" element={<OrderHistoryPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Routes>
     </Router>
   );
