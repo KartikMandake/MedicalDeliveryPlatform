@@ -1,4 +1,4 @@
-# CareChain - Medical Delivery Platform
+# MediFlow - Medical Delivery Platform
 
 A comprehensive, state-of-the-art medical delivery and pharmacy management platform built with React, Vite, and Tailwind CSS. The platform connects patients, pharmacists, delivery agents, and system administrators via a suite of tailored, high-performance dashboards and user flows.
 
