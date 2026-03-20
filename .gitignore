@@ -2,6 +2,20 @@
 logs
 *.log
 npm-debug.log*
+
+# Dependencies
+node_modules
+server/node_modules
+
+# Build
+dist
+
+# Env
+.env
+server/.env
+
+# Uploads
+server/uploads/
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
