@@ -7,7 +7,7 @@ export default function PaymentsSidebar() {
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>medical_services</span>
           </div>
           <div>
-            <h2 className="font-['Manrope'] font-black text-emerald-800 dark:text-emerald-300 text-xl leading-tight">CareChain</h2>
+            <h2 className="font-['Manrope'] font-black text-emerald-800 dark:text-emerald-300 text-xl leading-tight">MediFlow</h2>
             <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Admin Terminal</p>
           </div>
         </div>
