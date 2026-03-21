@@ -137,30 +137,7 @@ exports.createOrder = async (req, res) => {
             transaction,
           }
         );
-
-        await sequelize.query(
-          `
-          UPDATE inventory
-          SET
-            stock_quantity = GREATEST(stock_quantity - :quantity, 0),
-            last_updated = CURRENT_TIMESTAMP
-          WHERE medicine_id = :medicineId
-            AND stock_quantity > 0
-          `,
-          {
-            replacements: {
-              medicineId: item.medicine_id,
-              quantity: qty,
-            },
-            transaction,
-          }
-        );
       }
-
-      await sequelize.query(
-        `DELETE FROM cart_items WHERE cart_id = :cartId`,
-        { replacements: { cartId }, transaction }
-      );
 
       return {
         id: created.id,
@@ -171,9 +148,6 @@ exports.createOrder = async (req, res) => {
         status: 'placed',
       };
     });
-
-    const io = req.app.get('io');
-    io.to('retailers').emit('new_order', order);
 
     res.status(201).json(order);
   } catch (err) { res.status(500).json({ message: err.message }); }

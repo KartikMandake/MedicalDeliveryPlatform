@@ -61,25 +61,109 @@ exports.verifyPayment = async (req, res) => {
     const expectedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(body).digest('hex');
     if (expectedSig !== razorpay_signature) return res.status(400).json({ message: 'Payment verification failed' });
 
-    const updatedRows = await sequelize.query(
-      `
-      UPDATE orders
-      SET
-        payment_status = 'paid',
-        status = 'confirmed',
-        razorpay_order_id = COALESCE(razorpay_order_id, :razorpayOrderId)
-      WHERE id = :orderId
-      RETURNING id, order_number, total_amount, status, payment_status, razorpay_order_id
-      `,
-      {
-        type: QueryTypes.SELECT,
-        replacements: {
-          orderId,
-          razorpayOrderId: razorpay_order_id,
-        },
+    const order = await sequelize.transaction(async (transaction) => {
+      const orderRows = await sequelize.query(
+        `
+        SELECT id, user_id, order_number, total_amount, status, payment_status, razorpay_order_id
+        FROM orders
+        WHERE id = :orderId
+        LIMIT 1
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: { orderId },
+          transaction,
+        }
+      );
+
+      const existingOrder = orderRows[0];
+      if (!existingOrder) return null;
+
+      if (existingOrder.payment_status !== 'paid') {
+        const items = await sequelize.query(
+          `
+          SELECT medicine_id, quantity
+          FROM order_items
+          WHERE order_id = :orderId
+          `,
+          {
+            type: QueryTypes.SELECT,
+            replacements: { orderId },
+            transaction,
+          }
+        );
+
+        for (const item of items) {
+          await sequelize.query(
+            `
+            UPDATE inventory
+            SET
+              stock_quantity = GREATEST(stock_quantity - :quantity, 0),
+              last_updated = CURRENT_TIMESTAMP
+            WHERE medicine_id = :medicineId
+              AND stock_quantity > 0
+            `,
+            {
+              replacements: {
+                medicineId: item.medicine_id,
+                quantity: Number(item.quantity || 0),
+              },
+              transaction,
+            }
+          );
+        }
+
+        const cartRows = await sequelize.query(
+          `
+          SELECT id
+          FROM carts
+          WHERE user_id = :userId
+            AND is_active = TRUE
+          ORDER BY created_at DESC
+          LIMIT 1
+          `,
+          {
+            type: QueryTypes.SELECT,
+            replacements: { userId: existingOrder.user_id },
+            transaction,
+          }
+        );
+
+        const cartId = cartRows[0]?.id;
+        if (cartId) {
+          await sequelize.query(
+            `DELETE FROM cart_items WHERE cart_id = :cartId`,
+            {
+              replacements: { cartId },
+              transaction,
+            }
+          );
+        }
       }
-    );
-    const order = updatedRows[0];
+
+      const updatedRows = await sequelize.query(
+        `
+        UPDATE orders
+        SET
+          payment_status = 'paid',
+          status = 'confirmed',
+          razorpay_order_id = COALESCE(razorpay_order_id, :razorpayOrderId)
+        WHERE id = :orderId
+        RETURNING id, order_number, total_amount, status, payment_status, razorpay_order_id
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: {
+            orderId,
+            razorpayOrderId: razorpay_order_id,
+          },
+          transaction,
+        }
+      );
+
+      return updatedRows[0] || null;
+    });
+
     if (!order) return res.status(404).json({ message: 'Order not found' });
 
     const io = req.app.get('io');

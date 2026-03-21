@@ -33,15 +33,27 @@ export default function ProductsNavBar() {
     navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
   };
 
+  const pathname = location.pathname;
+  const isHomePage = pathname === '/';
+  const isProductsPage = pathname === '/products';
+  const isTrackingPage = pathname === '/tracking';
+  const isCartPage = pathname === '/cart';
+
+  const navLinkClass = (active) => (
+    active
+      ? 'text-green-700 font-bold border-b-2 border-green-600 px-2 py-1'
+      : 'text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1'
+  );
+
   return (
     <header className="fixed top-0 w-full z-50 glass-nav shadow-sm dark:shadow-none">
       <div className="flex justify-between items-center w-full px-6 py-3 max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-8">
           <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MedPrecision</span>
           <nav className="hidden md:flex items-center gap-6 font-headline text-sm font-medium tracking-tight">
-            <Link className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" to="/">Home</Link>
-            <Link className="text-green-700 font-bold border-b-2 border-green-600 px-2 py-1" to="/products">Categories</Link>
-            <Link className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" to="/tracking">Orders</Link>
+            <Link className={navLinkClass(isHomePage)} to="/">Home</Link>
+            <Link className={navLinkClass(isProductsPage)} to="/products">Categories</Link>
+            <Link className={navLinkClass(isTrackingPage)} to="/tracking">Orders</Link>
             <a className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" href="#">Help</a>
           </nav>
         </div>
@@ -60,10 +72,13 @@ export default function ProductsNavBar() {
             />
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/cart" className="relative p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95">
+            <Link
+              to="/cart"
+              className={`relative p-2 rounded-lg transition-all active:scale-95 ${isCartPage ? 'bg-primary text-white shadow-sm shadow-primary/30' : 'text-zinc-500 hover:bg-zinc-100'}`}
+            >
               <span className="material-symbols-outlined">shopping_cart</span>
               {user && itemCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-primary text-white text-[10px] font-bold leading-none rounded-full flex items-center justify-center">
+                <span className={`absolute -top-1 -right-1 min-w-4 h-4 px-1 text-[10px] font-bold leading-none rounded-full flex items-center justify-center ${isCartPage ? 'bg-white text-primary' : 'bg-primary text-white'}`}>
                   {itemCount}
                 </span>
               )}
