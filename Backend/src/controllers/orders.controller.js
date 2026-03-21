@@ -4,6 +4,7 @@ exports.checkout = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const userId = req.user.userId;
+    const { address } = req.body;
 
     await client.query('BEGIN');
 
@@ -26,15 +27,15 @@ exports.checkout = async (req, res) => {
     const deliveryFee = 5.00; // Flat delivery fee
     const totalAmount = subtotal + deliveryFee;
     
-    // Generate Order Number & Auth OTP
+    // Generate Order Number
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const deliveryOtp = null;
 
     // 3. Create the Order
     const orderRes = await client.query(`
-      INSERT INTO orders (order_number, user_id, status, subtotal, delivery_fee, total_amount, delivery_otp) 
-      VALUES ($1, $2, 'placed', $3, $4, $5, $6) RETURNING id`,
-      [orderNumber, userId, subtotal, deliveryFee, totalAmount, deliveryOtp]
+      INSERT INTO orders (order_number, user_id, status, subtotal, delivery_fee, total_amount, delivery_otp, delivery_address) 
+      VALUES ($1, $2, 'placed', $3, $4, $5, $6, $7) RETURNING id`,
+      [orderNumber, userId, subtotal, deliveryFee, totalAmount, deliveryOtp, address ? JSON.stringify(address) : null]
     );
     const orderId = orderRes.rows[0].id;
 
@@ -74,16 +75,10 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Direct Retailer to Patient Physical Handoff
     if (status === 'delivered') {
-      const { otp } = req.body;
-      const orderCheck = await db.query('SELECT delivery_otp FROM orders WHERE id = $1 AND retailer_id = $2', [id, retailerId]);
+      const orderCheck = await db.query('SELECT id FROM orders WHERE id = $1 AND retailer_id = $2', [id, retailerId]);
       
       if (orderCheck.rows.length === 0) {
         return res.status(403).json({ error: 'Order not found for your logistics scope' });
-      }
-      
-      const requiredOtp = orderCheck.rows[0].delivery_otp || '000000';
-      if (otp !== requiredOtp) {
-        return res.status(400).json({ error: 'Secure Dropoff Failed: Invalid PIN provided.' });
       }
       
       await db.query('UPDATE orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND retailer_id = $3', [status, id, retailerId]);

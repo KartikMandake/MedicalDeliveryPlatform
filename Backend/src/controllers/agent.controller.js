@@ -50,38 +50,23 @@ exports.acceptOrder = async (req, res) => {
 
 exports.updateStatus = async (req, res) => {
     try {
-        const agentId = req.user.userId;
         const { orderId } = req.params;
-        const { status, otp } = req.body;
-
-        // Verify ownership
+        const { status } = req.body;
+        const agentId = req.user.userId;
         const ownership = await db.query(`SELECT status, delivery_otp FROM orders WHERE id = $1 AND agent_id = $2`, [orderId, agentId]);
         if (ownership.rows.length === 0) {
             return res.status(403).json({ error: 'Unauthorized sequence. Do you own this transit?' });
         }
 
-        const currentOrder = ownership.rows[0];
-
-        // If dropping off, check OTP
+        // If dropping off, check ownership
         if (status === 'delivered') {
-            // Some old orders before this update might have NULL delivery_otp. If so, bypass or require "000000"
-            const requiredOtp = currentOrder.delivery_otp || '000000';
-            if (otp !== requiredOtp) {
-                return res.status(400).json({ error: 'Invalid 6-digit PIN. Please ask the Patient.' });
-            }
-
-            await db.query(`UPDATE orders SET status = 'delivered', delivered_at = CURRENT_TIMESTAMP WHERE id = $1`, [orderId]);
-            return res.json({ message: 'Delivery physically secured and logged' });
+            await db.query(`UPDATE orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND agent_id = $3`, [status, orderId, agentId]);
+            return res.json({ message: 'Package delivered and confirmed' });
         }
 
-        // Just update normal transit statuses
-        if (!['in_transit'].includes(status)) {
-             return res.status(400).json({ error: 'Invalid agent status boundary' });
-        }
-
-        await db.query(`UPDATE orders SET status = $1 WHERE id = $2`, [status, orderId]);
-        res.json({ message: 'Navigation status synced to patient network' });
-
+        // Normal sync
+        await db.query(`UPDATE orders SET status = $1 WHERE id = $2 AND agent_id = $3`, [status, orderId, agentId]);
+        res.json({ message: 'Wayward status updated' });
     } catch (error) {
         console.error('Error logging agent progress:', error);
         res.status(500).json({ error: 'Server mutation failure' });

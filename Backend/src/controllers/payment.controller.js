@@ -12,6 +12,7 @@ exports.createOrder = async (req, res) => {
   const client = await db.pool.connect();
   try {
     const userId = req.user.userId;
+    const { address } = req.body;
 
     await client.query('BEGIN');
 
@@ -45,12 +46,12 @@ exports.createOrder = async (req, res) => {
 
     // 4. Draft PostgreSQL Internal Link and OTP
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const deliveryOtp = null;
 
     const orderRes = await client.query(`
-      INSERT INTO orders (order_number, user_id, status, subtotal, delivery_fee, total_amount, razorpay_order_id, payment_status, delivery_otp) 
-      VALUES ($1, $2, 'placed', $3, $4, $5, $6, 'pending', $7) RETURNING id`,
-      [orderNumber, userId, subtotal, deliveryFee, totalAmount, razorpayOrder.id, deliveryOtp]
+      INSERT INTO orders (order_number, user_id, status, subtotal, delivery_fee, total_amount, razorpay_order_id, payment_status, delivery_otp, delivery_address) 
+      VALUES ($1, $2, 'placed', $3, $4, $5, $6, 'pending', $7, $8) RETURNING id`,
+      [orderNumber, userId, subtotal, deliveryFee, totalAmount, razorpayOrder.id, deliveryOtp, address ? JSON.stringify(address) : null]
     );
     const orderId = orderRes.rows[0].id;
 

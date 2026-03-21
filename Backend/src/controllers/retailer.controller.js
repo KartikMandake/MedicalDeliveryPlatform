@@ -63,7 +63,7 @@ exports.getAvailableOrders = async (req, res) => {
       FROM orders o
       JOIN users u ON o.user_id = u.id
       WHERE o.status = 'placed' 
-         OR (o.retailer_id = $1 AND o.status IN ('packing', 'ready'))
+         OR (o.retailer_id = $1 AND o.status IN ('packing', 'ready', 'delivered'))
       ORDER BY o.placed_at DESC
     `, [retailerId]);
 
