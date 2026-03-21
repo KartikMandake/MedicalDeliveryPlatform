@@ -1,14 +1,14 @@
 import { Routes, Route } from 'react-router-dom';
-import Login from './Login';
-import CreateAccount from './CreateAccount';
-import DashboardPatient from './DashboardPatient';
-import DashboardRetailer from './DashboardRetailer';
-import DashboardDelivery from './DashboardDelivery';
-import Checkout from './Checkout';
-import Categories from './Categories';
-import OrderHistory from './OrderHistory';
-import ShoppingCart from './ShoppingCart';
-import PrescriptionUpload from './PrescriptionUpload';
+import Login from './pages/Login';
+import CreateAccount from './pages/CreateAccount';
+import DashboardPatient from './pages/DashboardPatient';
+import DashboardRetailer from './pages/DashboardRetailer';
+import DashboardDelivery from './pages/DashboardDelivery';
+import Checkout from './pages/Checkout';
+import Categories from './pages/Categories';
+import OrderHistory from './pages/OrderHistory';
+import ShoppingCart from './pages/ShoppingCart';
+import PrescriptionUpload from './pages/PrescriptionUpload';
 
 function App() {
   return (
