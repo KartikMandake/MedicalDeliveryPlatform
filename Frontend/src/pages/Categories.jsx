@@ -2,67 +2,80 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 function Categories() {
+  const [medicines, setMedicines] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [selectedBrands, setSelectedBrands] = useState([]);
+  const [maxPrice, setMaxPrice] = useState(500);
+  const [sortBy, setSortBy] = useState('rating');
   const [isInStockOnly, setIsInStockOnly] = useState(true);
 
-  const categories = [
-    { name: 'Pain Relief', count: 42 },
-    { name: 'Diabetes', count: 28, checked: true },
-    { name: 'Vitamins', count: 64 },
-    { name: 'Heart Care', count: 19 }
-  ];
+  const [filtersData, setFiltersData] = useState({ brands: [], categories: [] });
+  const [brandSearchTerm, setBrandSearchTerm] = useState('');
+  const [categorySearchTerm, setCategorySearchTerm] = useState('');
+  const [globalSearch, setGlobalSearch] = useState('');
 
-  const brands = ['Cipla', 'Sun Pharma', "Dr. Reddy's"];
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
 
-  const medicines = [
-    {
-      id: 1,
-      name: 'Metformin Glycomet 500',
-      brand: 'Cipla',
-      price: 12.50,
-      description: 'Advanced blood glucose management for type-2 diabetes mellitus treatment.',
-      rating: 4.8,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCieq6V03g0uRJ1Zl64yIbqVN_GjEqNzNB4UOwrtGMpT8se5VllvfElIbByrFgHqZTL5uvH4ryf2ZpWKL7L1q3wg0ibS5VenXvESPI3ASI4_KqHUuvpt3RAPiOmWAF0FFITrCShyj-xjFdhwruYNiFMb5e9Fu6zjgqo_5SiERtQ2ty8Oen-RFWjlqD9cA7NVJ69YmHSnDwoo8SdWTyjjC_nssC8lfTT3mCFUCHuTHeFngGATnwYgyrBwzd-jkhxPT3ufP3DsbLrWt7c',
-      rxRequired: true
-    },
-    {
-      id: 2,
-      name: 'Rosuvastatin Rosuvas 10',
-      brand: 'Sun Pharma',
-      price: 24.90,
-      description: 'Lipid-lowering agent for the management of cardiovascular health.',
-      rating: 4.2,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDgk64aDbBS40t_uqZ1-8wV2ess8cdPIxfNzfL_0KTNZUJVhMQHzK9bt7KW3OABb0WBf5fqiqHdKvVmSIeLjQePkXmUKtJ_XqfQbUnCdKk9bFJycNnMIV9rlSIY0Yf1pezClZuNE6H2hXi8SV_ht13QMZSzNxgyu_R4q5Fo9JwpKsT5b88cmjvcMYH5HHQ7imUQ3HDYSR6BD5cjaRs3hIk1ftPsIeuSh6GryMpYge1WjRngqPXwKwRU3JxuGtam8ZwXDg60vjvPAA6s',
-      outOfStock: true
-    },
-    {
-      id: 3,
-      name: 'Becosules Plus Capsules',
-      brand: "Dr. Reddy's",
-      price: 18.25,
-      description: 'Essential Vitamin B-complex with minerals for daily nutritional support.',
-      rating: 4.9,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAcK68LEjsbCpb3-8Dcg3W_w9azgkEzDKmM8H2bMdFZqbHkahwyd83ibVK4YQ3nOyrNR3TQry5gE8UadQAFs-2eYUKfdecOJfPTAuSxLFTjvsktsxuzkd80vSXGAIeXzi705Pys6jhaTDqSAFuniOoc_R-DWOy0AOcEeRpN0nRe48mMXjpy3VVOZmJPf_TnHGG59FxCayVIT2sIB0_6B8dkfpJKaBVJz9EPTb5DkaXDgji_LFSJlrfawf05A5FcRsU0XFtilRvIHau3'
-    },
-    {
-      id: 4,
-      name: 'Dolo 650 Tablets',
-      brand: 'Cipla',
-      price: 8.00,
-      description: 'Effective relief from fever and mild-to-moderate physical pain.',
-      rating: 4.5,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCbpvKRyFH3Cg_QKVfR3cELyaoUWN5nRmBxjbnrMHcmbZnSRll6LL-b7aQA0s3tWhAxVyS6CJUSWI9TeRtOiQUp4n82LUm6vd7WLjCA8C8Y1xDpBktX_E9rt8KVCh5Y0-5hU4nLoapBCYBSi6A67XA2LxOIa6v8dte1clZ9DR5Io8DluDbUmt-w4cdDYSBKumPEeuS1KgNAeJ6wY86w-8x1F9_42gHhwyM_RsYrCW0iPAblTmBRb0KIrg6yEGAeNCw9Zh4yh0BkgAtp'
-    },
-    {
-      id: 5,
-      name: 'Insulin Glargine Pen',
-      brand: 'Sun Pharma',
-      price: 89.00,
-      description: 'Long-acting insulin analogue for glycemic control in adults.',
-      rating: 4.9,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBOHmhATXaaEl6P9Vlo3yLO4Pu-hIMP_ceQeKUqt5UPSSaeLhXdW8thn0OBfMr3TgH1LvMDpp9ekhdaLIp6Gbe6qPlqF3Cqfn3pn-fkLkE_sZmWlEK57jpo13Zbgxpkd8b5-FGFQxdM1KCApZnMTmH_gyotj1VDQqaIuRha_qKmJBA4xorf1b2q6RUnnOZZG6I3XW5Q9EJvGrPAlV2kfSxaSQfpN6RDT_8vqzKjBYk587rdMaopkDOMsKBnNZ-TsAvvvQncl1ooOWSa',
-      rxRequired: true
-    }
-  ];
+  React.useEffect(() => {
+    const fetchFilters = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/medicines/filters', { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) setFiltersData(await res.json());
+      } catch (err) { console.error(err); }
+    };
+    fetchFilters();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchMeds = async () => {
+      setLoading(true);
+      try {
+        const token = localStorage.getItem('token');
+        const queryParams = new URLSearchParams({ page, limit: 12, maxPrice });
+        if (selectedCategories.length > 0) queryParams.append('category', selectedCategories.join(','));
+        if (selectedBrands.length > 0) queryParams.append('brand', selectedBrands.join(','));
+        if (isInStockOnly) queryParams.append('inStock', 'true');
+        if (globalSearch.trim() !== '') queryParams.append('search', globalSearch.trim());
+        queryParams.append('sort', sortBy);
+
+        const res = await fetch(`http://localhost:5000/api/medicines?${queryParams.toString()}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          setMedicines(page === 1 ? data : [...medicines, ...data]);
+        }
+      } catch (err) { console.error(err); }
+      finally { setLoading(false); }
+    };
+    fetchMeds();
+  }, [page, selectedCategories, selectedBrands, maxPrice, isInStockOnly, sortBy, globalSearch]);
+
+  const handleCategoryToggle = (cat) => {
+    setSelectedCategories(prev => prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]);
+    setPage(1); setMedicines([]);
+  };
+
+  const handleBrandToggle = (brand) => {
+    setSelectedBrands(prev => prev.includes(brand) ? prev.filter(b => b !== brand) : [...prev, brand]);
+    setPage(1); setMedicines([]);
+  };
+
+  const handlePriceChange = (e) => {
+    setMaxPrice(Number(e.target.value));
+    setPage(1); setMedicines([]);
+  };
+
+  const handleStockToggle = () => {
+    setIsInStockOnly(!isInStockOnly);
+    setPage(1); setMedicines([]);
+  };
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased min-h-screen">
@@ -85,6 +98,8 @@ function Categories() {
                 className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 w-64 transition-all"
                 placeholder="Search medications..."
                 type="text"
+                value={globalSearch}
+                onChange={(e) => { setGlobalSearch(e.target.value); setPage(1); setMedicines([]); }}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -116,48 +131,8 @@ function Categories() {
               <p className="text-xs text-zinc-500 uppercase tracking-widest font-bold">AI-Powered Inventory</p>
             </div>
 
-            {/* Categories */}
-            <section>
-              <h3 className="font-headline font-bold text-sm text-on-surface mb-4">Categories</h3>
-              <div className="space-y-3">
-                {categories.map((cat, idx) => (
-                  <label key={idx} className="flex items-center gap-3 group cursor-pointer">
-                    <input
-                      className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5"
-                      type="checkbox"
-                      defaultChecked={cat.checked}
-                    />
-                    <span className="text-sm text-zinc-600 group-hover:text-primary transition-colors">{cat.name}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
-
-            {/* Price Range */}
-            <section>
-              <h3 className="font-headline font-bold text-sm text-on-surface mb-4">Price Range</h3>
-              <input className="w-full h-1.5 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary" type="range" />
-              <div className="flex justify-between mt-2 text-xs font-medium text-zinc-400">
-                <span>$0</span>
-                <span>$500+</span>
-              </div>
-            </section>
-
-            {/* Brands */}
-            <section>
-              <h3 className="font-headline font-bold text-sm text-on-surface mb-4">Brand Filter</h3>
-              <div className="space-y-3">
-                {brands.map((brand, idx) => (
-                  <label key={idx} className="flex items-center gap-3 group cursor-pointer">
-                    <input className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5" type="checkbox" />
-                    <span className="text-sm text-zinc-600 group-hover:text-primary transition-colors">{brand}</span>
-                  </label>
-                ))}
-              </div>
-            </section>
-
             {/* Availability */}
-            <section className="p-4 rounded-xl bg-surface-container-low">
+            <section className="mb-8 p-4 rounded-xl bg-surface-container-low">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-semibold text-on-surface">In Stock only</span>
                 <label className="relative inline-flex items-center cursor-pointer">
@@ -165,10 +140,91 @@ function Categories() {
                     type="checkbox"
                     className="sr-only peer"
                     checked={isInStockOnly}
-                    onChange={() => setIsInStockOnly(!isInStockOnly)}
+                    onChange={handleStockToggle}
                   />
                   <div className="w-11 h-6 bg-zinc-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                 </label>
+              </div>
+            </section>
+
+            {/* Categories */}
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-headline font-bold text-sm text-on-surface">Categories</h3>
+                <span className="text-xs font-bold text-zinc-400">{filtersData.categories.length}</span>
+              </div>
+              <div className="relative mb-4 group">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">search</span>
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/50 rounded-xl py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  placeholder="Search category"
+                  type="text"
+                  value={categorySearchTerm}
+                  onChange={(e) => setCategorySearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                {filtersData.categories.filter(c => c.name && c.name.toLowerCase().includes(categorySearchTerm.toLowerCase())).map((cat, idx) => (
+                  <label key={idx} className="flex items-center gap-3 group cursor-pointer">
+                    <input
+                      className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5 flex-shrink-0 cursor-pointer"
+                      type="checkbox"
+                      checked={selectedCategories.includes(cat.name)}
+                      onChange={() => handleCategoryToggle(cat.name)}
+                    />
+                    <span className="material-symbols-outlined text-primary text-[20px]">{cat.icon_url || 'medical_services'}</span>
+                    <span className="text-sm font-medium text-zinc-600 group-hover:text-primary transition-colors flex-1 truncate">{cat.name} <span className="text-zinc-400">({cat.count})</span></span>
+                  </label>
+                ))}
+              </div>
+            </section>
+
+            {/* Price Range */}
+            <section className="mb-8">
+              <h3 className="font-headline font-bold text-sm text-on-surface mb-4">Price Range: ${maxPrice}</h3>
+              <input 
+                className="w-full h-1.5 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary" 
+                type="range" 
+                min="0" 
+                max="500" 
+                step="10"
+                value={maxPrice}
+                onChange={handlePriceChange}
+              />
+              <div className="flex justify-between mt-2 text-xs font-medium text-zinc-400">
+                <span>$0</span>
+                <span>$500+</span>
+              </div>
+            </section>
+
+            {/* Brands */}
+            <section className="mb-8">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-headline font-bold text-sm text-on-surface">Brand Filter</h3>
+                <span className="text-xs font-bold text-zinc-400">{filtersData.brands.length}</span>
+              </div>
+              <div className="relative mb-4 group">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-sm">search</span>
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/50 rounded-xl py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-primary/20 outline-none"
+                  placeholder="Search brand"
+                  type="text"
+                  value={brandSearchTerm}
+                  onChange={(e) => setBrandSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                {filtersData.brands.filter(b => b.brand && b.brand.toLowerCase().includes(brandSearchTerm.toLowerCase())).map((brand, idx) => (
+                  <label key={idx} className="flex items-center gap-3 group cursor-pointer">
+                    <input 
+                      className="rounded border-outline-variant text-primary focus:ring-primary w-5 h-5 flex-shrink-0 cursor-pointer" 
+                      type="checkbox" 
+                      checked={selectedBrands.includes(brand.brand)}
+                      onChange={() => handleBrandToggle(brand.brand)}
+                    />
+                    <span className="text-sm font-medium text-zinc-600 group-hover:text-primary transition-colors flex-1 truncate">{brand.brand} <span className="text-zinc-400">({brand.count})</span></span>
+                  </label>
+                ))}
               </div>
             </section>
 
@@ -198,8 +254,19 @@ function Categories() {
 
           {/* Medicine Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-            {medicines.map((med) => (
-              <div key={med.id} className={`group bg-surface-container-lowest rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 flex flex-col border border-outline-variant/10 ${med.outOfStock ? 'opacity-75 grayscale-[0.5]' : ''}`}>
+            {loading && medicines.length === 0 ? (
+              <div className="col-span-1 sm:col-span-2 xl:col-span-3 2xl:col-span-4 flex flex-col items-center justify-center py-20">
+                <span className="material-symbols-outlined text-4xl text-primary animate-spin mb-4" style={{ animationDuration: '2s' }}>progress_activity</span>
+                <p className="font-headline font-bold text-zinc-500">Loading medications...</p>
+              </div>
+            ) : medicines.length === 0 ? (
+              <div className="col-span-1 sm:col-span-2 xl:col-span-3 2xl:col-span-4 flex flex-col items-center justify-center py-20 bg-surface-container-lowest rounded-xl border border-dashed border-outline-variant/50">
+                <span className="material-symbols-outlined text-4xl text-zinc-300 mb-4">search_off</span>
+                <p className="font-headline font-bold text-zinc-500">No medications found matching your criteria</p>
+              </div>
+            ) : (
+              medicines.map((med) => (
+                <div key={med.id} className={`group bg-surface-container-lowest rounded-xl overflow-hidden hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 flex flex-col border border-outline-variant/10 ${med.outOfStock ? 'opacity-75 grayscale-[0.5]' : ''}`}>
                 <div className="relative h-48 overflow-hidden bg-zinc-50 p-6 flex items-center justify-center">
                   <img
                     className={`max-h-full object-contain ${!med.outOfStock ? 'group-hover:scale-110 transition-transform duration-500' : ''}`}
@@ -242,7 +309,8 @@ function Categories() {
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+          )}
 
             {/* AI Insights Card */}
             <div className="group insight-glow rounded-xl overflow-hidden flex flex-col p-8 border border-primary/20 relative">
@@ -262,9 +330,19 @@ function Categories() {
 
           {/* Load More */}
           <div className="mt-16 flex justify-center">
-            <button className="flex items-center gap-2 px-10 py-4 bg-white border border-zinc-200 rounded-full text-sm font-bold text-on-surface hover:bg-zinc-50 hover:border-primary/30 transition-all active:scale-95 group">
-              <span>Load More Products</span>
-              <span className="material-symbols-outlined text-zinc-400 group-hover:text-primary transition-colors">expand_more</span>
+            <button 
+              className="flex items-center gap-2 px-10 py-4 bg-white border border-zinc-200 rounded-full text-sm font-bold text-on-surface hover:bg-zinc-50 hover:border-primary/30 transition-all active:scale-95 group disabled:opacity-50"
+              onClick={() => setPage(page + 1)}
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="material-symbols-outlined text-zinc-400 animate-spin">progress_activity</span>
+              ) : (
+                <>
+                  <span>Load More Products</span>
+                  <span className="material-symbols-outlined text-zinc-400 group-hover:text-primary transition-colors">expand_more</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -287,26 +365,26 @@ function Categories() {
             </div>
           </div>
           <div>
-            <h4 class="font-headline font-bold text-xs text-zinc-900 uppercase tracking-widest mb-6">Resources</h4>
-            <ul class="space-y-4 font-inter text-xs text-zinc-500">
-              <li><a class="hover:text-green-600 transition-colors" href="#">API Documentation</a></li>
-              <li><a class="hover:text-green-600 transition-colors" href="#">Medical Whitepapers</a></li>
-              <li><a class="hover:text-green-600 transition-colors" href="#">Inventory Tracker</a></li>
+            <h4 className="font-headline font-bold text-xs text-zinc-900 uppercase tracking-widest mb-6">Resources</h4>
+            <ul className="space-y-4 font-inter text-xs text-zinc-500">
+              <li><a className="hover:text-green-600 transition-colors" href="#">API Documentation</a></li>
+              <li><a className="hover:text-green-600 transition-colors" href="#">Medical Whitepapers</a></li>
+              <li><a className="hover:text-green-600 transition-colors" href="#">Inventory Tracker</a></li>
             </ul>
           </div>
           <div>
-            <h4 class="font-headline font-bold text-xs text-zinc-900 uppercase tracking-widest mb-6">Legal</h4>
-            <ul class="space-y-4 font-inter text-xs text-zinc-500">
-              <li><a class="hover:text-green-600 transition-colors" href="#">Privacy Policy</a></li>
-              <li><a class="hover:text-green-600 transition-colors" href="#">Terms of Service</a></li>
-              <li><a class="hover:text-green-600 transition-colors" href="#">Return Policy</a></li>
+            <h4 className="font-headline font-bold text-xs text-zinc-900 uppercase tracking-widest mb-6">Legal</h4>
+            <ul className="space-y-4 font-inter text-xs text-zinc-500">
+              <li><a className="hover:text-green-600 transition-colors" href="#">Privacy Policy</a></li>
+              <li><a className="hover:text-green-600 transition-colors" href="#">Terms of Service</a></li>
+              <li><a className="hover:text-green-600 transition-colors" href="#">Return Policy</a></li>
             </ul>
           </div>
           <div>
-            <h4 class="font-headline font-bold text-xs text-zinc-900 uppercase tracking-widest mb-6">Contact</h4>
-            <ul class="space-y-4 font-inter text-xs text-zinc-500">
-              <li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">mail</span> contact@mediflow.ai</li>
-              <li class="flex items-center gap-2"><span class="material-symbols-outlined text-sm">support_agent</span> Contact Medical Hub</li>
+            <h4 className="font-headline font-bold text-xs text-zinc-900 uppercase tracking-widest mb-6">Contact</h4>
+            <ul className="space-y-4 font-inter text-xs text-zinc-500">
+              <li className="flex items-center gap-2"><span className="material-symbols-outlined text-sm">mail</span> contact@mediflow.ai</li>
+              <li className="flex items-center gap-2"><span className="material-symbols-outlined text-sm">support_agent</span> Contact Medical Hub</li>
             </ul>
           </div>
         </div>
