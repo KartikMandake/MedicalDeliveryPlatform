@@ -1,36 +1,49 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 
 function OrderHistory() {
-  const orders = [
-    {
-      id: '#MP-99482',
-      title: 'September Clinical Bundle',
-      date: 'Sep 24, 2024',
-      items: 4,
-      price: 284.50,
-      status: 'Delivered',
-      statusColor: 'primary'
-    },
-    {
-      id: '#MP-99501',
-      title: 'Advanced Glycemic Monitor',
-      date: 'Oct 02, 2024',
-      items: 1,
-      price: 1120.00,
-      status: 'Processing',
-      statusColor: 'secondary'
-    },
-    {
-      id: '#MP-98212',
-      title: 'Precision Scalpels (Bulk)',
-      date: 'Aug 15, 2024',
-      items: 12,
-      price: 42.15,
-      status: 'Cancelled',
-      statusColor: 'error'
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [trackingOrderId, setTrackingOrderId] = useState(null);
+
+  const handleReorder = async (orderDetails) => {
+    try {
+      const token = localStorage.getItem('token');
+      for (const item of orderDetails) {
+        await fetch('http://localhost:5000/api/cart', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ medicineId: item.medicine_id, quantity: item.quantity })
+        });
+      }
+      alert('Items reordered! Redirecting to cart...');
+      window.location.href = '/cart';
+    } catch (err) {
+      console.error(err);
+      alert('Failed to reorder items');
     }
-  ];
+  };
+
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/orders', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setOrders(data);
+        }
+      } catch (err) {
+        console.error('Error loading orders:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchOrders();
+  }, []);
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased min-h-screen">
@@ -145,24 +158,90 @@ function OrderHistory() {
                         }`}>
                         {order.status}
                       </span>
+                      {order.status !== 'Delivered' && order.status !== 'Cancelled' && order.statusColor !== 'error' && (
+                        <p className="text-[10px] font-bold text-zinc-500 mt-2 font-manrope">OTP: <span className="text-primary font-black tracking-widest">{order.deliveryOtp}</span></p>
+                      )}
                     </div>
                     <div className="h-10 w-[1px] bg-zinc-100 hidden md:block"></div>
                     <div className="flex gap-3">
-                      <button className="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors">
+                      <button 
+                        onClick={() => {
+                          setExpandedOrderId(expandedOrderId === order.id ? null : order.id);
+                          setTrackingOrderId(null);
+                        }}
+                        className={`p-2 rounded-lg transition-colors ${expandedOrderId === order.id ? 'bg-primary/10 text-primary' : 'text-on-surface-variant hover:bg-surface-container-low'}`}
+                      >
                         <span className="material-symbols-outlined">visibility</span>
                       </button>
-                      {order.status === 'Processing' ? (
-                        <button className="bg-surface-container-high text-on-surface px-5 py-2 rounded-full text-xs font-bold hover:bg-surface-container-highest transition-colors active:scale-95">
+                      {order.status === 'Processing' || order.status === 'Packing' || order.status === 'Placed' || order.status === 'Ready' ? (
+                        <button 
+                          onClick={() => {
+                            setTrackingOrderId(trackingOrderId === order.id ? null : order.id);
+                            setExpandedOrderId(null);
+                          }}
+                          className={`px-5 py-2 rounded-full text-xs font-bold transition-colors active:scale-95 ${trackingOrderId === order.id ? 'bg-primary text-white shadow-lg' : 'bg-surface-container-high text-on-surface hover:bg-surface-container-highest'}`}
+                        >
                           Track
                         </button>
                       ) : (
-                        <button className="btn-primary-gradient text-white px-5 py-2 rounded-full text-xs font-bold hover:scale-105 transition-transform active:scale-95 shadow-md">
+                        <button 
+                          onClick={() => handleReorder(order.orderDetails)}
+                          className="btn-primary-gradient text-white px-5 py-2 rounded-full text-xs font-bold hover:scale-105 transition-transform active:scale-95 shadow-md"
+                        >
                           Reorder
                         </button>
                       )}
                     </div>
                   </div>
                 </div>
+                
+                {/* Tracking View */}
+                {trackingOrderId === order.id && (
+                  <div className="mt-6 pt-6 border-t border-surface-container-high animate-in slide-in-from-top-4 fade-in duration-200">
+                    <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-6">Live Delivery Pipeline</h4>
+                    <div className="flex items-center justify-between relative mb-4 px-4 sm:px-12">
+                      <div className="absolute top-1/2 left-8 right-8 sm:left-16 sm:right-16 h-1.5 bg-zinc-100 -z-10 -translate-y-1/2 rounded-full"></div>
+                      <div 
+                        className="absolute top-1/2 left-8 sm:left-16 h-1.5 bg-primary -z-10 -translate-y-1/2 rounded-full transition-all duration-1000" 
+                        style={{ width: order.status === 'Placed' ? '0%' : order.status === 'Packing' ? '33%' : order.status === 'Ready' ? '66%' : '100%' }}
+                      ></div>
+                      
+                      {['Placed', 'Packing', 'Ready', 'Delivered'].map((step, idx) => {
+                        const states = ['Placed', 'Packing', 'Ready', 'Delivered'];
+                        const currentIdx = states.indexOf(order.status);
+                        const isCompleted = idx <= currentIdx;
+                        const isCurrent = idx === currentIdx;
+                        
+                        return (
+                          <div key={step} className="flex flex-col items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-[14px] transition-all duration-500 ${isCurrent ? 'bg-primary text-white shadow-[0_0_20px_rgba(0,110,47,0.4)] scale-110 ring-4 ring-primary/20' : isCompleted ? 'bg-primary text-white' : 'bg-surface-container-high text-zinc-400 border-2 border-white'}`}>
+                              {isCompleted ? <span className="material-symbols-outlined text-[20px]">check</span> : idx + 1}
+                            </div>
+                            <span className={`text-[10px] sm:text-xs font-black uppercase tracking-widest ${isCurrent ? 'text-primary' : isCompleted ? 'text-on-surface' : 'text-zinc-400'}`}>{step}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Expandable Order Details */}
+                {expandedOrderId === order.id && (
+                  <div className="mt-6 pt-6 border-t border-surface-container-high animate-in slide-in-from-top-4 fade-in duration-200">
+                    <h4 className="text-xs font-bold text-on-surface-variant uppercase tracking-widest mb-4">Included Clinical Items</h4>
+                    <div className="space-y-3">
+                      {(order.orderDetails || []).map((item, i) => (
+                        <div key={i} className="flex justify-between items-center p-3 bg-surface-container-low rounded-xl">
+                          <div>
+                            <p className="text-sm font-bold text-on-surface">{item.name}</p>
+                            <p className="text-xs text-on-surface-variant mt-0.5">Qty {item.quantity} × ${Number(item.unit_price).toFixed(2)}</p>
+                          </div>
+                          <span className="text-sm font-bold font-headline">${Number(item.total_price).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>

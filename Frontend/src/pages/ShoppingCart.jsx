@@ -1,54 +1,164 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 function ShoppingCart() {
   const navigate = useNavigate();
-  const [items, setItems] = useState([
-    {
-      id: 1,
-      name: 'Lisinopril High-Accuracy Dose',
-      subtitle: 'Batch #MP-99201 • 10mg / 30 Tabs',
-      price: 42.00,
-      quantity: 1,
-      tag: 'Prescription Grade',
-      tagColor: 'primary',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCOEUAMpXAGOp86igwult0McKzDtTwTq26ePW5XdmbjHjt12hiwKFE0I_5Yu4_PRh1XFj1weKgmDqXr3PILqekK-X6B2BiRdY0Ql6OFdEVqdj0pwIUWEVz775-_qLjyCQzhwIGSXh5NXPH8nmWao7arF1EesRNMoujWiBwX9A0AEhQFF_mP2ZN3Uo0XEjyPK4Tbu4g4yGWBZV3-8vI9CtuRhgLTiaQA3TCSZ8SrSQGtfVDuFHNVwfvRP-bIzWtHT69Ck8qMQHakSTIB'
-    },
-    {
-      id: 2,
-      name: 'Infrared Pro-Sensor T-900',
-      subtitle: 'Clinical Accuracy ±0.1°C • Dual Mode',
-      price: 128.50,
-      quantity: 2,
-      tag: 'Diagnostic Tool',
-      tagColor: 'secondary',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA5PmZX5s1HYkyMulAmVVgWMbgYRgWogsxuheyJrmX7Lhw05EhDpmMYCoqotWCf-wW9Pxru2uo4UwAxwQ1QJRpctEJI1dISDT0W-H8rAFjaZY_ibSMJzkPI5JXxmhzOPeDtenQl2GsNJ8Qwp2Cz-iLC8c5lxfXeQN6EZ_9EdpUTRjfJAQwJ-bFdVYHAz9UoPUUZfzEmYtDJf5YhIItwhmewT286pN3W-Kzm_m7Muqhai4BlwzuFGezj4rE3zJRj9wQXq1PCblbN3KLF'
-    },
-    {
-      id: 3,
-      name: 'AI-Optimized Multivitamins',
-      subtitle: '90-Day Bio-available Supply',
-      price: 55.00,
-      quantity: 1,
-      tag: 'Stock Item',
-      tagColor: 'primary',
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDRKS0y3QcvUXN0E3pKfgMtclx-auWUkz_xyKG3uzZgLAj5zpwVr3CkmeZbUNCCu5uu6maX5j-0_rbwqUBY7qH4VygbbwDfVzjJDcFQ84ZoSXrWeZZ2r-Kx44tbaJLNMaZD7SE5e1wlTBUaGW68NjYuYXdJhVh90M7Pbp5FPpPGqNy-pleaGE0HSh4rfc2fMRMzH5K0RLcyj6bTloS75luLXqaQU_bH9YueP5-Gvk0TAs43BWuFBjfaaoYlOmWIc9EFH-Wz9LKiGGmb'
+  const [items, setItems] = useState([]);
+  const [cartSubtotal, setCartSubtotal] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('online');
+  const [loading, setLoading] = useState(true);
+
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const fetchCart = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/cart', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setItems(data.items || []);
+        setCartSubtotal(data.subtotal || 0);
+      }
+    } catch (err) {
+      console.error('Failed to fetch cart:', err);
+    } finally {
+      setLoading(false);
     }
-  ]);
-
-  const updateQuantity = (id, delta) => {
-    setItems(prev => prev.map(item =>
-      item.id === id ? { ...item, quantity: Math.max(1, item.quantity + delta) } : item
-    ));
   };
 
-  const removeItem = (id) => {
-    setItems(prev => prev.filter(item => item.id !== id));
+  useEffect(() => {
+    fetchCart();
+  }, []);
+
+  const updateQuantity = async (id, newQuantity) => {
+    if (newQuantity < 1) return;
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/cart/${id}`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify({ quantity: newQuantity })
+      });
+      fetchCart();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.08;
-  const total = subtotal + tax;
+  const removeItem = async (id) => {
+    try {
+      const token = localStorage.getItem('token');
+      await fetch(`http://localhost:5000/api/cart/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchCart();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleCheckout = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      if (paymentMethod === 'cod') {
+        const res = await fetch('http://localhost:5000/api/orders/checkout', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          navigate('/orders');
+        } else {
+          const d = await res.json();
+          alert(d.error || 'Failed to checkout');
+        }
+        return;
+      }
+
+      // Online Payment Flow
+      const isLoaded = await loadRazorpayScript();
+      if (!isLoaded) {
+        alert('Razorpay SDK failed to load. Are you connected to the internet?');
+        return;
+      }
+
+      const orderDataRes = await fetch('http://localhost:5000/api/payment/create-order', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const orderData = await orderDataRes.json();
+      
+      if (!orderDataRes.ok) {
+        alert(orderData.error);
+        return;
+      }
+
+      const options = {
+        key: 'rzp_test_STqzlnaDBvb1ko', // Safely passing Public ID
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: 'MediFlow Clinical',
+        description: 'Secure transaction for Medical Supplies',
+        order_id: orderData.orderId,
+        handler: async function (response) {
+          const verifyData = {
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_signature: response.razorpay_signature,
+            internal_order_id: orderData.internalOrderId
+          };
+
+          const verifyRes = await fetch('http://localhost:5000/api/payment/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify(verifyData)
+          });
+          
+          if (verifyRes.ok) {
+            navigate('/orders');
+          } else {
+            alert('Payment cryptographic verification failed!');
+          }
+        },
+        prefill: {
+          name: 'Patient User',
+          email: 'patient@example.com',
+          contact: '9999999999'
+        },
+        theme: {
+          color: '#006e2f'
+        }
+      };
+
+      const paymentObject = new window.Razorpay(options);
+      paymentObject.open();
+
+    } catch (err) {
+      console.error(err);
+      alert('Error connecting during checkout');
+    }
+  };
+
+  const tax = cartSubtotal * 0.00; // Flat 0% for demo
+  const deliveryFee = items.length > 0 ? 5.00 : 0.00;
+  const total = cartSubtotal + tax + deliveryFee;
 
   return (
     <div className="bg-background font-body text-on-surface min-h-screen">
@@ -65,20 +175,9 @@ function ShoppingCart() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative hidden sm:block">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-lg">search</span>
-              <input
-                className="pl-10 pr-4 py-2 bg-surface-container-low rounded-full text-sm border-none focus:ring-2 focus:ring-primary w-64"
-                placeholder="Search precision inventory..."
-                type="text"
-              />
-            </div>
-            <Link to="/cart" className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all scale-95 active:opacity-80">
+            <Link to="/cart" className="p-2 text-zinc-900 font-bold bg-zinc-100 rounded-lg transition-all scale-95 active:opacity-80">
               <span className="material-symbols-outlined">shopping_cart</span>
             </Link>
-            <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all scale-95 active:opacity-80">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
             <img
               alt="User Avatar"
               className="w-8 h-8 rounded-full border border-outline-variant/30"
@@ -99,39 +198,42 @@ function ShoppingCart() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
           {/* LEFT: Cart Items */}
           <div className="lg:col-span-8 space-y-6">
-            {items.length > 0 ? items.map((item) => (
-              <div key={item.id} className="bg-surface-container-lowest rounded-xl p-6 flex flex-col sm:flex-row gap-6 items-center group transition-all duration-200 hover:translate-x-1 shadow-[0_8px_24px_rgba(25,28,29,0.04)]">
+            {loading ? (
+              <p className="text-zinc-500 p-8">Loading cart data securely based on your session...</p>
+            ) : items.length > 0 ? items.map((item) => (
+              <div key={item.cartItemId} className="bg-surface-container-lowest rounded-xl p-6 flex flex-col sm:flex-row gap-6 items-center group transition-all duration-200 hover:translate-x-1 shadow-[0_8px_24px_rgba(25,28,29,0.04)]">
                 <div className="w-32 h-32 bg-surface-container-low rounded-lg overflow-hidden flex-shrink-0">
-                  <img alt={item.name} className="w-full h-full object-cover" src={item.image} />
+                  <img alt={item.name} className="w-full h-full object-cover" src={item.image || 'https://via.placeholder.com/150'} />
                 </div>
-                <div className="flex-grow space-y-2">
+                <div className="flex-grow space-y-2 w-full">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className={`text-[10px] font-bold uppercase tracking-widest font-headline block mb-1 ${item.tagColor === 'primary' ? 'text-primary' : 'text-secondary'
-                        }`}>{item.tag}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest font-headline block mb-1 text-primary">
+                        {item.brand}
+                      </span>
                       <h3 className="text-lg font-bold font-headline text-on-surface leading-tight">{item.name}</h3>
-                      <p className="text-sm text-on-surface-variant">{item.subtitle}</p>
+                      {item.rxRequired && <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-1 rounded inline-block mt-2">RX Required</span>}
                     </div>
-                    <span className="text-xl font-bold font-headline text-on-surface">${item.price.toFixed(2)}</span>
+                    <span className="text-xl font-bold font-headline text-on-surface">${Number(item.total).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between pt-4">
                     <div className="flex items-center bg-surface-container-low rounded-full px-2 py-1 gap-4">
                       <button
-                        onClick={() => updateQuantity(item.id, -1)}
+                        onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                         className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white transition-colors text-on-surface-variant"
                       >
                         <span className="material-symbols-outlined text-lg">remove</span>
                       </button>
                       <span className="font-bold text-sm w-4 text-center">{item.quantity.toString().padStart(2, '0')}</span>
                       <button
-                        onClick={() => updateQuantity(item.id, 1)}
+                        onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                         className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white transition-colors text-on-surface-variant"
                       >
                         <span className="material-symbols-outlined text-lg">add</span>
                       </button>
                     </div>
                     <button
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => removeItem(item.cartItemId)}
                       className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 transition-opacity"
                     >
                       <span className="material-symbols-outlined text-base">delete</span>
@@ -160,28 +262,60 @@ function ShoppingCart() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-on-surface-variant">Subtotal</span>
-                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">${Number(cartSubtotal).toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-on-surface-variant">Clinical Delivery Fee</span>
-                  <span className="font-semibold text-primary">FREE</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-on-surface-variant">Estimated Tax</span>
-                  <span className="font-semibold">${tax.toFixed(2)}</span>
+                  <span className={`font-semibold ${deliveryFee === 0 ? 'text-primary' : 'text-zinc-900'}`}>
+                    {items.length === 0 ? '$0.00' : '$5.00'}
+                  </span>
                 </div>
               </div>
               <div className="bg-surface-container-low h-[1px] mb-6"></div>
               <div className="flex justify-between items-baseline mb-8">
                 <span className="text-lg font-bold font-headline">Total Price</span>
                 <div className="text-right">
-                  <span className="text-3xl font-extrabold font-headline text-primary tracking-tight">${total.toFixed(2)}</span>
+                  <span className="text-3xl font-extrabold font-headline text-primary tracking-tight">${Number(total).toFixed(2)}</span>
                   <p className="text-[10px] uppercase font-bold text-on-surface-variant tracking-widest mt-1">USD • Inc. All Taxes</p>
                 </div>
               </div>
+
+              {/* Payment Method Selector */}
+              <div className="mb-8 space-y-3">
+                <span className="text-[10px] font-bold text-on-surface-variant tracking-widest uppercase mb-2 block">Payment Method</span>
+                <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'online' ? 'border-primary bg-primary/5' : 'border-zinc-100 hover:border-primary/30'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`material-symbols-outlined ${paymentMethod === 'online' ? 'text-primary' : 'text-zinc-400'}`}>credit_card</span>
+                    <div>
+                      <p className={`text-sm font-bold ${paymentMethod === 'online' ? 'text-primary' : 'text-zinc-700'}`}>Online Payment</p>
+                      <p className="text-[10px] font-medium text-zinc-500 mt-0.5">Razorpay • UPI, Cards, Netbanking</p>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'online' ? 'border-primary' : 'border-zinc-300'}`}>
+                    {paymentMethod === 'online' && <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>}
+                  </div>
+                  <input type="radio" className="hidden" name="payment" value="online" checked={paymentMethod === 'online'} onChange={(e) => setPaymentMethod(e.target.value)} />
+                </label>
+
+                <label className={`flex items-center justify-between p-4 rounded-xl border-2 cursor-pointer transition-all ${paymentMethod === 'cod' ? 'border-primary bg-primary/5' : 'border-zinc-100 hover:border-primary/30'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`material-symbols-outlined ${paymentMethod === 'cod' ? 'text-primary' : 'text-zinc-400'}`}>local_shipping</span>
+                    <div>
+                      <p className={`text-sm font-bold ${paymentMethod === 'cod' ? 'text-primary' : 'text-zinc-700'}`}>Cash on Delivery</p>
+                      <p className="text-[10px] font-medium text-zinc-500 mt-0.5">Pay at designated delivery point</p>
+                    </div>
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === 'cod' ? 'border-primary' : 'border-zinc-300'}`}>
+                    {paymentMethod === 'cod' && <div className="w-2.5 h-2.5 rounded-full bg-primary"></div>}
+                  </div>
+                  <input type="radio" className="hidden" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={(e) => setPaymentMethod(e.target.value)} />
+                </label>
+              </div>
+
               <button 
-                onClick={() => navigate('/checkout')}
-                className="w-full py-4 px-6 rounded-full btn-primary-gradient text-white font-bold font-headline flex items-center justify-center gap-3 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20"
+                onClick={handleCheckout}
+                disabled={items.length === 0}
+                className="w-full py-4 px-6 rounded-full btn-primary-gradient text-white font-bold font-headline flex items-center justify-center gap-3 transition-transform hover:scale-105 active:scale-95 shadow-lg shadow-primary/20 disabled:opacity-50 disabled:grayscale disabled:hover:scale-100 disabled:cursor-not-allowed"
               >
                 Proceed to Checkout
                 <span className="material-symbols-outlined">arrow_forward</span>
@@ -198,64 +332,6 @@ function ShoppingCart() {
           </aside>
         </div>
       </main>
-
-      <footer className="bg-zinc-50 border-t border-zinc-100 mt-20">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 max-w-7xl mx-auto py-16 px-8">
-          <div className="space-y-4">
-            <span className="font-headline font-bold text-zinc-900 text-lg">MediFlow AI</span>
-            <p className="text-zinc-500 text-xs leading-relaxed font-inter">Advanced medical inventory systems powered by clinical intelligence and fluid design patterns.</p>
-          </div>
-          <div>
-            <h4 className="font-bold text-xs uppercase tracking-widest text-zinc-900 mb-6">Legal</h4>
-            <ul className="space-y-3">
-              <li><a className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors" href="#">Privacy Policy</a></li>
-              <li><a className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors" href="#">Terms of Service</a></li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="font-bold text-xs uppercase tracking-widest text-zinc-900 mb-6">Support</h4>
-            <ul className="space-y-3">
-              <li><a className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors" href="#">Contact Medical Hub</a></li>
-              <li><a className="text-xs text-zinc-500 hover:text-zinc-900 transition-colors" href="#">API Documentation</a></li>
-            </ul>
-          </div>
-          <div className="flex flex-col justify-between">
-            <div>
-              <h4 className="font-bold text-xs uppercase tracking-widest text-zinc-900 mb-6">Certification</h4>
-              <div className="flex gap-2">
-                <div className="w-8 h-8 rounded-lg bg-zinc-200 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-sm text-zinc-600">health_and_safety</span>
-                </div>
-                <div className="w-8 h-8 rounded-lg bg-zinc-200 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-sm text-zinc-600">security</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
-
-      {/* Mobile Nav */}
-      <nav className="lg:hidden fixed bottom-0 w-full z-50 glass-nav rounded-t-3xl shadow-[0_-4px_20px_0_rgba(0,0,0,0.05)] border-t border-zinc-200">
-        <div className="flex justify-around items-center px-4 pt-3 pb-8 w-full">
-          <Link to="/dashboard-patient" className="flex flex-col items-center justify-center text-zinc-400">
-            <span className="material-symbols-outlined">home</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest font-manrope mt-1">Home</span>
-          </Link>
-          <Link to="/categories" className="flex flex-col items-center justify-center text-zinc-400">
-            <span className="material-symbols-outlined">grid_view</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest font-manrope mt-1">Categories</span>
-          </Link>
-          <Link to="/orders" className="flex flex-col items-center justify-center text-green-600 scale-110">
-            <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>receipt_long</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest font-manrope mt-1">Orders</span>
-          </Link>
-          <a className="flex flex-col items-center justify-center text-zinc-400" href="#">
-            <span className="material-symbols-outlined">contact_support</span>
-            <span className="text-[10px] font-bold uppercase tracking-widest font-manrope mt-1">Help</span>
-          </a>
-        </div>
-      </nav>
     </div>
   );
 }

@@ -4,6 +4,62 @@ import { Link } from 'react-router-dom';
 function DashboardPatient() {
   const [isContactMenuOpen, setIsContactMenuOpen] = useState(false);
   const [isChatbotModalOpen, setIsChatbotModalOpen] = useState(false);
+  const [medicines, setMedicines] = useState([]);
+  const [user, setUser] = useState({ name: 'Guest' });
+  const [loadingMeds, setLoadingMeds] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
+
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast({ show: false, message: '', type: 'success' }), 3000);
+  };
+
+  React.useEffect(() => {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+
+    const fetchMeds = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('http://localhost:5000/api/medicines/recommended', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setMedicines(data);
+        }
+      } catch (err) {
+        console.error('Error fetching medicines:', err);
+      } finally {
+        setLoadingMeds(false);
+      }
+    };
+    fetchMeds();
+  }, []);
+
+  const handleAddToCart = async (medicineId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('http://localhost:5000/api/cart', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ medicineId, quantity: 1 })
+      });
+      if (res.ok) {
+        showToast('Item successfully added to your cart!', 'success');
+      } else {
+        showToast('Failed to add item to cart', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Error connecting to backend', 'error');
+    }
+  };
 
   const toggleContactMenu = () => {
     setIsContactMenuOpen(!isContactMenuOpen);
@@ -43,20 +99,20 @@ function DashboardPatient() {
             </div>
           </div>
           {/* Navigation Links */}
-            <nav className="hidden md:flex items-center gap-6 font-headline text-sm font-medium tracking-tight">
-              <Link to="/dashboard-patient" className="text-zinc-900 font-bold border-b-2 border-zinc-900 px-2 py-1">Home</Link>
-              <Link to="/categories" className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1">Categories</Link>
-              <Link to="/orders" className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1">Orders</Link>
-              <a className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" href="#">Help</a>
-            </nav>
+          <nav className="hidden md:flex items-center gap-6 font-headline text-sm font-medium tracking-tight">
+            <Link to="/dashboard-patient" className="text-zinc-900 font-bold border-b-2 border-zinc-900 px-2 py-1">Home</Link>
+            <Link to="/categories" className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1">Categories</Link>
+            <Link to="/orders" className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1">Orders</Link>
+            <a className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" href="#">Help</a>
+          </nav>
           {/* Actions */}
-            <div className="flex items-center gap-2">
-              <Link to="/cart" className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95">
-                <span className="material-symbols-outlined">shopping_cart</span>
-              </Link>
-              <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95">
-                <span className="material-symbols-outlined">notifications</span>
-              </button>
+          <div className="flex items-center gap-2">
+            <Link to="/cart" className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95">
+              <span className="material-symbols-outlined">shopping_cart</span>
+            </Link>
+            <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95">
+              <span className="material-symbols-outlined">notifications</span>
+            </button>
             <div className="w-10 h-10 rounded-full border-2 border-white shadow-sm overflow-hidden flex-shrink-0">
               <img
                 alt="User Avatar"
@@ -72,7 +128,7 @@ function DashboardPatient() {
       <main className="pt-24 pb-20 px-6 max-w-screen-2xl mx-auto">
         {/* Greeting Section */}
         <header className="mb-12">
-          <h1 className="text-3xl font-extrabold font-headline tracking-tight text-zinc-900">Good Evening, Vanshika 👋</h1>
+          <h1 className="text-3xl font-extrabold font-headline tracking-tight text-zinc-900">Good Evening, {user.name.split(' ')[0]} 👋</h1>
           <p className="text-zinc-500 font-medium mt-1">Your AI-monitored health hub is up to date.</p>
         </header>
 
@@ -200,40 +256,43 @@ function DashboardPatient() {
                 <h2 className="text-2xl font-black font-headline text-zinc-900">Recommended Medicines</h2>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {[
-                  { name: 'Atorvastatin 20mg', brand: 'Pfizer Pharma', price: '$18.50', oldPrice: '$24.00', rx: true, demand: true, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA1tPoEJ01V-0VllE4bDPbtx9Gb5ZcLdujLRMooZ_AgFgJn68twfprSkJ9lMnm9e-23ofkwsDfmTfUZZRDUpygpizpA3nCExe28mnyQtpkxklXWaBqV6zTSvQPevMcU_LNEgKUDYAu0Xly6bw46_ogQD-da1HE9Z7hslKGtAehPUWeaxF81LHdE8scvljjzs9RXa_uEN7qDsXxWNgW-TMwESO6TFiJ4GJ2sjJ1JFHzNsrT77qIP-Uo0qGP0pE1wXRe6gMiQcTIJ2T9j' },
-                  { name: 'Vitamin C Complex', brand: 'Cipla Clinical', price: '$12.99', lowStock: true, img: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCHsY5cA37TF4FJSaCbgpgXnz6_HhSSMvUdgdyid-2gyG4Z9FliPIXxqp-k3Dw2sRBMeLCgj7zKzPoNdj6ECAtQP93UZNOA7BD5UFAly66C64vTmrgZRDLjCeVN9IKXMmEGIuZcC-tLSqVxPF4Mo_4JeF9nDushmT1hok7TGg5xwdHysSokFXGo-_7434WsuBZP7l2np5CwqJSxntHbS5Kobj5R6naUQM5xUGJhf--KaarMmT54MMxbi_RFSC6IszGjBeObxMSBhK1C' }
-                ].map((med, idx) => (
-                  <div key={idx} className="group bg-surface-container-lowest rounded-3xl p-5 shadow-sm hover:shadow-2xl transition-all duration-300 flex flex-col border border-zinc-50">
-                    <div className="relative h-48 rounded-2xl overflow-hidden mb-5">
-                      <img alt={med.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" src={med.img} />
-                      {med.demand && (
-                        <div className="absolute top-3 left-3 px-2 py-1 bg-white/90 backdrop-blur rounded-lg text-[10px] font-bold text-primary flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[12px]">bolt</span> Predicted Demand High
+                {loadingMeds ? (
+                  <p className="text-zinc-500 font-bold col-span-full">Loading recommendations via AI...</p>
+                ) : (
+                  medicines.map((med, idx) => (
+                    <div key={idx} className="group bg-surface-container-lowest rounded-3xl p-5 shadow-sm hover:shadow-2xl transition-all duration-300 flex flex-col border border-zinc-50">
+                      <div className="relative h-48 rounded-2xl overflow-hidden mb-5">
+                        <img alt={med.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" src={med.img} />
+                        {med.demand && (
+                          <div className="absolute top-3 left-3 px-2 py-1 bg-white/90 backdrop-blur rounded-lg text-[10px] font-bold text-primary flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[12px]">bolt</span> Predicted Demand High
+                          </div>
+                        )}
+                        {med.rx && (
+                          <div className="absolute top-3 right-3 px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">RX Required</div>
+                        )}
+                        {med.lowStock && (
+                          <div className="absolute bottom-3 right-3 px-2 py-1 bg-error/10 text-error rounded-lg text-[10px] font-bold">Low Stock</div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-label">{med.brand}</span>
+                        <h3 className="text-lg font-bold text-zinc-900 font-headline mb-1 group-hover:text-primary transition-colors">{med.name}</h3>
+                        <div className="flex items-center justify-between mt-auto pt-4 border-t border-zinc-50">
+                          <div className="flex flex-col">
+                            {med.oldPrice && <span className="text-xs text-zinc-400 line-through">{med.oldPrice}</span>}
+                            <span className="text-xl font-black text-zinc-900">{med.price}</span>
+                          </div>
+                          <button
+                            onClick={() => handleAddToCart(med.id)}
+                            className="w-12 h-12 bg-zinc-900 text-white rounded-full flex items-center justify-center hover:bg-primary transition-colors group-hover:scale-110 active:scale-90"
+                          >
+                            <span className="material-symbols-outlined">add</span>
+                          </button>
                         </div>
-                      )}
-                      {med.rx && (
-                        <div className="absolute top-3 right-3 px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">RX Required</div>
-                      )}
-                      {med.lowStock && (
-                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-error/10 text-error rounded-lg text-[10px] font-bold">Low Stock</div>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest font-label">{med.brand}</span>
-                      <h3 className="text-lg font-bold text-zinc-900 font-headline mb-1 group-hover:text-primary transition-colors">{med.name}</h3>
-                      <div className="flex items-center justify-between mt-auto pt-4 border-t border-zinc-50">
-                        <div className="flex flex-col">
-                          {med.oldPrice && <span className="text-xs text-zinc-400 line-through">{med.oldPrice}</span>}
-                          <span className="text-xl font-black text-zinc-900">{med.price}</span>
-                        </div>
-                        <button className="w-12 h-12 bg-zinc-900 text-white rounded-full flex items-center justify-center hover:bg-primary transition-colors group-hover:scale-110 active:scale-90">
-                          <span className="material-symbols-outlined">add</span>
-                        </button>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )))}
               </div>
             </section>
 
@@ -294,8 +353,8 @@ function DashboardPatient() {
                         </div>
                       </div>
                       <Link to="/orders" className="mt-auto px-4 py-2 bg-on-secondary-container text-secondary-container rounded-lg text-xs font-bold hover:scale-105 transition-transform active:scale-95 self-start">
-                      Track Order
-                    </Link>
+                        Track Order
+                      </Link>
                     </div>
                   ))}
                 </div>
@@ -428,6 +487,14 @@ function DashboardPatient() {
           </a>
         </div>
       </nav>
+
+      {/* Custom Toast */}
+      {toast.show && (
+        <div className={`fixed bottom-32 lg:bottom-10 right-1/2 translate-x-1/2 lg:translate-x-0 lg:right-10 z-[100] animate-in slide-in-from-bottom-5 fade-in duration-300 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 border border-white/10 ${toast.type === 'success' ? 'bg-zinc-900 text-white' : 'bg-error text-white'}`}>
+          <span className="material-symbols-outlined">{toast.type === 'success' ? 'check_circle' : 'error'}</span>
+          <span className="font-bold text-sm tracking-wide">{toast.message}</span>
+        </div>
+      )}
     </div>
   );
 }

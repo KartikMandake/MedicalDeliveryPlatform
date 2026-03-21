@@ -1,19 +1,56 @@
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 function Login() {
   const navigate = useNavigate();
+  const [formData, setFormData] = useState({
+    email: '',
+    password: ''
+  });
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSignIn = (e) => {
+  const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+
+  const handleSignIn = async (e) => {
     e.preventDefault();
-    const selectedRole = document.querySelector('input[name="role"]:checked')?.value;
-    if (selectedRole === 'patient') {
-      navigate('/dashboard-patient');
-    } else if (selectedRole === 'pharmacy') {
-      navigate('/dashboard-retailer');
-    } else if (selectedRole === 'delivery') {
-      navigate('/dashboard-delivery');
-    } else {
-      alert(`Login for ${selectedRole} is not yet implemented. Try "Patient", "Retailer Partner" or "Delivery Agent" role.`);
+    if (!formData.email || !formData.password) {
+      return setError('Please fill in all fields');
+    }
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+
+      // Navigate based on the actual role returned by the backend
+      const dbRole = data.user.role;
+      if (dbRole === 'user') {
+        navigate('/dashboard-patient');
+      } else if (dbRole === 'retailer') {
+        navigate('/dashboard-retailer');
+      } else if (dbRole === 'agent') {
+        navigate('/dashboard-delivery');
+      } else {
+        alert(`Dashboard for ${dbRole} is getting built!`);
+      }
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -97,7 +134,13 @@ function Login() {
           </div>
 
           {/* FORM */}
-          <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-8" onSubmit={handleSignIn}>
+            
+            {error && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-xl text-sm font-semibold">
+                {error}
+              </div>
+            )}
 
             {/* ROLE SELECTOR */}
             <div>
@@ -151,7 +194,7 @@ function Login() {
             {/* EMAIL */}
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase text-on-surface-variant">
-                Email or Username
+                Email or Phone
               </label>
               <div className="relative">
                 <span className="absolute left-4 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant">
@@ -159,7 +202,11 @@ function Login() {
                 </span>
                 <input
                   type="text"
-                  placeholder="Enter your clinical ID"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="Enter your email or phone"
+                  required
                   className="w-full pl-12 pr-4 py-4 bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
@@ -180,7 +227,11 @@ function Login() {
                 </span>
                 <input
                   type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
                   placeholder="••••••••"
+                  required
                   className="w-full pl-12 pr-4 py-4 bg-surface-container-low rounded-xl focus:ring-2 focus:ring-primary outline-none"
                 />
               </div>
@@ -188,10 +239,11 @@ function Login() {
 
             {/* BUTTON */}
             <button 
-              onClick={handleSignIn}
-              className="w-full py-4 rounded-full btn-primary-gradient text-white font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2"
+              type="submit"
+              disabled={loading}
+              className="w-full py-4 rounded-full btn-primary-gradient text-white font-bold text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              Sign In to My Portal
+              {loading ? "Signing in..." : "Sign In to My Portal"}
               <span className="material-symbols-outlined">arrow_forward</span>
             </button>
 
