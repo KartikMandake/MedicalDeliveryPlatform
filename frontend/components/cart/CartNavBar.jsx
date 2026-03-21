@@ -30,7 +30,7 @@ export default function CartNavBar() {
     <nav className="fixed top-0 w-full z-50 glass-nav shadow-sm">
       <div className="flex justify-between items-center w-full px-6 py-3 max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MedPrecision</span>
+          <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MediFlow</span>
           <div className="hidden md:flex gap-6 items-center">
             <Link className="font-headline text-sm font-medium tracking-tight text-zinc-500 hover:text-zinc-900 transition-all duration-200" to="/">Home</Link>
             <Link className="font-headline text-sm font-medium tracking-tight text-zinc-500 hover:text-zinc-900 transition-all duration-200" to="/products">Categories</Link>
@@ -89,7 +89,7 @@ export default function CartNavBar() {
                   <p className="text-xs text-zinc-400">Signed in as</p>
                   <p className="text-sm font-semibold text-zinc-700 truncate">{user.email || user.phone || 'User'}</p>
                 </div>
-                <Link to="/tracking" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">My Orders</Link>
+                <Link to="/orders" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">My Orders</Link>
                 <button
                   type="button"
                   onClick={() => {

@@ -1,5 +1,43 @@
 const jwt = require('jsonwebtoken');
-const AgentLocation = require('../models/AgentLocation');
+const sequelize = require('../db');
+
+const upsertAgentLocation = async (agentId, lat, lng, isOnline) => {
+  await sequelize.query(
+    `
+    INSERT INTO agent_locations (agent_id, lat, lng, is_online, updated_at)
+    VALUES (:agentId, :lat, :lng, :isOnline, CURRENT_TIMESTAMP)
+    ON CONFLICT (agent_id)
+    DO UPDATE SET
+      lat = EXCLUDED.lat,
+      lng = EXCLUDED.lng,
+      is_online = EXCLUDED.is_online,
+      updated_at = CURRENT_TIMESTAMP
+    `,
+    {
+      replacements: {
+        agentId,
+        lat,
+        lng,
+        isOnline,
+      },
+    }
+  );
+};
+
+const markAgentOfflineIfNoConnections = async (io, agentId) => {
+  const socketsInAgentRoom = await io.in(`agent_${agentId}`).fetchSockets();
+  if (socketsInAgentRoom.length > 0) return;
+
+  await sequelize.query(
+    `
+    UPDATE agent_locations
+    SET is_online = FALSE,
+        updated_at = CURRENT_TIMESTAMP
+    WHERE agent_id = :agentId
+    `,
+    { replacements: { agentId } }
+  );
+};
 
 const socketHandler = (io) => {
   // Auth middleware for sockets
@@ -36,10 +74,13 @@ const socketHandler = (io) => {
     // Agent sends live location
     socket.on('agent_location_update', async ({ lat, lng, orderId }) => {
       try {
-        await AgentLocation.findOneAndUpdate(
-          { agent: socket.userId },
-          { lat, lng, isOnline: true },
-          { upsert: true }
+        const parsedLat = Number(lat);
+        const parsedLng = Number(lng);
+        await upsertAgentLocation(
+          socket.userId,
+          Number.isFinite(parsedLat) ? parsedLat : 0,
+          Number.isFinite(parsedLng) ? parsedLng : 0,
+          true
         );
         if (orderId) {
           io.to(`order_${orderId}`).emit('agent_location', { lat, lng });
@@ -51,8 +92,10 @@ const socketHandler = (io) => {
 
     socket.on('disconnect', async () => {
       console.log(`Socket disconnected: ${socket.id}`);
-      // Mark agent offline
-      await AgentLocation.findOneAndUpdate({ agent: socket.userId }, { isOnline: false }).catch(() => {});
+      // Give refresh/reconnect a brief grace window before marking offline.
+      setTimeout(() => {
+        markAgentOfflineIfNoConnections(io, socket.userId).catch(() => {});
+      }, 3500);
     });
   });
 };

@@ -17,4 +17,4 @@ const fileFilter = (req, file, cb) => {
   else cb(new Error('Only images (jpg/png) and PDFs are allowed'));
 };
 
-module.exports = multer({ storage, fileFilter, limits: { fileSize: 5 * 1024 * 1024 } });
+module.exports = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });

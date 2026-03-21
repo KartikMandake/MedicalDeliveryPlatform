@@ -2,11 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
-import { createOrder } from '../../api/orders';
-import { createRazorpayOrder, verifyPayment } from '../../api/payments';
 
 export default function CartOrderSummary() {
-  const { cart, fetchCart } = useCart();
+  const { cart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -18,39 +16,7 @@ export default function CartOrderSummary() {
 
     setLoading(true);
     try {
-      // 1. Create order in DB
-      const orderRes = await createOrder({ deliveryAddress: user.address || {} });
-      const order = orderRes.data;
-
-      // 2. Create Razorpay order
-      const rzpRes = await createRazorpayOrder(order.id);
-
-      const { razorpayOrderId, amount, currency, key } = rzpRes.data;
-
-      // 3. Open Razorpay checkout
-      const options = {
-        key,
-        amount,
-        currency,
-        name: 'MedDeliver',
-        description: `Order ${order.orderId}`,
-        order_id: razorpayOrderId,
-        handler: async (response) => {
-          await verifyPayment({ ...response, orderId: order.id });
-          await fetchCart();
-          navigate(`/tracking?orderId=${order.id}`);
-        },
-        prefill: { name: user.name, email: user.email },
-        theme: { color: '#0d631b' },
-      };
-
-      if (window.Razorpay) {
-        const rzp = new window.Razorpay(options);
-        rzp.open();
-      } else {
-        // Razorpay script not loaded — fallback for dev
-        alert('Razorpay not loaded. Add the Razorpay script to index.html for payments.');
-      }
+      navigate('/checkout');
     } catch (err) {
       alert(err.response?.data?.message || 'Checkout failed');
     } finally {

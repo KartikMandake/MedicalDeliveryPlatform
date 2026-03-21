@@ -6,7 +6,7 @@ export default function CartFooter() {
       <footer className="bg-zinc-50 border-t border-zinc-100 mt-20">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 max-w-7xl mx-auto py-16 px-8">
           <div className="space-y-4">
-            <span className="font-headline font-bold text-zinc-900 text-lg">MedPrecision AI</span>
+            <span className="font-headline font-bold text-zinc-900 text-lg">MediFlow AI</span>
             <p className="text-zinc-500 text-xs leading-relaxed font-inter">Advanced medical inventory systems powered by clinical intelligence and fluid design patterns.</p>
           </div>
           <div>
@@ -38,7 +38,7 @@ export default function CartFooter() {
           </div>
         </div>
         <div className="max-w-7xl mx-auto px-8 py-6 border-t border-zinc-100">
-          <p className="font-inter text-xs text-zinc-500">© 2024 MedPrecision AI. Clinical Excellence &amp; Fluid Intelligence.</p>
+          <p className="font-inter text-xs text-zinc-500">© 2024 MediFlow AI. Clinical Excellence &amp; Fluid Intelligence.</p>
         </div>
       </footer>
 

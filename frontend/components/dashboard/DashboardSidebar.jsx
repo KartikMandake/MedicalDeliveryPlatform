@@ -14,15 +14,15 @@ export default function DashboardSidebar() {
         <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-1">Retailer Portal</p>
       </div>
       <nav className="flex-1 space-y-1">
-        <Link to="/dashboard" className="flex items-center gap-3 bg-emerald-100/50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 rounded-lg px-4 py-2 transition-all duration-200 ease-in-out">
+        <Link to="/retailer/dashboard" className="flex items-center gap-3 bg-emerald-100/50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-200 rounded-lg px-4 py-2 transition-all duration-200 ease-in-out">
           <span className="material-symbols-outlined">dashboard</span>
           <span>Dashboard</span>
         </Link>
-        <Link to="/admin/orders" className="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-in-out rounded-lg">
+        <Link to="/retailer/orders" className="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-in-out rounded-lg">
           <span className="material-symbols-outlined">package_2</span>
           <span>Orders</span>
         </Link>
-        <Link to="/products" className="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-in-out rounded-lg">
+        <Link to="/retailer/inventory" className="flex items-center gap-3 text-slate-600 dark:text-slate-400 px-4 py-2 hover:bg-slate-200/50 dark:hover:bg-slate-800/50 transition-all duration-200 ease-in-out rounded-lg">
           <span className="material-symbols-outlined">inventory_2</span>
           <span>Inventory</span>
         </Link>

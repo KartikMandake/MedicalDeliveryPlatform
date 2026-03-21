@@ -39,6 +39,18 @@ export default function ProductsSidebar({ filters, onChange }) {
     onChange({ ...filters, brands: updated });
   };
 
+  const renderCategoryIcon = (iconValue, name) => {
+    if (!iconValue) {
+      return <span className="material-symbols-outlined text-sm text-zinc-500">category</span>;
+    }
+
+    if (/^(https?:\/\/|\/)/i.test(iconValue)) {
+      return <img src={iconValue} alt={name} className="w-3.5 h-3.5 object-contain" />;
+    }
+
+    return <span className="material-symbols-outlined text-sm text-zinc-500">{iconValue}</span>;
+  };
+
   return (
     <aside className="hidden lg:block w-72 h-[calc(100vh-96px)] sticky top-20">
       <div className="h-full rounded-2xl border border-zinc-200 bg-white/95 shadow-sm px-4 py-4 overflow-hidden flex flex-col">
@@ -91,11 +103,7 @@ export default function ProductsSidebar({ filters, onChange }) {
                     checked={(filters.categories || []).includes(cat.name)}
                     onChange={() => toggleCategory(cat.name)}
                   />
-                  {cat.iconUrl ? (
-                    <img src={cat.iconUrl} alt={cat.name} className="w-3.5 h-3.5 object-contain" />
-                  ) : (
-                    <span className="material-symbols-outlined text-sm text-zinc-500">category</span>
-                  )}
+                  {renderCategoryIcon(cat.iconUrl, cat.name)}
                   <span className="text-sm text-zinc-600 group-hover:text-primary transition-colors">
                     {cat.name}
                     <span className="ml-1 text-zinc-400">({cat.productCount || 0})</span>

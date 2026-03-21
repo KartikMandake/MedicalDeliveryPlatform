@@ -36,7 +36,7 @@ export default function ProductsNavBar() {
   const pathname = location.pathname;
   const isHomePage = pathname === '/';
   const isProductsPage = pathname === '/products';
-  const isTrackingPage = pathname === '/tracking';
+  const isOrdersPage = pathname === '/orders' || pathname === '/tracking';
   const isCartPage = pathname === '/cart';
 
   const navLinkClass = (active) => (
@@ -49,11 +49,11 @@ export default function ProductsNavBar() {
     <header className="fixed top-0 w-full z-50 glass-nav shadow-sm dark:shadow-none">
       <div className="flex justify-between items-center w-full px-6 py-3 max-w-screen-2xl mx-auto">
         <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MedPrecision</span>
+          <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MediFlow</span>
           <nav className="hidden md:flex items-center gap-6 font-headline text-sm font-medium tracking-tight">
             <Link className={navLinkClass(isHomePage)} to="/">Home</Link>
             <Link className={navLinkClass(isProductsPage)} to="/products">Categories</Link>
-            <Link className={navLinkClass(isTrackingPage)} to="/tracking">Orders</Link>
+            <Link className={navLinkClass(isOrdersPage)} to="/orders">Orders</Link>
             <a className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" href="#">Help</a>
           </nav>
         </div>
@@ -115,7 +115,7 @@ export default function ProductsNavBar() {
                     <p className="text-xs text-zinc-400">Signed in as</p>
                     <p className="text-sm font-semibold text-zinc-700 truncate">{user.email || user.phone || 'User'}</p>
                   </div>
-                  <Link to="/tracking" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">My Orders</Link>
+                  <Link to="/orders" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">My Orders</Link>
                   <button
                     type="button"
                     onClick={() => {

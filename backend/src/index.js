@@ -15,6 +15,8 @@ const otpRoutes = require('./routes/otp');
 const adminRoutes = require('./routes/admin');
 const agentRoutes = require('./routes/agent');
 const uploadRoutes = require('./routes/upload');
+const retailerRoutes = require('./routes/retailer');
+const addressRoutes = require('./routes/addresses');
 
 const { socketHandler } = require('./utils/socket');
 
@@ -40,6 +42,8 @@ app.use('/api/otp', otpRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/agent', agentRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/retailer', retailerRoutes);
+app.use('/api/addresses', addressRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }));
 

@@ -1,16 +1,42 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const sequelize = require('../db');
+const { QueryTypes } = require('sequelize');
 
 const signToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET || 'secret', { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone, role, address = {} } = req.body;
+    const { name, email, password, phone, role, shopName, drugLicense, gstin } = req.body;
     if (!password) return res.status(400).json({ message: 'Password is required' });
+    if (!email) return res.status(400).json({ message: 'Email is required' });
+
     const exists = await User.findOne({ where: { email } });
     if (exists) return res.status(400).json({ message: 'Email already registered' });
-    const user = await User.create({ name, email, password, phone: phone || '', role, ...address });
+
+    const validRoles = ['user', 'retailer', 'agent'];
+    const userRole = validRoles.includes(role) ? role : 'user';
+
+    const user = await User.create({ name, email, password, phone: phone || '', role: userRole });
+
+    // If registering as retailer, create a retailers row
+    if (userRole === 'retailer') {
+      await sequelize.query(
+        `INSERT INTO retailers (user_id, shop_name, drug_license, gstin, kyc_status)
+         VALUES (:userId, :shopName, :drugLicense, :gstin, 'pending')`,
+        {
+          replacements: {
+            userId: user.id,
+            shopName: shopName || null,
+            drugLicense: drugLicense || null,
+            gstin: gstin || null,
+          },
+          type: QueryTypes.INSERT,
+        }
+      );
+    }
+
     const token = signToken(user.id);
     res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (err) { res.status(500).json({ message: err.message }); }

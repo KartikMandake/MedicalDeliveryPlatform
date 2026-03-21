@@ -1,11 +1,18 @@
 const STATUS_STEPS = [
-  { key: 'pending', label: 'Order Placed' },
+  { key: 'placed', label: 'Order Placed' },
   { key: 'confirmed', label: 'Accepted' },
   { key: 'preparing', label: 'Preparing' },
   { key: 'ready_for_pickup', label: 'Ready for Pickup' },
   { key: 'in_transit', label: 'Out for Delivery' },
   { key: 'delivered', label: 'Delivered' },
 ];
+
+function formatMaybeTime(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+}
 
 export default function TrackingOrderDetails({ order }) {
   if (!order) return (
@@ -18,6 +25,14 @@ export default function TrackingOrderDetails({ order }) {
   );
 
   const currentIdx = STATUS_STEPS.findIndex((s) => s.key === order.status);
+
+  const stepTime = (stepKey, active, done) => {
+    if (!done) return '';
+    if (stepKey === 'placed') return formatMaybeTime(order.placedAt);
+    if (stepKey === 'delivered') return formatMaybeTime(order.deliveredAt);
+    if (active) return 'Live now';
+    return '';
+  };
 
   return (
     <div className="lg:col-span-3 flex flex-col gap-8">
@@ -35,7 +50,7 @@ export default function TrackingOrderDetails({ order }) {
                 </div>
                 <div className="pl-4">
                   <p className={`text-sm font-bold leading-none ${active ? 'text-[#0d631b]' : done ? 'text-slate-900' : 'text-slate-400'}`}>{step.label}</p>
-                  {done && <p className="text-xs text-slate-500 mt-1">{new Date(order.updatedAt).toLocaleTimeString()}</p>}
+                  {stepTime(step.key, active, done) && <p className="text-xs text-slate-500 mt-1">{stepTime(step.key, active, done)}</p>}
                 </div>
               </div>
             );
@@ -72,7 +87,7 @@ export default function TrackingOrderDetails({ order }) {
           {order.items?.map((item, i) => (
             <li key={i} className="flex justify-between text-sm">
               <span className="text-slate-600">{item.name}</span>
-              <span className="font-semibold text-slate-900">x{item.quantity} — Rs.{item.price * item.quantity}</span>
+              <span className="font-semibold text-slate-900">x{item.quantity} — Rs.{Number(item.totalPrice || 0).toFixed(2)}</span>
             </li>
           ))}
         </ul>

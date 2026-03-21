@@ -37,7 +37,7 @@ export default function TopNavBar() {
         <nav className="hidden lg:flex items-center gap-8 font-headline font-semibold text-sm tracking-tight">
           <Link className="text-emerald-700 border-b-2 border-emerald-600 pb-1" to="/">Home</Link>
           <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/products">Products</Link>
-          {user && <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/tracking">My Orders</Link>}
+          {user && <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/orders">My Orders</Link>}
         </nav>
         <div className="flex items-center gap-4 ml-8">
           {user ? (
@@ -55,9 +55,9 @@ export default function TopNavBar() {
                 </button>
                 <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 hidden group-hover:block z-50">
                   {user.role === 'admin' && <Link to="/admin" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Admin Panel</Link>}
-                  {user.role === 'retailer' && <Link to="/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Dashboard</Link>}
+                  {user.role === 'retailer' && <Link to="/retailer/dashboard" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Dashboard</Link>}
                   {user.role === 'agent' && <Link to="/agent" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">Agent Dashboard</Link>}
-                  <Link to="/tracking" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">My Orders</Link>
+                  <Link to="/orders" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">My Orders</Link>
                   <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">Sign Out</button>
                 </div>
               </div>
