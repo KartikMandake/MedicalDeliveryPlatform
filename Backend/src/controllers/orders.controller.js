@@ -58,3 +58,78 @@ exports.checkout = async (req, res) => {
     client.release();
   }
 };
+
+exports.updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    const userId = req.user.userId;
+
+    const retailerRes = await db.query('SELECT id FROM retailers WHERE user_id = $1', [userId]);
+    if (retailerRes.rows.length === 0) {
+      return res.status(403).json({ error: 'Not a registered retailer' });
+    }
+    const retailerId = retailerRes.rows[0].id;
+
+    // If packing, claim the order. Otherwise just update.
+    if (status === 'packing') {
+      await db.query('UPDATE orders SET status = $1, retailer_id = $2 WHERE id = $3 AND status = $4', ['packing', retailerId, id, 'placed']);
+    } else {
+      await db.query('UPDATE orders SET status = $1 WHERE id = $2 AND retailer_id = $3', [status, id, retailerId]);
+    }
+
+    res.json({ message: 'Order status updated successfully' });
+  } catch (error) {
+    console.error('Error updating order:', error);
+    res.status(500).json({ error: 'Error updating order status' });
+  }
+};
+
+exports.getPatientOrders = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    const result = await db.query(`
+      SELECT o.order_number as id, o.placed_at as date,
+             (SELECT COALESCE(SUM(quantity), 0) FROM order_items WHERE order_id = o.id) as items,
+             o.total_amount as price, o.status,
+             (
+               SELECT json_agg(json_build_object(
+                 'medicine_id', m.id,
+                 'name', m.name,
+                 'quantity', oi.quantity,
+                 'unit_price', oi.unit_price,
+                 'total_price', oi.total_price
+               ))
+               FROM order_items oi
+               JOIN medicines m ON oi.medicine_id = m.id
+               WHERE oi.order_id = o.id
+             ) as order_details
+      FROM orders o
+      WHERE o.user_id = $1
+      ORDER BY o.placed_at DESC
+    `, [userId]);
+
+    const orders = result.rows.map(r => {
+      let statusColor = 'secondary';
+      if (r.status === 'delivered') statusColor = 'primary';
+      else if (r.status === 'cancelled' || r.status === 'failed') statusColor = 'error';
+
+      return {
+        id: r.id,
+        title: 'Precision Network Order',
+        date: new Date(r.date).toLocaleDateString(),
+        items: parseInt(r.items, 10),
+        price: Number(r.price),
+        status: r.status.charAt(0).toUpperCase() + r.status.slice(1),
+        statusColor,
+        orderDetails: r.order_details || []
+      };
+    });
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Error fetching patient orders:', error);
+    res.status(500).json({ error: 'Failed to fetch orders' });
+  }
+};

@@ -6,6 +6,8 @@ const authRoutes = require('./routes/auth.routes');
 const medicinesRoutes = require('./routes/medicines.routes');
 const cartRoutes = require('./routes/cart.routes');
 const ordersRoutes = require('./routes/orders.routes');
+const retailerRoutes = require('./routes/retailer.routes');
+const paymentRoutes = require('./routes/payment.routes');
 
 const app = express();
 
@@ -19,5 +21,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/medicines', medicinesRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
+app.use('/api/retailers', retailerRoutes);
+app.use('/api/payment', paymentRoutes);
 
 module.exports = app;
