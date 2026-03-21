@@ -1,7 +1,8 @@
-const router = require('express').Router();
-const upload = require('../middleware/upload');
-const { protect } = require('../middleware/auth');
-const { scanPrescription } = require('../controllers/uploadController');
+const express = require('express');
+const router = express.Router();
+const upload = require('../middlewares/upload.middleware');
+const { protect } = require('../middlewares/auth.middleware');
+const { scanPrescription } = require('../controllers/upload.controller');
 const fs = require('fs');
 
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');

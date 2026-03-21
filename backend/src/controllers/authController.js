@@ -6,10 +6,16 @@ const signToken = (id) =>
 
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, phone, role, address = {} } = req.body;
+    const { name, email, password, phone, role } = req.body;
+    if (!name || !email || !password) return res.status(400).json({ message: 'Name, email and password are required' });
+
     const exists = await User.findOne({ where: { email } });
     if (exists) return res.status(400).json({ message: 'Email already registered' });
-    const user = await User.create({ name, email, password, phone, role, ...address });
+
+    // Railway users table requires phone (UNIQUE NOT NULL) — generate placeholder if not provided
+    const phoneVal = phone || `email_${Date.now()}`;
+
+    const user = await User.create({ name, email, password, phone: phoneVal, role: role || 'user', status: 'active' });
     const token = signToken(user.id);
     res.status(201).json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
   } catch (err) { res.status(500).json({ message: err.message }); }

@@ -46,15 +46,14 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }
 socketHandler(io);
 
 // Sync DB tables then start server
-sequelize.sync({ alter: true })
+sequelize.authenticate()
   .then(() => {
-    console.log('✅ PostgreSQL connected & tables synced');
+    console.log('✅ PostgreSQL connected');
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
   })
   .catch((err) => {
     console.error('❌ PostgreSQL connection error:', err.message);
-    console.error('\n👉 Fix: Make sure PostgreSQL is running and DATABASE_URL is set in server/.env');
-    console.error('   Default: postgres://postgres:postgres@localhost:5432/medicaldelivery\n');
+    console.error('\n👉 Fix: Make sure PostgreSQL is running and DATABASE_URL is set in .env');
     process.exit(1);
   });

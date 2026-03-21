@@ -2,31 +2,32 @@
 logs
 *.log
 npm-debug.log*
-
-# Dependencies
-node_modules
-server/node_modules
-
-# Build
-dist
-
-# Env
-.env
-server/.env
-
-# Uploads
-server/uploads/
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Dependencies
+**/node_modules/
+node_modules/
 
-# Editor directories and files
+# Build
+**/dist/
+dist/
+dist-ssr/
+
+# Environment configurations
+**/.env
+**/.env.local
+**/.env.development
+.env
+.env.local
+.env.development
+
+# Dynamic and Media Uploads
+**/uploads/
+uploads/
+
+# OS/Editor Settings
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -36,3 +37,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+*.local

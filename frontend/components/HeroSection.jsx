@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function HeroSection() {
   return (
     <section className="max-w-7xl mx-auto px-8 grid grid-cols-12 gap-8 items-center">
@@ -13,13 +15,13 @@ export default function HeroSection() {
           Surgical precision in every parcel. Upload your prescription or browse our extensive pharmacy catalog for instant fulfillment.
         </p>
         <div className="flex flex-wrap gap-4 pt-4">
-          <button className="bg-gradient-to-br from-primary to-primary-container text-on-primary px-8 py-4 rounded-xl font-bold flex items-center gap-2 transition-transform active:scale-95 shadow-lg shadow-primary/20">
+          <Link to="/upload" className="bg-gradient-to-br from-primary to-primary-container text-on-primary px-8 py-4 rounded-xl font-bold flex items-center gap-2 transition-transform active:scale-95 shadow-lg shadow-primary/20">
             <span className="material-symbols-outlined">upload_file</span>
             Upload Prescription
-          </button>
-          <button className="bg-surface-container-highest text-on-surface px-8 py-4 rounded-xl font-bold transition-transform active:scale-95">
+          </Link>
+          <Link to="/products" className="flex items-center justify-center bg-surface-container-highest text-on-surface px-8 py-4 rounded-xl font-bold transition-transform active:scale-95">
             Order Medicines
-          </button>
+          </Link>
         </div>
       </div>
       <div className="col-span-12 lg:col-span-6 relative">

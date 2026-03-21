@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function PrescriptionSection() {
   return (
     <section className="max-w-7xl mx-auto px-8">
@@ -17,9 +19,9 @@ export default function PrescriptionSection() {
               <span className="font-semibold">WhatsApp Us</span>
             </div>
           </div>
-          <button className="w-full sm:w-auto bg-primary text-white font-bold py-4 px-12 rounded-xl transition-all hover:bg-primary-container shadow-lg shadow-primary/10">
+          <Link to="/upload" className="w-full sm:w-auto inline-block text-center bg-primary text-white font-bold py-4 px-12 rounded-xl transition-all hover:bg-primary-container shadow-lg shadow-primary/10">
             Get Started
-          </button>
+          </Link>
         </div>
         <div className="relative min-h-[400px]">
           <img alt="Pharmacist reviewing prescription" className="absolute inset-0 w-full h-full object-cover" data-alt="Pharmacist checking prescription details on a tablet" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCETD81JWfMptEtQWjeViLpF2MKdMpx8lywM9-mQGg3ZRGqE_48-QK8XftzkxzfQAO1U8z3_Q_6XJbkKbI_jEzomdWp2fu3ra6dR5eTmf6u4hebPqvWKYzqEyeND1Hhfm2cv2MNYSun7AjarNIzTk82Nck1YEu88Catb_zHnc5tv-TSihKpkpeBmoaHMvd5W85_6ESG9W9NLB6R_CgM3KWHMlwTJpjAXjTv8WfjISTvPpuQ01iDEXOAxFilbYXCMmH5zdgd0rZQkRkT"/>

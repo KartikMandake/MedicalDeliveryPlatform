@@ -83,13 +83,13 @@ export default function TrackingPage() {
                 const currentIdx = STATUS_STEPS.indexOf(status);
                 const done = i <= currentIdx;
                 return (
-                  <div key={step} className="flex-1 flex flex-col items-center gap-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${done ? 'bg-[#0d631b] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                  <div key={step} className="flex-1 flex flex-col items-center gap-2 relative z-0">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors z-10 ${done ? 'bg-[#0d631b] text-white' : 'bg-slate-100 text-slate-400'}`}>
                       {done ? <span className="material-symbols-outlined text-sm">check</span> : i + 1}
                     </div>
                     <span className="text-[10px] text-center text-slate-500 capitalize hidden sm:block">{step.replace(/_/g, ' ')}</span>
                     {i < STATUS_STEPS.length - 1 && (
-                      <div className={`absolute h-0.5 w-full ${done ? 'bg-[#0d631b]' : 'bg-slate-100'}`} style={{ display: 'none' }} />
+                      <div className={`hidden sm:block absolute top-4 left-1/2 h-0.5 w-full -z-10 ${done ? 'bg-[#0d631b]' : 'bg-slate-100'}`} />
                     )}
                   </div>
                 );
