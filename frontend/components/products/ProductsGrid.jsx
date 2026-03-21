@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { getProduct, getProducts } from '../../api/products';
+import { useNavigate } from 'react-router-dom';
+import { getProducts } from '../../api/products';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -9,12 +10,11 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [detailsLoading, setDetailsLoading] = useState(false);
   const [pulseProductIds, setPulseProductIds] = useState({});
   const { cart, addItem, updateItem, removeItem, isAdding, isUpdating, isRemoving } = useCart();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const navigate = useNavigate();
   const limit = 12;
 
   const formatPrice = (value) => Number(value || 0).toFixed(2);
@@ -103,16 +103,8 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
     }
   };
 
-  const handleOpenDetails = async (productId) => {
-    try {
-      setDetailsLoading(true);
-      const res = await getProduct(productId);
-      setSelectedProduct(res.data);
-    } catch (err) {
-      alert(err.response?.data?.message || 'Could not load product details');
-    } finally {
-      setDetailsLoading(false);
-    }
+  const handleOpenDetails = (productId) => {
+    navigate(`/products/${productId}`);
   };
 
   return (
@@ -293,73 +285,6 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
         </div>
       )}
 
-      {detailsLoading && (
-        <div className="fixed inset-0 z-[70] bg-black/25 backdrop-blur-[1px] flex items-center justify-center px-4">
-          <div className="bg-white rounded-2xl px-6 py-4 shadow-xl text-sm text-zinc-600">Loading product details...</div>
-        </div>
-      )}
-
-      {selectedProduct && (
-        <div className="fixed inset-0 z-[80] bg-black/45 flex items-center justify-center p-4" onClick={() => setSelectedProduct(null)}>
-          <div className="w-full max-w-3xl bg-white rounded-2xl overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              <div className="bg-zinc-50 min-h-72 flex items-center justify-center p-6">
-                {selectedProduct.image ? (
-                  <img src={selectedProduct.image} alt={selectedProduct.name} className="max-h-72 object-contain" />
-                ) : (
-                  <span className="material-symbols-outlined text-zinc-300 text-7xl">medication</span>
-                )}
-              </div>
-              <div className="p-6 flex flex-col">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <span className="text-xs font-black uppercase tracking-widest text-primary">{selectedProduct.brand || 'Generic'}</span>
-                  <button type="button" onClick={() => setSelectedProduct(null)} className="text-zinc-400 hover:text-zinc-700">
-                    <span className="material-symbols-outlined">close</span>
-                  </button>
-                </div>
-
-                <h2 className="text-xl font-headline font-extrabold text-zinc-900 mb-2">{selectedProduct.name}</h2>
-
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <span className="px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-semibold">{selectedProduct.category || 'General'}</span>
-                  <span className="px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-700 text-xs font-semibold">{selectedProduct.type || 'medicine'}</span>
-                  {selectedProduct.requiresPrescription && (
-                    <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-700 text-xs font-semibold">Rx Required</span>
-                  )}
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${Number(selectedProduct.stock || 0) > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-200 text-zinc-700'}`}>
-                    {Number(selectedProduct.stock || 0) > 0 ? `${Number(selectedProduct.stock)} in stock` : 'Out of stock'}
-                  </span>
-                </div>
-
-                {selectedProduct.saltName && (
-                  <p className="text-sm text-zinc-600 mb-3"><span className="font-semibold text-zinc-800">Composition:</span> {selectedProduct.saltName}</p>
-                )}
-
-                <p className="text-sm text-zinc-600 leading-relaxed mb-4">{selectedProduct.description || 'No additional details available for this medicine.'}</p>
-
-                <div className="mt-auto flex items-end justify-between gap-4">
-                  <div>
-                    {Number(selectedProduct.mrp || 0) > Number(selectedProduct.price || 0) && (
-                      <p className="text-xs text-zinc-400 line-through">₹{Number(selectedProduct.mrp || 0).toFixed(2)}</p>
-                    )}
-                    <p className="text-2xl font-headline font-extrabold text-primary">₹{Number(selectedProduct.price || 0).toFixed(2)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      await handleAdd(selectedProduct.id);
-                    }}
-                    disabled={Number(selectedProduct.stock || 0) <= 0 || isAdding(selectedProduct.id)}
-                    className={`px-5 py-2.5 rounded-full text-sm font-bold transition-colors ${Number(selectedProduct.stock || 0) <= 0 || isAdding(selectedProduct.id) ? 'bg-zinc-200 text-zinc-500 cursor-not-allowed' : 'bg-primary text-white hover:bg-[#0b5718]'}`}
-                  >
-                    {Number(selectedProduct.stock || 0) <= 0 ? 'Out of Stock' : isAdding(selectedProduct.id) ? 'Adding...' : 'Add to Cart'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
