@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+@theme {
+  --color-on-secondary-fixed-variant: #005313;
+  --color-surface: #f7f9fc;
+  --color-tertiary-container: #007c6b;
+  --color-on-tertiary-container: #baffed;
+  --color-on-surface: #191c1e;
+  --color-outline: #707a6c;
+  --color-background: #f7f9fc;
+  --color-on-tertiary-fixed-variant: #005145;
+  --color-primary-fixed: #a3f69c;
+  --color-surface-container: #eceef1;
+  --color-secondary-container: #91f78e;
+  --color-on-secondary-fixed: #002204;
+  --color-inverse-primary: #88d982;
+  --color-secondary-fixed-dim: #78dc77;
+  --color-tertiary: #006153;
+  --color-surface-tint: #1b6d24;
+  --color-error-container: #ffdad6;
+  --color-primary: #0d631b;
+  --color-inverse-on-surface: #eff1f4;
+  --color-tertiary-fixed-dim: #44ddc1;
+  --color-on-error-container: #93000a;
+  --color-surface-container-low: #f2f4f7;
+  --color-on-background: #191c1e;
+  --color-outline-variant: #bfcaba;
+  --color-on-secondary-container: #00731e;
+  --color-on-primary-fixed-variant: #005312;
+  --color-primary-container: #2e7d32;
+  --color-tertiary-fixed: #68fadd;
+  --color-on-error: #ffffff;
+  --color-secondary: #006e1c;
+  --color-surface-bright: #f7f9fc;
+  --color-primary-fixed-dim: #88d982;
+  --color-inverse-surface: #2d3133;
+  --color-secondary-fixed: #94f990;
+  --color-on-primary-container: #cbffc2;
+  --color-on-surface-variant: #40493d;
+  --color-error: #ba1a1a;
+  --color-surface-variant: #e0e3e6;
+  --color-on-tertiary: #ffffff;
+  --color-surface-dim: #d8dadd;
+  --color-surface-container-lowest: #ffffff;
+  --color-on-primary-fixed: #002204;
+  --color-on-primary: #ffffff;
+  --color-surface-container-highest: #e0e3e6;
+  --color-surface-container-high: #e6e8eb;
+  --color-on-secondary: #ffffff;
+  --color-on-tertiary-fixed: #00201a;
+  
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+}
+
+@layer utilities {
+  .material-symbols-outlined {
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  }
+  .glass-header {
+    backdrop-filter: blur(20px);
+    background-color: rgba(247, 249, 252, 0.7);
+  }
+  .primary-gradient {
+    background: linear-gradient(135deg, #0d631b 0%, #2e7d32 100%);
+  }
+  .soft-shadow {
+    box-shadow: 0 12px 32px -4px rgba(25, 28, 30, 0.06);
+  }
+  .tonal-lift {
+    box-shadow: 0 12px 32px -4px rgba(25, 28, 30, 0.06);
+  }
+  .glass-nav {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  .tonal-card {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 10px;
+  }
+  .product-image-container {
+    background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
+  }
+
+  /* Order Tracking Styles */
+  .pulse-container {
+    position: relative;
+  }
+  .pulse-ring {
+    position: absolute;
+    border: 2px solid #00BFA5;
+    border-radius: 50%;
+    height: 100%;
+    width: 100%;
+    animation: pulse-animation 2s ease-out infinite;
+  }
+  @keyframes pulse-animation {
+    0% { transform: scale(1); opacity: 1; }
+    100% { transform: scale(2.5); opacity: 0; }
+  }
+  .map-gradient-overlay {
+    background: linear-gradient(to right, rgba(247, 249, 252, 0.8), transparent 20%);
+  }
+
+  /* Retailer Dashboard Styles */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  .glass-effect {
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+  }
+
+  /* Delivery Agent Dashboard Styles */
+  .tonal-layering {
+      background-image: radial-gradient(at 0% 0%, rgba(13, 99, 27, 0.03) 0, transparent 50%), 
+                        radial-gradient(at 100% 100%, rgba(0, 191, 165, 0.03) 0, transparent 50%);
+  }
+  .scan-line {
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #88d982, transparent);
+    box-shadow: 0 0 15px #88d982;
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    animation: scan 3s linear infinite;
+  }
+}
+
+@keyframes scan {
+  0% { top: 0; }
+  50% { top: 100%; }
+  100% { top: 0; }
+}
