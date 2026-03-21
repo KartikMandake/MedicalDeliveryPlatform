@@ -14,10 +14,10 @@ export default function CartItemList() {
   return (
     <>
       {cart.items.map((item) => (
-        <div key={item.id} className="bg-white rounded-xl p-6 flex flex-col sm:flex-row gap-6 items-center border border-slate-100 hover:shadow-md transition-all">
-          <div className="w-24 h-24 bg-slate-50 rounded-lg flex-shrink-0 overflow-hidden flex items-center justify-center">
+        <div key={item.id} className="bg-surface-container-lowest rounded-xl p-6 flex flex-col sm:flex-row gap-6 items-center group transition-all duration-200 hover:translate-x-1 shadow-[0_8px_24px_rgba(25,28,29,0.04)]">
+          <div className="w-32 h-32 bg-surface-container-low rounded-lg overflow-hidden flex-shrink-0 flex items-center justify-center">
             {item.image ? (
-              <img alt={item.name} className="w-full h-full object-contain p-2" src={item.image} />
+              <img alt={item.name} className="w-full h-full object-cover" src={item.image} />
             ) : (
               <span className="material-symbols-outlined text-slate-300 text-4xl">medication</span>
             )}
@@ -25,38 +25,33 @@ export default function CartItemList() {
           <div className="flex-grow space-y-2 w-full">
             <div className="flex justify-between items-start">
               <div>
-                <h3 className="font-bold text-lg text-slate-900">{item.name}</h3>
-                <p className="text-sm text-slate-500">{item.brand} • {item.category}</p>
+                <span className="text-[10px] font-bold uppercase tracking-widest font-headline text-primary block mb-1">{item.requiresPrescription ? 'Prescription Grade' : 'Stock Item'}</span>
+                <h3 className="text-lg font-bold font-headline text-on-surface leading-tight">{item.name}</h3>
+                <p className="text-sm text-on-surface-variant">{item.brand} • {item.category}</p>
               </div>
-              <span className="font-bold text-xl text-slate-900">₹{((item.price || 0) * item.quantity).toFixed(2)}</span>
+              <span className="text-xl font-bold font-headline text-on-surface">₹{((item.price || 0) * item.quantity).toFixed(2)}</span>
             </div>
-            <div className="flex flex-wrap items-center gap-4 pt-2">
-              {item.requiresPrescription && (
-                <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-600 text-xs font-bold rounded-full uppercase tracking-wider">
-                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>description</span>
-                  Prescription Required
-                </span>
-              )}
-              <div className="flex items-center bg-slate-100 rounded-full px-1 py-1">
+            <div className="flex items-center justify-between pt-4">
+              <div className="flex items-center bg-surface-container-low rounded-full px-2 py-1 gap-4">
                 <button
                   onClick={() => updateItem(item.id, item.quantity - 1)}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-slate-200 rounded-full transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white transition-colors text-on-surface-variant"
                 >
-                  <span className="material-symbols-outlined text-sm">remove</span>
+                  <span className="material-symbols-outlined text-lg">remove</span>
                 </button>
-                <span className="w-8 text-center font-bold text-sm">{String(item.quantity).padStart(2, '0')}</span>
+                <span className="font-bold text-sm w-4 text-center">{String(item.quantity).padStart(2, '0')}</span>
                 <button
                   onClick={() => updateItem(item.id, item.quantity + 1)}
-                  className="w-8 h-8 flex items-center justify-center hover:bg-slate-200 rounded-full transition-colors"
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white transition-colors text-on-surface-variant"
                 >
-                  <span className="material-symbols-outlined text-sm">add</span>
+                  <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
               <button
                 onClick={() => removeItem(item.id)}
-                className="text-red-500 text-sm font-medium flex items-center gap-1 hover:underline ml-auto"
+                className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 transition-opacity"
               >
-                <span className="material-symbols-outlined text-sm">delete</span>
+                <span className="material-symbols-outlined text-base">delete</span>
                 Remove
               </button>
             </div>

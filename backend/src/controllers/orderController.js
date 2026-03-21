@@ -1,46 +1,176 @@
 const Order = require('../models/Order');
-const Cart = require('../models/Cart');
-const Product = require('../models/Product');
 const AgentLocation = require('../models/AgentLocation');
 const User = require('../models/User');
 const { generateOtp } = require('../utils/otp');
 const sequelize = require('../db');
+const { QueryTypes } = require('sequelize');
 
 exports.createOrder = async (req, res) => {
   try {
     const { deliveryAddress = {} } = req.body;
-    const cart = await Cart.findOne({ where: { userId: req.user.id } });
-    if (!cart || !cart.items.length) return res.status(400).json({ message: 'Cart is empty' });
+    const order = await sequelize.transaction(async (transaction) => {
+      const cartRows = await sequelize.query(
+        `
+        SELECT id
+        FROM carts
+        WHERE user_id = :userId
+          AND is_active = TRUE
+        ORDER BY created_at DESC
+        LIMIT 1
+        `,
+        { type: QueryTypes.SELECT, replacements: { userId: req.user.id }, transaction }
+      );
+      const cartId = cartRows[0]?.id;
+      if (!cartId) throw new Error('Cart is empty');
 
-    // Enrich items with product data
-    const items = [];
-    let subtotal = 0;
-    for (const item of cart.items) {
-      const p = await Product.findByPk(item.productId);
-      if (!p) continue;
-      items.push({ productId: p.id, name: p.name, price: p.price, quantity: item.quantity });
-      subtotal += p.price * item.quantity;
-      await p.update({ stock: p.stock - item.quantity });
-    }
+      const items = await sequelize.query(
+        `
+        SELECT
+          ci.id,
+          ci.medicine_id,
+          ci.quantity,
+          COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, 0))::float AS unit_price,
+          m.name,
+          COALESCE(inv.stock_quantity, 0)::int AS stock
+        FROM cart_items ci
+        LEFT JOIN medicines m ON m.id = ci.medicine_id
+        LEFT JOIN (
+          SELECT
+            medicine_id,
+            SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
+          FROM inventory
+          GROUP BY medicine_id
+        ) inv ON inv.medicine_id = ci.medicine_id
+        WHERE ci.cart_id = :cartId
+        ORDER BY ci.created_at ASC
+        `,
+        { type: QueryTypes.SELECT, replacements: { cartId }, transaction }
+      );
 
-    const taxes = +(subtotal * 0.05).toFixed(2);
-    const total = +(subtotal + taxes).toFixed(2);
+      if (!items.length) throw new Error('Cart is empty');
 
-    // Generate orderId
-    const count = await Order.count();
-    const orderId = `ORD-${String(count + 1).padStart(4, '0')}`;
+      for (const item of items) {
+        if (Number(item.stock || 0) < Number(item.quantity || 0)) {
+          throw new Error(`Insufficient stock for ${item.name || 'selected medicine'}`);
+        }
+      }
 
-    const order = await Order.create({
-      orderId, userId: req.user.id, items,
-      subtotal: +subtotal.toFixed(2), taxes, total,
-      deliveryStreet: deliveryAddress.street, deliveryCity: deliveryAddress.city,
-      deliveryState: deliveryAddress.state, deliveryPincode: deliveryAddress.pincode,
-      deliveryLat: deliveryAddress.lat, deliveryLng: deliveryAddress.lng,
-      prescription: cart.prescription,
-      deliveryOtp: generateOtp(),
+      const subtotal = Number(
+        items.reduce((sum, item) => sum + Number(item.unit_price || 0) * Number(item.quantity || 0), 0).toFixed(2)
+      );
+      const deliveryFee = 0;
+      const total = Number((subtotal + deliveryFee).toFixed(2));
+
+      const nextOrderNumberRows = await sequelize.query(
+        `
+        SELECT COALESCE(MAX(CAST(SUBSTRING(order_number FROM 5) AS INTEGER)), 0) + 1 AS next_number
+        FROM orders
+        WHERE order_number ~ '^ORD-[0-9]+$'
+        `,
+        { type: QueryTypes.SELECT, transaction }
+      );
+      const nextNumber = Number(nextOrderNumberRows[0]?.next_number || 1);
+      const orderNumber = `ORD-${String(nextNumber).padStart(4, '0')}`;
+
+      const insertedOrderRows = await sequelize.query(
+        `
+        INSERT INTO orders (
+          order_number,
+          user_id,
+          status,
+          delivery_address,
+          subtotal,
+          delivery_fee,
+          total_amount,
+          delivery_otp,
+          payment_status,
+          placed_at
+        )
+        VALUES (
+          :orderNumber,
+          :userId,
+          'placed',
+          CAST(:deliveryAddress AS jsonb),
+          :subtotal,
+          :deliveryFee,
+          :totalAmount,
+          :deliveryOtp,
+          'pending',
+          CURRENT_TIMESTAMP
+        )
+        RETURNING id, order_number
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: {
+            orderNumber,
+            userId: req.user.id,
+            deliveryAddress: JSON.stringify(deliveryAddress || {}),
+            subtotal,
+            deliveryFee,
+            totalAmount: total,
+            deliveryOtp: generateOtp(),
+          },
+          transaction,
+        }
+      );
+
+      const created = insertedOrderRows[0];
+
+      for (const item of items) {
+        const unitPrice = Number(item.unit_price || 0);
+        const qty = Number(item.quantity || 0);
+
+        await sequelize.query(
+          `
+          INSERT INTO order_items (order_id, medicine_id, quantity, unit_price, total_price)
+          VALUES (:orderId, :medicineId, :quantity, :unitPrice, :totalPrice)
+          `,
+          {
+            replacements: {
+              orderId: created.id,
+              medicineId: item.medicine_id,
+              quantity: qty,
+              unitPrice,
+              totalPrice: Number((unitPrice * qty).toFixed(2)),
+            },
+            transaction,
+          }
+        );
+
+        await sequelize.query(
+          `
+          UPDATE inventory
+          SET
+            stock_quantity = GREATEST(stock_quantity - :quantity, 0),
+            last_updated = CURRENT_TIMESTAMP
+          WHERE medicine_id = :medicineId
+            AND stock_quantity > 0
+          `,
+          {
+            replacements: {
+              medicineId: item.medicine_id,
+              quantity: qty,
+            },
+            transaction,
+          }
+        );
+      }
+
+      await sequelize.query(
+        `DELETE FROM cart_items WHERE cart_id = :cartId`,
+        { replacements: { cartId }, transaction }
+      );
+
+      return {
+        id: created.id,
+        orderId: created.order_number,
+        subtotal,
+        taxes: 0,
+        total,
+        status: 'placed',
+      };
     });
-
-    await Cart.update({ items: [], prescription: null }, { where: { userId: req.user.id } });
 
     const io = req.app.get('io');
     io.to('retailers').emit('new_order', order);

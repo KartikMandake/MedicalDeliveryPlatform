@@ -1,40 +1,127 @@
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useCart } from '../../context/CartContext';
+import { useAuth } from '../../context/AuthContext';
 
 export default function ProductsNavBar() {
+  const { itemCount } = useCart();
+  const { user, logout } = useAuth();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [searchText, setSearchText] = useState('');
+  const profileRef = useRef(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setSearchText(params.get('search') || '');
+  }, [location.search]);
+
+  useEffect(() => {
+    const onDocumentClick = (event) => {
+      if (!profileRef.current?.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', onDocumentClick);
+    return () => document.removeEventListener('mousedown', onDocumentClick);
+  }, []);
+
+  const handleSearchSubmit = () => {
+    const query = searchText.trim();
+    navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
+  };
+
   return (
-    <header className="fixed top-0 w-full z-50 bg-white shadow-sm">
-      <nav className="flex items-center justify-between px-8 py-4 max-w-7xl mx-auto">
-        <div className="flex items-center gap-12">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-[#2E7D32] rounded-lg flex items-center justify-center">
-              <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>medical_services</span>
-            </div>
-            <span className="text-2xl font-bold tracking-tighter text-emerald-900 font-headline">MediFlow</span>
-          </Link>
-          <div className="hidden lg:flex items-center gap-8 font-['Manrope'] font-semibold text-sm tracking-tight">
-            <Link className="text-slate-600 hover:text-emerald-800 transition-all" to="/">Home</Link>
-            <Link className="text-emerald-700 border-b-2 border-emerald-600 pb-1" to="/products">Categories</Link>
-            <a className="text-slate-600 hover:text-emerald-800 transition-all" href="#">Orders</a>
-            <a className="text-slate-600 hover:text-emerald-800 transition-all" href="#">Help</a>
-          </div>
+    <header className="fixed top-0 w-full z-50 glass-nav shadow-sm dark:shadow-none">
+      <div className="flex justify-between items-center w-full px-6 py-3 max-w-screen-2xl mx-auto">
+        <div className="flex items-center gap-8">
+          <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MedPrecision</span>
+          <nav className="hidden md:flex items-center gap-6 font-headline text-sm font-medium tracking-tight">
+            <Link className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" to="/">Home</Link>
+            <Link className="text-green-700 font-bold border-b-2 border-green-600 px-2 py-1" to="/products">Categories</Link>
+            <Link className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" to="/tracking">Orders</Link>
+            <a className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" href="#">Help</a>
+          </nav>
         </div>
-        <div className="flex items-center gap-6">
-          <div className="relative hidden md:block">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-sm">search</span>
-            <input className="pl-10 pr-4 py-2.5 bg-[#f1f3f4] border-none rounded-lg text-sm focus:ring-2 focus:ring-primary/20 w-80" placeholder="Search medicines or symptoms" type="text"/>
+        <div className="flex items-center gap-4">
+          <div className="relative hidden sm:block">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 text-lg">search</span>
+            <input
+              className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary/20 w-64 transition-all"
+              placeholder="Search medications..."
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearchSubmit();
+              }}
+            />
           </div>
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-700 hover:bg-slate-50 rounded-full">
+          <div className="flex items-center gap-2">
+            <Link to="/cart" className="relative p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95">
               <span className="material-symbols-outlined">shopping_cart</span>
-              <span className="absolute top-0 right-0 w-5 h-5 bg-[#2E7D32] text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">2</span>
+              {user && itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 bg-primary text-white text-[10px] font-bold leading-none rounded-full flex items-center justify-center">
+                  {itemCount}
+                </span>
+              )}
+            </Link>
+            <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95" type="button">
+              <span className="material-symbols-outlined">notifications</span>
             </button>
-            <button className="flex items-center gap-2 bg-[#2E7D32] text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-[#1b5e20] transition-colors">
-              <span className="material-symbols-outlined text-lg">person</span>
-              Login
-            </button>
+            <div className="relative ml-2" ref={profileRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (!user) return;
+                  setProfileOpen((prev) => !prev);
+                }}
+                className="h-8 w-8 rounded-full bg-zinc-200 overflow-hidden block"
+                title={user ? 'Open profile menu' : 'Login'}
+              >
+                {user ? (
+                  <span className="w-full h-full flex items-center justify-center text-xs font-extrabold text-zinc-700 bg-emerald-100">
+                    {(user.name || user.email || 'U').charAt(0).toUpperCase()}
+                  </span>
+                ) : (
+                  <img
+                    className="w-full h-full object-cover"
+                    alt="User profile avatar portrait"
+                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDcPRM7lRc4AwTFNkRzknncLOfdfmxmUeDeoI6J9i7sSoD8q9mk6oH-nANra88NmRp5D3Lck7qODxNBKU5xsG6_I97FC-Kd_IJTuwsL4Z704fOvzsf76gfYZVkjyPLkmqhDl8ryPwwx9PsTNlXgusl7c5JZJoW6rHZUxDhFH8O6COL9zUPDd5bHuNh2xUn2Udc8yV0mp3si3ddVywSMfPoEGydAajIdbix5t8lI-dfQ9n-sCvYVn0X72gT-fFkkcInwFd24HeC5d4eC"
+                  />
+                )}
+              </button>
+
+              {user && profileOpen && (
+                <div className="absolute right-0 mt-2 w-48 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden z-50">
+                  <div className="px-3 py-2 border-b border-zinc-100">
+                    <p className="text-xs text-zinc-400">Signed in as</p>
+                    <p className="text-sm font-semibold text-zinc-700 truncate">{user.email || user.phone || 'User'}</p>
+                  </div>
+                  <Link to="/tracking" onClick={() => setProfileOpen(false)} className="block px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50">My Orders</Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setProfileOpen(false);
+                      logout();
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+
+              {!user && (
+                <Link to="/login" className="absolute inset-0" aria-label="Login" />
+              )}
+            </div>
           </div>
         </div>
-      </nav>
+      </div>
+      <div className="bg-zinc-100/50 h-[1px]"></div>
     </header>
   );
 }

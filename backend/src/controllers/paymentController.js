@@ -1,7 +1,7 @@
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
-const Order = require('../models/Order');
-const User = require('../models/User');
+const { QueryTypes } = require('sequelize');
+const sequelize = require('../db');
 
 const getRazorpay = () => new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
@@ -11,17 +11,45 @@ const getRazorpay = () => new Razorpay({
 exports.createRazorpayOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
-    const order = await Order.findByPk(orderId);
+    const orders = await sequelize.query(
+      `
+      SELECT id, order_number, total_amount
+      FROM orders
+      WHERE id = :orderId
+      LIMIT 1
+      `,
+      { type: QueryTypes.SELECT, replacements: { orderId } }
+    );
+    const order = orders[0];
     if (!order) return res.status(404).json({ message: 'Order not found' });
+
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return res.status(503).json({
+        message: 'Payment gateway is not configured. Missing RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET.',
+      });
+    }
 
     const razorpay = getRazorpay();
     const rzpOrder = await razorpay.orders.create({
-      amount: Math.round(order.total * 100),
+      amount: Math.round(Number(order.total_amount || 0) * 100),
       currency: 'INR',
-      receipt: order.orderId,
+      receipt: order.order_number,
     });
 
-    await order.update({ razorpayOrderId: rzpOrder.id });
+    await sequelize.query(
+      `
+      UPDATE orders
+      SET razorpay_order_id = :razorpayOrderId
+      WHERE id = :orderId
+      `,
+      {
+        replacements: {
+          razorpayOrderId: rzpOrder.id,
+          orderId,
+        },
+      }
+    );
+
     res.json({ razorpayOrderId: rzpOrder.id, amount: rzpOrder.amount, currency: rzpOrder.currency, key: process.env.RAZORPAY_KEY_ID });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -33,8 +61,26 @@ exports.verifyPayment = async (req, res) => {
     const expectedSig = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(body).digest('hex');
     if (expectedSig !== razorpay_signature) return res.status(400).json({ message: 'Payment verification failed' });
 
-    await Order.update({ paymentStatus: 'paid', paymentId: razorpay_payment_id, status: 'confirmed' }, { where: { id: orderId } });
-    const order = await Order.findByPk(orderId);
+    const updatedRows = await sequelize.query(
+      `
+      UPDATE orders
+      SET
+        payment_status = 'paid',
+        status = 'confirmed',
+        razorpay_order_id = COALESCE(razorpay_order_id, :razorpayOrderId)
+      WHERE id = :orderId
+      RETURNING id, order_number, total_amount, status, payment_status, razorpay_order_id
+      `,
+      {
+        type: QueryTypes.SELECT,
+        replacements: {
+          orderId,
+          razorpayOrderId: razorpay_order_id,
+        },
+      }
+    );
+    const order = updatedRows[0];
+    if (!order) return res.status(404).json({ message: 'Order not found' });
 
     const io = req.app.get('io');
     io.to('retailers').emit('new_order', order);
@@ -44,8 +90,41 @@ exports.verifyPayment = async (req, res) => {
 
 exports.getPayments = async (req, res) => {
   try {
-    const where = req.user.role === 'admin' ? { paymentStatus: 'paid' } : { userId: req.user.id, paymentStatus: 'paid' };
-    const orders = await Order.findAll({ where, order: [['createdAt', 'DESC']], attributes: ['id', 'orderId', 'total', 'paymentId', 'paymentStatus', 'createdAt', 'userId'] });
-    res.json(orders);
+    const isAdmin = req.user.role === 'admin';
+    const rows = await sequelize.query(
+      `
+      SELECT
+        id,
+        order_number,
+        total_amount,
+        razorpay_order_id,
+        payment_status,
+        placed_at,
+        user_id
+      FROM orders
+      WHERE payment_status = 'paid'
+        AND (:isAdmin OR user_id = :userId)
+      ORDER BY placed_at DESC
+      `,
+      {
+        type: QueryTypes.SELECT,
+        replacements: {
+          isAdmin,
+          userId: req.user.id,
+        },
+      }
+    );
+
+    const payments = rows.map((row) => ({
+      id: row.id,
+      orderId: row.order_number,
+      total: Number(row.total_amount || 0),
+      paymentId: row.razorpay_order_id,
+      paymentStatus: row.payment_status,
+      createdAt: row.placed_at,
+      userId: row.user_id,
+    }));
+
+    res.json(payments);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };

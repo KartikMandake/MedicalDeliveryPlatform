@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 
@@ -6,8 +7,13 @@ export default function TopNavBar() {
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
+  const [searchText, setSearchText] = useState('');
 
   const handleLogout = () => { logout(); navigate('/'); };
+  const handleSearchSubmit = () => {
+    const query = searchText.trim();
+    navigate(query ? `/products?search=${encodeURIComponent(query)}` : '/products');
+  };
 
   return (
     <header className="fixed top-0 w-full z-50 glass-header shadow-sm">
@@ -16,7 +22,16 @@ export default function TopNavBar() {
         <div className="hidden md:flex flex-1 max-w-md mx-12">
           <div className="relative w-full">
             <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-            <input className="w-full bg-surface-container-high border-none rounded-xl py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary/40 text-sm" placeholder="Search medicines or symptoms" type="text"/>
+            <input
+              className="w-full bg-surface-container-high border-none rounded-xl py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary/40 text-sm"
+              placeholder="Search medicines or symptoms"
+              type="text"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSearchSubmit();
+              }}
+            />
           </div>
         </div>
         <nav className="hidden lg:flex items-center gap-8 font-headline font-semibold text-sm tracking-tight">

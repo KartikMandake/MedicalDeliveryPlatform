@@ -24,19 +24,28 @@ export function CartProvider({ children }) {
 
   useEffect(() => { fetchCart(); }, [fetchCart]);
 
+  useEffect(() => {
+    if (!user) {
+      setCart({ items: [], subtotal: 0, taxes: 0, total: 0 });
+    }
+  }, [user]);
+
   const addItem = async (productId, quantity = 1) => {
-    await apiAdd(productId, quantity);
-    fetchCart();
+    const res = await apiAdd(productId, quantity);
+    if (res?.data?.items) setCart(res.data);
+    else fetchCart();
   };
 
   const updateItem = async (itemId, quantity) => {
-    await apiUpdate(itemId, quantity);
-    fetchCart();
+    const res = await apiUpdate(itemId, quantity);
+    if (res?.data?.items) setCart(res.data);
+    else fetchCart();
   };
 
   const removeItem = async (itemId) => {
-    await apiRemove(itemId);
-    fetchCart();
+    const res = await apiRemove(itemId);
+    if (res?.data?.items) setCart(res.data);
+    else fetchCart();
   };
 
   const itemCount = cart.items?.reduce((s, i) => s + i.quantity, 0) || 0;
