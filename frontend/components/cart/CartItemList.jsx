@@ -1,7 +1,28 @@
 import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 
 export default function CartItemList() {
-  const { cart, updateItem, removeItem, loading } = useCart();
+  const { cart, updateItem, removeItem, loading, isUpdating, isRemoving } = useCart();
+  const { showToast } = useToast();
+
+  const handleUpdate = async (itemId, quantity) => {
+    try {
+      await updateItem(itemId, quantity);
+      if (quantity <= 0) showToast('Item removed from cart', 'success');
+      else showToast('Cart quantity updated', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not update item', 'error');
+    }
+  };
+
+  const handleRemove = async (itemId) => {
+    try {
+      await removeItem(itemId);
+      showToast('Item removed from cart', 'success');
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Could not remove item', 'error');
+    }
+  };
 
   if (loading) return <div className="text-center py-8 text-slate-400">Loading cart...</div>;
   if (!cart.items?.length) return (
@@ -34,25 +55,28 @@ export default function CartItemList() {
             <div className="flex items-center justify-between pt-4">
               <div className="flex items-center bg-surface-container-low rounded-full px-2 py-1 gap-4">
                 <button
-                  onClick={() => updateItem(item.id, item.quantity - 1)}
+                  onClick={() => handleUpdate(item.id, item.quantity - 1)}
+                  disabled={isUpdating(item.id) || isRemoving(item.id)}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white transition-colors text-on-surface-variant"
                 >
                   <span className="material-symbols-outlined text-lg">remove</span>
                 </button>
                 <span className="font-bold text-sm w-4 text-center">{String(item.quantity).padStart(2, '0')}</span>
                 <button
-                  onClick={() => updateItem(item.id, item.quantity + 1)}
+                  onClick={() => handleUpdate(item.id, item.quantity + 1)}
+                  disabled={isUpdating(item.id) || isRemoving(item.id)}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-white transition-colors text-on-surface-variant"
                 >
                   <span className="material-symbols-outlined text-lg">add</span>
                 </button>
               </div>
               <button
-                onClick={() => removeItem(item.id)}
-                className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 transition-opacity"
+                onClick={() => handleRemove(item.id)}
+                disabled={isRemoving(item.id) || isUpdating(item.id)}
+                className="flex items-center gap-2 text-error text-xs font-bold uppercase tracking-wider opacity-60 hover:opacity-100 transition-opacity disabled:opacity-40"
               >
-                <span className="material-symbols-outlined text-base">delete</span>
-                Remove
+                <span className="material-symbols-outlined text-base">{isRemoving(item.id) ? 'hourglass_top' : 'delete'}</span>
+                {isRemoving(item.id) ? 'Removing...' : 'Remove'}
               </button>
             </div>
           </div>

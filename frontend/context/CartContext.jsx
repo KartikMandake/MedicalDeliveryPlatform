@@ -8,6 +8,9 @@ export function CartProvider({ children }) {
   const { user } = useAuth();
   const [cart, setCart] = useState({ items: [], subtotal: 0, taxes: 0, total: 0 });
   const [loading, setLoading] = useState(false);
+  const [addingProductIds, setAddingProductIds] = useState({});
+  const [updatingItemIds, setUpdatingItemIds] = useState({});
+  const [removingItemIds, setRemovingItemIds] = useState({});
 
   const fetchCart = useCallback(async () => {
     if (!user) return;
@@ -31,27 +34,58 @@ export function CartProvider({ children }) {
   }, [user]);
 
   const addItem = async (productId, quantity = 1) => {
-    const res = await apiAdd(productId, quantity);
-    if (res?.data?.items) setCart(res.data);
-    else fetchCart();
+    setAddingProductIds((prev) => ({ ...prev, [productId]: true }));
+    try {
+      const res = await apiAdd(productId, quantity);
+      if (res?.data?.items) setCart(res.data);
+      else fetchCart();
+      return res;
+    } finally {
+      setAddingProductIds((prev) => ({ ...prev, [productId]: false }));
+    }
   };
 
   const updateItem = async (itemId, quantity) => {
-    const res = await apiUpdate(itemId, quantity);
-    if (res?.data?.items) setCart(res.data);
-    else fetchCart();
+    setUpdatingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const res = await apiUpdate(itemId, quantity);
+      if (res?.data?.items) setCart(res.data);
+      else fetchCart();
+      return res;
+    } finally {
+      setUpdatingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
   };
 
   const removeItem = async (itemId) => {
-    const res = await apiRemove(itemId);
-    if (res?.data?.items) setCart(res.data);
-    else fetchCart();
+    setRemovingItemIds((prev) => ({ ...prev, [itemId]: true }));
+    try {
+      const res = await apiRemove(itemId);
+      if (res?.data?.items) setCart(res.data);
+      else fetchCart();
+      return res;
+    } finally {
+      setRemovingItemIds((prev) => ({ ...prev, [itemId]: false }));
+    }
   };
 
   const itemCount = cart.items?.reduce((s, i) => s + i.quantity, 0) || 0;
 
   return (
-    <CartContext.Provider value={{ cart, loading, addItem, updateItem, removeItem, fetchCart, itemCount }}>
+    <CartContext.Provider
+      value={{
+        cart,
+        loading,
+        addItem,
+        updateItem,
+        removeItem,
+        fetchCart,
+        itemCount,
+        isAdding: (productId) => Boolean(addingProductIds[productId]),
+        isUpdating: (itemId) => Boolean(updatingItemIds[itemId]),
+        isRemoving: (itemId) => Boolean(removingItemIds[itemId]),
+      }}
+    >
       {children}
     </CartContext.Provider>
   );
