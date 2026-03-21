@@ -26,14 +26,15 @@ exports.checkout = async (req, res) => {
     const deliveryFee = 5.00; // Flat delivery fee
     const totalAmount = subtotal + deliveryFee;
     
-    // Generate Order Number
+    // Generate Order Number & Auth OTP
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
     // 3. Create the Order
     const orderRes = await client.query(`
-      INSERT INTO orders (order_number, user_id, status, subtotal, delivery_fee, total_amount) 
-      VALUES ($1, $2, 'placed', $3, $4, $5) RETURNING id`,
-      [orderNumber, userId, subtotal, deliveryFee, totalAmount]
+      INSERT INTO orders (order_number, user_id, status, subtotal, delivery_fee, total_amount, delivery_otp) 
+      VALUES ($1, $2, 'placed', $3, $4, $5, $6) RETURNING id`,
+      [orderNumber, userId, subtotal, deliveryFee, totalAmount, deliveryOtp]
     );
     const orderId = orderRes.rows[0].id;
 
@@ -71,6 +72,24 @@ exports.updateOrderStatus = async (req, res) => {
     }
     const retailerId = retailerRes.rows[0].id;
 
+    // Direct Retailer to Patient Physical Handoff
+    if (status === 'delivered') {
+      const { otp } = req.body;
+      const orderCheck = await db.query('SELECT delivery_otp FROM orders WHERE id = $1 AND retailer_id = $2', [id, retailerId]);
+      
+      if (orderCheck.rows.length === 0) {
+        return res.status(403).json({ error: 'Order not found for your logistics scope' });
+      }
+      
+      const requiredOtp = orderCheck.rows[0].delivery_otp || '000000';
+      if (otp !== requiredOtp) {
+        return res.status(400).json({ error: 'Secure Dropoff Failed: Invalid PIN provided.' });
+      }
+      
+      await db.query('UPDATE orders SET status = $1, delivered_at = CURRENT_TIMESTAMP WHERE id = $2 AND retailer_id = $3', [status, id, retailerId]);
+      return res.json({ message: 'Order dropped securely in-store' });
+    }
+
     // If packing, claim the order. Otherwise just update.
     if (status === 'packing') {
       await db.query('UPDATE orders SET status = $1, retailer_id = $2 WHERE id = $3 AND status = $4', ['packing', retailerId, id, 'placed']);
@@ -92,7 +111,7 @@ exports.getPatientOrders = async (req, res) => {
     const result = await db.query(`
       SELECT o.order_number as id, o.placed_at as date,
              (SELECT COALESCE(SUM(quantity), 0) FROM order_items WHERE order_id = o.id) as items,
-             o.total_amount as price, o.status,
+             o.total_amount as price, o.status, o.delivery_otp,
              (
                SELECT json_agg(json_build_object(
                  'medicine_id', m.id,
@@ -123,6 +142,7 @@ exports.getPatientOrders = async (req, res) => {
         price: Number(r.price),
         status: r.status.charAt(0).toUpperCase() + r.status.slice(1),
         statusColor,
+        deliveryOtp: r.delivery_otp || '000000',
         orderDetails: r.order_details || []
       };
     });
