@@ -464,15 +464,17 @@ exports.updateOrderStatus = async (req, res) => {
       if (!agent.is_online) return res.status(400).json({ message: 'Selected delivery agent is currently offline' });
     }
 
-    await sequelize.query(
+    const updatedRows = await sequelize.query(
       `
       UPDATE orders
       SET
         status = :status,
         agent_id = COALESCE(:agentId, agent_id)
       WHERE id = :orderId
+      RETURNING id, status, agent_id
       `,
       {
+        type: QueryTypes.SELECT,
         replacements: {
           status: dbStatus,
           orderId: req.params.id,
@@ -480,6 +482,15 @@ exports.updateOrderStatus = async (req, res) => {
         },
       }
     );
+
+    const updatedOrder = updatedRows[0] || null;
+    if (!updatedOrder) {
+      return res.status(500).json({ message: 'Failed to update order status' });
+    }
+
+    if (requestedPickupAssignment && !updatedOrder.agent_id) {
+      return res.status(500).json({ message: 'Agent assignment was not saved. Please try again.' });
+    }
 
     const io = req.app.get('io');
     io.to(`order_${req.params.id}`).emit('order_status_update', {

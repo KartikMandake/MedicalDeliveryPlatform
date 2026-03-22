@@ -1,5 +1,6 @@
 const sequelize = require('../db');
 const { QueryTypes } = require('sequelize');
+const { generateOtp } = require('../utils/otp');
 
 const normalizeStatusForUi = (status) => {
   if (status === 'packing') return 'preparing';
@@ -44,6 +45,33 @@ exports.getOrderTracking = async (req, res) => {
 
     if (req.user.role === 'user' && order.userId !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to track this order' });
+    }
+
+    const shouldEnsureDeliveryOtp = req.user.role === 'user'
+      && order.userId === req.user.id
+      && !order.deliveryOtp
+      && ['ready_for_pickup', 'in_transit'].includes(order.status);
+
+    if (shouldEnsureDeliveryOtp) {
+      const fallbackOtp = generateOtp();
+      const otpRows = await sequelize.query(
+        `
+        UPDATE orders
+        SET delivery_otp = COALESCE(delivery_otp, :fallbackOtp)
+        WHERE id = :orderId
+        RETURNING delivery_otp AS "deliveryOtp"
+        `,
+        {
+          type: QueryTypes.SELECT,
+          replacements: {
+            fallbackOtp,
+            orderId: order.id,
+          },
+        }
+      );
+      if (otpRows[0]?.deliveryOtp) {
+        order.deliveryOtp = otpRows[0].deliveryOtp;
+      }
     }
 
     let agent = null;

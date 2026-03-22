@@ -192,6 +192,9 @@ export default function RetailerOrdersTable({ compact = false }) {
       const pages = Math.max(1, Number(payload.pages || 1));
 
       if (pageToLoad > pages) {
+        setIncomingOrders([]);
+        setIncomingTotal(total);
+        setIncomingPages(pages);
         setIncomingPage(pages);
         return;
       }
@@ -220,6 +223,9 @@ export default function RetailerOrdersTable({ compact = false }) {
       const pages = Math.max(1, Number(payload.pages || 1));
 
       if (pageToLoad > pages) {
+        setRecentOrders([]);
+        setRecentTotal(total);
+        setRecentPages(pages);
         setRecentPage(pages);
         return;
       }
@@ -284,7 +290,12 @@ export default function RetailerOrdersTable({ compact = false }) {
       } else {
         showToast('Order updated.', 'success');
       }
-      await refreshOrders();
+
+      // Always refresh from first page after a status transition to avoid stale cross-bucket rows.
+      setIncomingPage(1);
+      setRecentPage(1);
+      setExpandedOrderId(null);
+      await Promise.all([fetchIncomingOrders(1), fetchRecentOrders(1)]);
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update order.', 'error');
     } finally {
@@ -293,13 +304,21 @@ export default function RetailerOrdersTable({ compact = false }) {
   };
 
   const assignableStatuses = useMemo(() => new Set(['preparing', 'confirmed']), []);
+  const recentOrderIdSet = useMemo(
+    () => new Set((recentOrders || []).map((order) => String(order.id || ''))),
+    [recentOrders]
+  );
+  const visibleIncomingOrders = useMemo(
+    () => (incomingOrders || []).filter((order) => !recentOrderIdSet.has(String(order.id || ''))),
+    [incomingOrders, recentOrderIdSet]
+  );
 
   const renderIncomingSection = () => (
     <section className="bg-[#ffffff] rounded-xl border border-[#e1e3e4] shadow-sm overflow-hidden">
       <div className="px-4 py-3.5 border-b border-[#e1e3e4] flex items-center justify-between bg-[#f8f9fa]">
         <h2 className="font-headline text-lg font-bold text-[#191c1d]">Incoming Orders</h2>
         <span className="px-2 py-0.5 rounded-md bg-[#ba1a1a] text-white text-[10px] font-bold uppercase tracking-[0.08em]">
-          {incomingTotal} new
+          {visibleIncomingOrders.length} new
         </span>
       </div>
 
@@ -308,13 +327,13 @@ export default function RetailerOrdersTable({ compact = false }) {
           <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-zinc-500">
             Loading incoming orders...
           </div>
-        ) : incomingOrders.length === 0 ? (
+        ) : visibleIncomingOrders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-zinc-500">
             <span className="material-symbols-outlined text-3xl mb-2 block">inbox</span>
             No new incoming orders.
           </div>
         ) : (
-          incomingOrders.map((order) => (
+          visibleIncomingOrders.map((order) => (
             <div key={order.id} className="rounded-xl border-l-4 border-[#006e2f] border border-zinc-200 p-4 bg-white">
               <div className="flex items-start justify-between gap-3 mb-2.5">
                 <div>

@@ -212,6 +212,16 @@ export default function AgentDashboardPage() {
   }, [fetchDashboard, fetchHistory, showToast, socketRef, user]);
 
   useEffect(() => {
+    if (!user || user.role !== 'agent') return undefined;
+
+    const interval = setInterval(() => {
+      fetchDashboard();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [fetchDashboard, user]);
+
+  useEffect(() => {
     if (!online) return;
 
     const pushLocation = async () => {
