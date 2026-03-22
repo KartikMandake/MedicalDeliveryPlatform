@@ -116,18 +116,6 @@ export default function TrackingPage() {
 
           <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Order Entity</p>
-              <p className="mt-2 text-xs text-slate-600 break-all">{tracking?.id || orderId || '--'}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Retailer Entity</p>
-              <p className="mt-2 text-xs text-slate-600 break-all">{tracking?.retailerId || '--'}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Agent Entity</p>
-              <p className="mt-2 text-xs text-slate-600 break-all">{tracking?.agentId || '--'}</p>
-            </div>
-            <div className="bg-white rounded-xl border border-slate-100 p-4 shadow-sm">
               <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Payment Status</p>
               <p className="mt-2 text-sm font-semibold text-slate-800 capitalize">{tracking?.paymentStatus || '--'}</p>
             </div>

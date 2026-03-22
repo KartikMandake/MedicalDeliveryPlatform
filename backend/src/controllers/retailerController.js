@@ -298,7 +298,7 @@ exports.getOrders = async (req, res) => {
     const replacements = { retailerId, limit, offset };
     if (statusFilter) {
       whereClause += ` AND o.status = :statusFilter`;
-      replacements.statusFilter = statusFilter;
+      replacements.statusFilter = mapUiStatusToDb(statusFilter);
     }
 
     const countRows = await sequelize.query(
@@ -371,15 +371,20 @@ exports.updateOrderStatus = async (req, res) => {
     if (!validStatuses.includes(status))
       return res.status(400).json({ message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
 
-    const requestedOutForDelivery = status === 'in_transit';
+    const requestedPickupAssignment = status === 'ready_for_pickup' || status === 'in_transit';
+    const acceptedByRetailer = status === 'confirmed';
 
     let selectedAgentId = null;
-    if (requestedOutForDelivery) {
+    if (requestedPickupAssignment) {
       selectedAgentId = agentId || null;
     }
 
-    // Requesting out-for-delivery means assign and wait for agent acceptance.
-    const dbStatus = requestedOutForDelivery ? 'ready' : mapUiStatusToDb(status);
+    // Accepting a new order should directly move it to packing/preparing for simpler retailer flow.
+    const dbStatus = acceptedByRetailer
+      ? 'packing'
+      : requestedPickupAssignment
+        ? 'ready'
+        : mapUiStatusToDb(status);
 
     const order = await sequelize.query(
       `
@@ -405,12 +410,12 @@ exports.updateOrderStatus = async (req, res) => {
     );
     const currentAgentId = orderAgentRows[0]?.agent_id || null;
 
-    if (requestedOutForDelivery && !selectedAgentId && currentAgentId) {
+    if (requestedPickupAssignment && !selectedAgentId && currentAgentId) {
       selectedAgentId = currentAgentId;
     }
 
-    if (requestedOutForDelivery && !selectedAgentId) {
-      return res.status(400).json({ message: 'Please select a delivery agent before sending out for delivery' });
+    if (requestedPickupAssignment && !selectedAgentId) {
+      return res.status(400).json({ message: 'Please select a delivery agent before requesting pickup' });
     }
 
     if (selectedAgentId && currentAgentId && String(currentAgentId) !== String(selectedAgentId)) {
@@ -419,7 +424,7 @@ exports.updateOrderStatus = async (req, res) => {
       });
     }
 
-    if (requestedOutForDelivery && selectedAgentId && (!currentAgentId || String(currentAgentId) !== String(selectedAgentId))) {
+    if (requestedPickupAssignment && selectedAgentId && (!currentAgentId || String(currentAgentId) !== String(selectedAgentId))) {
       const agentRows = await sequelize.query(
         `
         SELECT u.id, u.name, u.phone, al.is_online, al.current_order_id
@@ -459,7 +464,11 @@ exports.updateOrderStatus = async (req, res) => {
     const io = req.app.get('io');
     io.to(`order_${req.params.id}`).emit('order_status_update', {
       orderId: req.params.id,
-      status: requestedOutForDelivery ? 'ready_for_pickup' : status,
+      status: requestedPickupAssignment
+        ? 'ready_for_pickup'
+        : acceptedByRetailer
+          ? 'preparing'
+          : status,
     });
 
     if (selectedAgentId) {
@@ -566,11 +575,17 @@ exports.updateOrderStatus = async (req, res) => {
 
     res.json({
       id: req.params.id,
-      status: requestedOutForDelivery ? 'ready_for_pickup' : status,
+      status: requestedPickupAssignment
+        ? 'ready_for_pickup'
+        : acceptedByRetailer
+          ? 'preparing'
+          : status,
       agentId: selectedAgentId,
       assignmentRequested: Boolean(selectedAgentId),
       message: selectedAgentId
-        ? 'Delivery request sent to agent. Order will move to in transit after agent accepts.'
+        ? 'Pickup request sent to agent. Order will move to in transit after agent accepts.'
+        : acceptedByRetailer
+          ? 'Order accepted and moved to preparing'
         : 'Order status updated',
     });
   } catch (err) { res.status(500).json({ message: err.message }); }

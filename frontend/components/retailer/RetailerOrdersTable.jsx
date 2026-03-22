@@ -1,17 +1,20 @@
-import { Fragment, useState, useEffect } from 'react';
-import { getRetailerOrders, getAvailableDeliveryAgents, updateRetailerOrderStatus } from '../../api/retailer';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import {
+  getAvailableDeliveryAgents,
+  getRetailerOrders,
+  updateRetailerOrderStatus,
+} from '../../api/retailer';
+import { useToast } from '../../context/ToastContext';
 
 const STATUS_STYLES = {
-  placed: 'bg-yellow-100 text-yellow-700',
+  placed: 'bg-amber-100 text-amber-700',
   confirmed: 'bg-blue-100 text-blue-700',
-  preparing: 'bg-emerald-100 text-[#0d631b]',
-  ready_for_pickup: 'bg-[#91f78e]/30 text-[#006e1c]',
+  preparing: 'bg-emerald-100 text-emerald-700',
+  ready_for_pickup: 'bg-violet-100 text-violet-700',
   in_transit: 'bg-cyan-100 text-cyan-700',
   delivered: 'bg-slate-100 text-slate-500',
-  cancelled: 'bg-red-100 text-red-600',
+  cancelled: 'bg-rose-100 text-rose-600',
 };
-
-const RETAILER_STATUSES = ['confirmed', 'preparing', 'ready_for_pickup', 'in_transit', 'cancelled'];
 
 function resolveItemImage(item) {
   const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -23,267 +26,361 @@ function resolveItemImage(item) {
     : (item?.images ? String(item.images).trim() : '');
   const raw = rawPrimary || rawLegacy;
   if (!raw) return '';
-
-  // Preserve complete URLs (Cloudinary transforms may include commas in path segments).
   if (/^(https?:\/\/|data:|blob:)/i.test(raw)) return raw;
 
-  const candidates = raw
+  const first = raw
     .split(',')
     .map((s) => s.trim().replace(/^"|"$/g, ''))
-    .filter(Boolean);
-
-  const first = candidates[0] || '';
+    .find(Boolean) || '';
   if (!first) return '';
   if (/^(https?:\/\/|data:|blob:)/i.test(first)) return first;
   return `${uploadBase}${first.startsWith('/') ? '' : '/'}${first}`;
 }
 
+function formatStatus(status) {
+  return String(status || '').replace(/_/g, ' ');
+}
+
+function AgentPills({ agents = [], selectedAgentId, onSelect }) {
+  if (!agents.length) {
+    return <p className="text-[11px] text-zinc-500">No online agents available right now.</p>;
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {agents.slice(0, 4).map((agent, idx) => {
+        const selected = selectedAgentId === agent.id;
+        const label = agent.name || 'Agent';
+        const distance = Number.isFinite(agent.distanceToPharmacyKm)
+          ? `${agent.distanceToPharmacyKm} km`
+          : Number.isFinite(agent.distanceToCustomerKm)
+            ? `${agent.distanceToCustomerKm} km`
+            : 'distance unknown';
+
+        return (
+          <button
+            key={agent.id}
+            type="button"
+            onClick={() => onSelect(agent.id)}
+            className={`px-3 py-1.5 rounded-full border text-[11px] font-semibold transition-colors ${selected ? 'bg-[#006e2f] text-white border-[#006e2f]' : 'bg-white text-zinc-600 border-zinc-200 hover:border-[#006e2f]/40'}`}
+            title={`${label} • ${distance}${idx === 0 ? ' • nearest' : ''}`}
+          >
+            {label}{idx === 0 ? ' • nearest' : ''}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function OrderItems({ items = [] }) {
+  if (!items.length) return null;
+
+  return (
+    <div className="space-y-2">
+      {items.map((item, idx) => {
+        const imageUrl = resolveItemImage(item);
+        return (
+          <div key={`${item.medicine_name}-${idx}`} className="flex items-center justify-between py-2 border-b border-zinc-100 last:border-0">
+            <div className="flex items-center gap-3 min-w-0">
+              {imageUrl ? (
+                <img src={imageUrl} alt={item.medicine_name || 'Medicine'} className="w-9 h-9 rounded-lg object-cover bg-white" />
+              ) : (
+                <div className="w-9 h-9 rounded-lg bg-zinc-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-zinc-400 text-sm">medication</span>
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-zinc-800 truncate">{item.medicine_name}</p>
+                <p className="text-[11px] text-zinc-500">Qty {item.quantity} × ₹{Number(item.unit_price || 0).toFixed(2)}</p>
+              </div>
+            </div>
+            <span className="text-xs font-bold text-zinc-700">₹{Number(item.total_price || 0).toFixed(2)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function RetailerOrdersTable({ compact = false }) {
+  const { showToast } = useToast();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [pages, setPages] = useState(1);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [actingOrderId, setActingOrderId] = useState('');
   const [agentsByOrder, setAgentsByOrder] = useState({});
-  const [loadingAgentsByOrder, setLoadingAgentsByOrder] = useState({});
   const [selectedAgentByOrder, setSelectedAgentByOrder] = useState({});
 
-  const limit = compact ? 5 : 10;
-
-  const fetchOrders = (p = 1) => {
+  const fetchOrders = async () => {
     setLoading(true);
-    const params = { page: p, limit };
-    if (statusFilter) params.status = statusFilter;
-    getRetailerOrders(params)
-      .then((res) => { setOrders(res.data.orders || []); setPages(res.data.pages || 1); })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchOrders(page); }, [page, statusFilter]);
-
-  const fetchAgentsForOrder = async (orderId) => {
-    if (!orderId || loadingAgentsByOrder[orderId]) return;
-    setLoadingAgentsByOrder((prev) => ({ ...prev, [orderId]: true }));
     try {
-      const res = await getAvailableDeliveryAgents({ orderId });
-      const ranked = Array.isArray(res.data) ? res.data : [];
-      setAgentsByOrder((prev) => ({ ...prev, [orderId]: ranked }));
-      setSelectedAgentByOrder((prev) => {
-        if (prev[orderId]) return prev;
-        if (!ranked.length) return prev;
-        return { ...prev, [orderId]: ranked[0].id };
-      });
+      const res = await getRetailerOrders({ page: 1, limit: compact ? 8 : 40 });
+      setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
     } catch (err) {
-      console.error(err);
+      showToast(err.response?.data?.message || 'Unable to load retailer orders.', 'error');
     } finally {
-      setLoadingAgentsByOrder((prev) => ({ ...prev, [orderId]: false }));
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    orders
-      .filter((order) => !['delivered', 'cancelled'].includes(order.status))
-      .forEach((order) => {
-        if (!agentsByOrder[order.id]) fetchAgentsForOrder(order.id);
-      });
-  }, [orders]);
+    fetchOrders();
+  }, []);
 
-  const handleStatusChange = async (id, status) => {
+  const incomingOrders = useMemo(
+    () => orders.filter((order) => order.status === 'placed'),
+    [orders]
+  );
+
+  const recentOrders = useMemo(
+    () => orders.filter((order) => order.status !== 'placed'),
+    [orders]
+  );
+
+  const fetchAgentsForOrder = async (orderId) => {
+    if (!orderId || agentsByOrder[orderId]) return;
     try {
-      const selectedAgentId = selectedAgentByOrder[id];
-      if (status === 'in_transit' && !selectedAgentId) {
-        window.alert('Please select a delivery agent before requesting out for delivery.');
-        return;
-      }
-
-      await updateRetailerOrderStatus(id, status, status === 'in_transit' ? selectedAgentId : undefined);
-      fetchOrders(page);
-      if (status === 'in_transit') {
-        window.alert('Delivery request sent to the selected agent. Status will move to in transit after agent acceptance.');
+      const res = await getAvailableDeliveryAgents({ orderId });
+      const list = Array.isArray(res.data) ? res.data : [];
+      setAgentsByOrder((prev) => ({ ...prev, [orderId]: list }));
+      if (list.length) {
+        setSelectedAgentByOrder((prev) => ({
+          ...prev,
+          [orderId]: prev[orderId] || list[0].id,
+        }));
       }
     } catch (err) {
-      window.alert(err.response?.data?.message || 'Failed to update status');
-      console.error('Failed to update status:', err);
+      showToast(err.response?.data?.message || 'Unable to fetch nearby delivery agents.', 'error');
     }
   };
 
-  return (
-    <section className="bg-white rounded-xl shadow-sm overflow-hidden border border-zinc-100/70">
-      <div className="p-4 border-b border-slate-100 flex items-center justify-between flex-wrap gap-3">
-        <h2 className="font-['Manrope'] font-bold text-lg text-slate-900 tracking-tight">
-          {compact ? 'Recent Orders' : 'Order Management'}
-        </h2>
-        {!compact && (
-          <select
-            value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
-            className="text-[11px] border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#0d631b]"
-          >
-            <option value="">All Statuses</option>
-            {['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'in_transit', 'delivered', 'cancelled'].map(s => (
-              <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
+  const runOrderAction = async (orderId, status, agentId) => {
+    try {
+      setActingOrderId(orderId);
+      await updateRetailerOrderStatus(orderId, status, agentId);
+      if (status === 'confirmed') {
+        showToast('Order accepted and moved to preparing.', 'success');
+      } else if (status === 'ready_for_pickup') {
+        showToast('Pickup request sent to selected agent.', 'success');
+      } else if (status === 'cancelled') {
+        showToast('Order cancelled.', 'info');
+      } else {
+        showToast('Order updated.', 'success');
+      }
+      await fetchOrders();
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Failed to update order.', 'error');
+    } finally {
+      setActingOrderId('');
+    }
+  };
+
+  const renderIncomingSection = () => (
+    <section className="bg-white rounded-xl border border-zinc-100/70 shadow-sm overflow-hidden">
+      <div className="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+        <h2 className="font-headline text-lg font-bold text-zinc-900">Incoming Orders</h2>
+        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-[0.08em]">
+          {incomingOrders.length} new
+        </span>
+      </div>
+
+      <div className="p-4 space-y-3.5">
+        {incomingOrders.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-zinc-500">
+            <span className="material-symbols-outlined text-3xl mb-2 block">inbox</span>
+            No new incoming orders.
+          </div>
+        ) : (
+          incomingOrders.map((order) => (
+            <div key={order.id} className="rounded-xl border border-zinc-200 p-4">
+              <div className="flex items-start justify-between gap-3 mb-2.5">
+                <div>
+                  <p className="text-[10px] uppercase tracking-[0.08em] text-zinc-400 font-bold">Order #{order.order_number}</p>
+                  <p className="text-sm font-semibold text-zinc-900 mt-1">{order.customer_name || 'Customer'}</p>
+                  <p className="text-[11px] text-zinc-500 mt-1">{order.items?.length || 0} items • ₹{Number(order.total_amount || 0).toFixed(2)}</p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700">Awaiting Acceptance</span>
+              </div>
+
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => runOrderAction(order.id, 'confirmed')}
+                  disabled={actingOrderId === order.id}
+                  className="px-4 py-2 rounded-lg bg-[#006e2f] text-white text-xs font-bold hover:opacity-90 disabled:opacity-60"
+                >
+                  Accept and Start Preparing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => runOrderAction(order.id, 'cancelled')}
+                  disabled={actingOrderId === order.id}
+                  className="px-4 py-2 rounded-lg border border-zinc-200 text-zinc-600 text-xs font-bold hover:bg-zinc-50 disabled:opacity-60"
+                >
+                  Reject
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExpandedOrderId((prev) => (prev === order.id ? null : order.id))}
+                  className="ml-auto text-xs font-bold text-zinc-500 hover:text-zinc-700"
+                >
+                  {expandedOrderId === order.id ? 'Hide Items' : 'View Items'}
+                </button>
+              </div>
+
+              {expandedOrderId === order.id && (
+                <div className="mt-3 pt-3 border-t border-zinc-100">
+                  <OrderItems items={order.items || []} />
+                </div>
+              )}
+            </div>
+          ))
         )}
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.08em] bg-slate-50/60">
-              <th className="px-4 py-3.5">Order</th>
-              <th className="px-4 py-3.5">Customer</th>
-              <th className="px-4 py-3.5">Total</th>
-              <th className="px-4 py-3.5">Status</th>
-              <th className="px-4 py-3.5">Date</th>
-              <th className="px-4 py-3.5">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {loading ? (
-              Array.from({ length: compact ? 3 : 5 }).map((_, i) => (
-                <tr key={i}>
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <td key={j} className="px-4 py-4"><div className="h-3.5 bg-slate-100 rounded animate-pulse" /></td>
-                  ))}
-                </tr>
-              ))
-            ) : orders.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-slate-400 text-sm">
-                  <span className="material-symbols-outlined text-4xl mb-2 block">inbox</span>
-                  No orders found
-                </td>
-              </tr>
-            ) : orders.map((order) => (
+    </section>
+  );
+
+  const renderRecentSection = () => (
+    <section className="bg-white rounded-xl border border-zinc-100/70 shadow-sm overflow-hidden">
+      <div className="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between">
+        <h2 className="font-headline text-lg font-bold text-zinc-900">Recent and Active Orders</h2>
+        <span className="text-[11px] text-zinc-500">Track preparation, dispatch, and delivery</span>
+      </div>
+
+      <div className="divide-y divide-zinc-100">
+        {recentOrders.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500">No accepted/recent orders yet.</div>
+        ) : (
+          recentOrders.map((order) => {
+            const status = order.status;
+            const needsAgentAssignment = status === 'preparing' || status === 'confirmed';
+            const chosenAgent = selectedAgentByOrder[order.id] || '';
+
+            return (
               <Fragment key={order.id}>
-                <tr key={order.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer" onClick={() => {
-                  const nextExpanded = expandedOrder === order.id ? null : order.id;
-                  setExpandedOrder(nextExpanded);
-                  if (nextExpanded === order.id) fetchAgentsForOrder(order.id);
-                }}>
-                  <td className="px-4 py-4 text-xs font-mono text-slate-600">#{order.order_number}</td>
-                  <td className="px-4 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-full bg-emerald-100 flex items-center justify-center text-[#0d631b] text-[10px] font-bold">
-                        {order.customer_name?.slice(0, 2).toUpperCase() || 'U'}
+                <div className="p-4">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.08em] text-zinc-400 font-bold">Order #{order.order_number}</p>
+                      <p className="text-sm font-semibold text-zinc-900 mt-1">{order.customer_name || 'Customer'}</p>
+                      <p className="text-[11px] text-zinc-500 mt-1">{order.items?.length || 0} items • ₹{Number(order.total_amount || 0).toFixed(2)}</p>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold self-start ${STATUS_STYLES[status] || 'bg-zinc-100 text-zinc-600'}`}>
+                      {formatStatus(status)}
+                    </span>
+                  </div>
+
+                  {needsAgentAssignment && (
+                    <div className="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-100">
+                      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                        <div>
+                          <p className="text-xs font-bold text-zinc-800">Step 2: Assign delivery agent and send pickup request</p>
+                          <p className="text-[11px] text-zinc-500 mt-1">Once assigned, agent receives request directly. No manual in-transit update needed.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => fetchAgentsForOrder(order.id)}
+                          className="px-3 py-1.5 rounded-lg border border-zinc-200 text-[11px] font-bold text-zinc-600 hover:bg-white"
+                        >
+                          Refresh Nearby Agents
+                        </button>
                       </div>
-                      <div>
-                        <span className="text-xs font-semibold text-slate-900 block">{order.customer_name || 'Unknown'}</span>
-                        {order.customer_phone && <span className="text-[11px] text-slate-400">{order.customer_phone}</span>}
+
+                      <div className="mt-3">
+                        <AgentPills
+                          agents={agentsByOrder[order.id] || []}
+                          selectedAgentId={chosenAgent}
+                          onSelect={(agentId) => setSelectedAgentByOrder((prev) => ({ ...prev, [order.id]: agentId }))}
+                        />
+                      </div>
+
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!chosenAgent) {
+                              showToast('Select an agent before sending pickup request.', 'error');
+                              return;
+                            }
+                            runOrderAction(order.id, 'ready_for_pickup', chosenAgent);
+                          }}
+                          disabled={actingOrderId === order.id}
+                          className="px-4 py-2 rounded-lg bg-[#006e2f] text-white text-xs font-bold hover:opacity-90 disabled:opacity-60"
+                        >
+                          Assign Agent and Request Pickup
+                        </button>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-4 py-4 text-xs font-bold text-slate-900">₹{Number(order.total_amount || 0).toFixed(2)}</td>
-                  <td className="px-4 py-4">
-                    <span className={`inline-flex items-center gap-1.5 py-1 px-2.5 rounded-full text-[10px] font-bold ${STATUS_STYLES[order.status] || 'bg-slate-100 text-slate-500'}`}>
-                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                      {order.status?.replace(/_/g, ' ')}
-                    </span>
-                  </td>
-                  <td className="px-4 py-4 text-[11px] text-slate-400">
-                    {order.placed_at ? new Date(order.placed_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                  </td>
-                  <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
-                    {['delivered', 'cancelled'].includes(order.status) ? (
-                      <span className="text-[11px] text-slate-400 italic">Completed</span>
-                    ) : (
-                      <div className="flex flex-col gap-2 min-w-[160px]">
-                        {order.status !== 'in_transit' && (
-                          <button
-                            type="button"
-                            onClick={() => fetchAgentsForOrder(order.id)}
-                            disabled={loadingAgentsByOrder[order.id]}
-                            className="text-[10px] text-left font-bold text-emerald-700 hover:underline disabled:opacity-60"
-                          >
-                            {loadingAgentsByOrder[order.id] ? 'Finding nearest agents...' : 'Find nearest available agent'}
-                          </button>
-                        )}
+                  )}
 
-                        <select
-                          value={selectedAgentByOrder[order.id] || ''}
-                          onChange={(e) => setSelectedAgentByOrder((prev) => ({ ...prev, [order.id]: e.target.value }))}
-                          className="text-[11px] border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#0d631b] bg-white"
-                        >
-                          <option value="">Select nearest agent (for out-for-delivery)</option>
-                          {(agentsByOrder[order.id] || []).map((agent, idx) => (
-                            <option key={agent.id} value={agent.id}>
-                              {(agent.name || 'Agent')}
-                              {idx === 0 ? ' (nearest)' : ''}
-                              {Number.isFinite(agent.distanceToPharmacyKm) ? ` • ${agent.distanceToPharmacyKm}km from pharmacy` : ''}
-                              {Number.isFinite(agent.distanceToCustomerKm) ? ` • ${agent.distanceToCustomerKm}km from customer` : ''}
-                            </option>
-                          ))}
-                        </select>
+                  {status === 'ready_for_pickup' && (
+                    <div className="mt-4 p-3 rounded-xl bg-violet-50 border border-violet-100 text-[12px] text-violet-800 font-medium">
+                      Pickup request sent. Waiting for agent acceptance. Order will automatically move to in transit when accepted.
+                    </div>
+                  )}
 
-                        {selectedAgentByOrder[order.id] && (agentsByOrder[order.id] || []).length > 0 && (
-                          <p className="text-[10px] text-slate-500">
-                            Recommended: {(agentsByOrder[order.id] || [])[0]?.name || 'Nearest available agent'}
-                          </p>
-                        )}
+                  {status === 'in_transit' && (
+                    <div className="mt-4 p-3 rounded-xl bg-cyan-50 border border-cyan-100 text-[12px] text-cyan-800 font-medium">
+                      Delivery is in transit. Track live status from Order Tracking.
+                    </div>
+                  )}
 
-                        <select
-                          value=""
-                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                          className="text-[11px] border border-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#0d631b] bg-white"
-                        >
-                          <option value="" disabled>Update…</option>
-                          {RETAILER_STATUSES.filter(s => s !== order.status).map((s) => (
-                            <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
-                          ))}
-                        </select>
-                      </div>
+                  <div className="mt-3 flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedOrderId((prev) => (prev === order.id ? null : order.id))}
+                      className="text-xs font-bold text-zinc-500 hover:text-zinc-700"
+                    >
+                      {expandedOrderId === order.id ? 'Hide Items' : 'View Items'}
+                    </button>
+                    {status !== 'delivered' && status !== 'cancelled' && (
+                      <button
+                        type="button"
+                        onClick={() => runOrderAction(order.id, 'cancelled')}
+                        disabled={actingOrderId === order.id}
+                        className="text-xs font-bold text-rose-600 hover:text-rose-700 disabled:opacity-60"
+                      >
+                        Cancel Order
+                      </button>
                     )}
-                  </td>
-                </tr>
-                {/* Expanded order items */}
-                {expandedOrder === order.id && order.items?.length > 0 && (
-                  <tr key={`${order.id}-items`}>
-                    <td colSpan={6} className="px-4 py-4 bg-slate-50/50">
-                      <div className="space-y-2">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.08em] mb-2.5">Order Items</p>
-                        {order.items.map((item, idx) => {
-                          const imageUrl = resolveItemImage(item);
-                          return (
-                          <div key={idx} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                            <div className="flex items-center gap-3">
-                              {imageUrl ? (
-                                <img src={imageUrl} alt={item.medicine_name || 'Medicine'} className="w-9 h-9 rounded-lg object-cover bg-white" />
-                              ) : null}
-                              <div>
-                                <p className="text-xs font-semibold text-slate-800">{item.medicine_name}</p>
-                                <p className="text-[11px] text-slate-400">Qty: {item.quantity} × ₹{Number(item.unit_price).toFixed(2)}</p>
-                              </div>
-                            </div>
-                            <span className="text-xs font-bold text-slate-700">₹{Number(item.total_price).toFixed(2)}</span>
-                          </div>
-                          );
-                        })}
-                      </div>
-                    </td>
-                  </tr>
+                  </div>
+                </div>
+
+                {expandedOrderId === order.id && (
+                  <div className="px-4 pb-4 bg-zinc-50/50">
+                    <OrderItems items={order.items || []} />
+                  </div>
                 )}
               </Fragment>
-            ))}
-          </tbody>
-        </table>
+            );
+          })
+        )}
       </div>
-      {!compact && pages > 1 && (
-        <div className="p-4 bg-slate-50/30 flex justify-center">
-          <nav className="flex items-center gap-2">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="w-8 h-8 rounded flex items-center justify-center border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-40">
-              <span className="material-symbols-outlined text-sm">chevron_left</span>
-            </button>
-            {Array.from({ length: pages }, (_, i) => i + 1).map((p) => (
-              <button key={p} onClick={() => setPage(p)} className={`w-8 h-8 rounded flex items-center justify-center font-bold text-xs ${p === page ? 'bg-[#0d631b] text-white' : 'hover:bg-white border border-transparent text-slate-500'}`}>{p}</button>
-            ))}
-            <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page === pages} className="w-8 h-8 rounded flex items-center justify-center border border-slate-200 text-slate-400 hover:bg-white disabled:opacity-40">
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
-            </button>
-          </nav>
-        </div>
-      )}
+    </section>
+  );
+
+  if (loading) {
+    return (
+      <section className="bg-white rounded-xl border border-zinc-100/70 shadow-sm p-5">
+        <p className="text-sm text-zinc-500">Loading orders...</p>
+      </section>
+    );
+  }
+
+  if (compact) {
+    return (
+      <section className="space-y-4">
+        {renderIncomingSection()}
+        {renderRecentSection()}
+      </section>
+    );
+  }
+
+  return (
+    <section className="space-y-5">
+      {renderIncomingSection()}
+      {renderRecentSection()}
     </section>
   );
 }

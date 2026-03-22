@@ -5,20 +5,9 @@ import RetailerOrdersTable from '../components/retailer/RetailerOrdersTable';
 import RetailerFooter from '../components/retailer/RetailerFooter';
 import { useAuth } from '../context/AuthContext';
 import { Navigate, Link } from 'react-router-dom';
-import { useState, useEffect } from 'react';
-import { getRetailerOrders } from '../api/retailer';
 
 export default function RetailerDashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const [pendingOrders, setPendingOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(true);
-
-  useEffect(() => {
-    getRetailerOrders({ page: 1, limit: 4, status: 'placed' })
-      .then(res => setPendingOrders(res.data.orders || []))
-      .catch(console.error)
-      .finally(() => setLoadingOrders(false));
-  }, []);
 
   if (authLoading) return null;
   if (!user || user.role !== 'retailer') return <Navigate to="/login" replace />;
@@ -57,66 +46,8 @@ export default function RetailerDashboardPage() {
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           {/* Left 2 Columns */}
           <div className="xl:col-span-2 space-y-6">
-            {/* Inventory Management Table (compact) */}
+            {/* Order workflow snapshot */}
             <RetailerOrdersTable compact />
-
-            {/* Incoming Orders */}
-            <section className="space-y-3.5">
-              <div className="flex items-center gap-3">
-                <h2 className="text-lg font-bold font-headline">Incoming Orders</h2>
-                {pendingOrders.length > 0 && (
-                  <span className="px-2 py-0.5 bg-red-500 text-white text-[10px] font-bold rounded-md">{pendingOrders.length} NEW</span>
-                )}
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {loadingOrders ? (
-                  Array.from({ length: 2 }).map((_, i) => (
-                    <div key={i} className="bg-white p-5 rounded-xl border-l-4 border-zinc-200 shadow-sm animate-pulse">
-                      <div className="h-4 w-32 bg-zinc-100 rounded mb-3" />
-                      <div className="h-5 w-40 bg-zinc-100 rounded mb-4" />
-                      <div className="h-3 w-48 bg-zinc-100 rounded mb-4" />
-                      <div className="flex gap-2">
-                        <div className="h-9 flex-1 bg-zinc-100 rounded-lg" />
-                        <div className="h-9 w-20 bg-zinc-100 rounded-lg" />
-                      </div>
-                    </div>
-                  ))
-                ) : pendingOrders.length === 0 ? (
-                  <div className="col-span-2 bg-white p-8 rounded-xl text-center text-zinc-400 shadow-sm">
-                    <span className="material-symbols-outlined text-3xl mb-2 block">inbox</span>
-                    <p className="font-semibold">No pending orders</p>
-                    <p className="text-sm">New orders will appear here when placed</p>
-                  </div>
-                ) : pendingOrders.map((order) => (
-                  <div key={order.id} className="bg-white p-4 rounded-xl border-l-4 border-[#006e2f] shadow-sm hover:shadow-md transition-all">
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase mb-1" style={{ letterSpacing: '0.05em' }}>
-                          Order #{order.order_number}
-                        </p>
-                        <h4 className="font-semibold text-sm text-[#191c1d]">{order.customer_name || 'Customer'}</h4>
-                      </div>
-                      <span className="px-2 py-1 bg-[#f3f4f5] text-zinc-600 text-[10px] font-bold rounded">
-                        {order.status?.toUpperCase().replace(/_/g, ' ')}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-zinc-500 mb-3.5">
-                      {order.items?.length || 0} Items: {order.items?.slice(0, 2).map(i => i.medicine_name).join(', ') || 'View details'}
-                      {(order.items?.length || 0) > 2 ? '...' : ''}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#191c1d]">₹{Number(order.total_amount || 0).toFixed(2)}</span>
-                      <Link
-                        to="/retailer/orders"
-                        className="px-3.5 py-1.5 bg-[#006e2f] text-white text-[11px] font-bold rounded-lg hover:opacity-90 transition-opacity"
-                      >
-                        View & Manage
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
           </div>
 
           {/* Right Sidebar — AI Column */}
