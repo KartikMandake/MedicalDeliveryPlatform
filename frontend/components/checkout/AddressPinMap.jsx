@@ -1,18 +1,12 @@
-import { Icon } from 'leaflet';
+import { divIcon } from 'leaflet';
 import { MapContainer, Marker, TileLayer, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-const pinIcon = new Icon({
-  iconUrl: markerIcon,
-  iconRetinaUrl: markerIcon2x,
-  shadowUrl: markerShadow,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+const pinIcon = divIcon({
+  className: 'checkout-pin-icon',
+  html: '<div style="display:flex;align-items:center;gap:6px"><div style="width:16px;height:16px;border-radius:9999px;background:#dc2626;border:2px solid #fff;box-shadow:0 0 0 6px rgba(239,68,68,0.18)"></div><span style="font-size:11px;font-weight:700;color:#7f1d1d;background:#fff;padding:2px 6px;border-radius:999px;border:1px solid #fecaca">Delivery Pin</span></div>',
+  iconSize: [98, 24],
+  iconAnchor: [12, 12],
 });
 
 function PinOnClick({ onPinChange }) {
@@ -30,7 +24,7 @@ export default function AddressPinMap({ latitude, longitude, onPinChange }) {
   const zoom = hasPinnedLocation ? 16 : 5;
 
   return (
-    <div className="rounded-xl border border-zinc-200 overflow-hidden">
+    <div className="rounded-xl border border-zinc-200 overflow-hidden relative">
       <MapContainer
         key={hasPinnedLocation ? `${latitude}-${longitude}` : 'india-default'}
         center={center}
@@ -44,6 +38,10 @@ export default function AddressPinMap({ latitude, longitude, onPinChange }) {
         <PinOnClick onPinChange={onPinChange} />
         {hasPinnedLocation && <Marker position={[latitude, longitude]} icon={pinIcon} />}
       </MapContainer>
+
+      <div className="absolute top-3 left-3 px-3 py-2 bg-white/95 rounded-lg border border-zinc-200 text-[11px] font-semibold text-zinc-700">
+        {hasPinnedLocation ? 'Delivery location pinned' : 'Tap map to drop delivery pin'}
+      </div>
     </div>
   );
 }

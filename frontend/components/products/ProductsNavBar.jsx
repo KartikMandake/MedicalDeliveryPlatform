@@ -34,9 +34,10 @@ export default function ProductsNavBar() {
   };
 
   const pathname = location.pathname;
-  const isHomePage = pathname === '/';
-  const isProductsPage = pathname === '/products';
-  const isOrdersPage = pathname === '/orders' || pathname === '/tracking';
+  const isHomePage = pathname === '/dashboard' || pathname === '/home' || pathname === '/';
+  const isProductsPage = pathname === '/products' || pathname.startsWith('/products/');
+  const isOrdersPage = pathname === '/orders' || pathname === '/tracking' || pathname === '/upload';
+  const isHelpPage = pathname === '/help';
   const isCartPage = pathname === '/cart';
 
   const navLinkClass = (active) => (
@@ -51,10 +52,10 @@ export default function ProductsNavBar() {
         <div className="flex items-center gap-8">
           <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MediFlow</span>
           <nav className="hidden md:flex items-center gap-6 font-headline text-sm font-medium tracking-tight">
-            <Link className={navLinkClass(isHomePage)} to="/">Home</Link>
+            <Link className={navLinkClass(isHomePage)} to="/dashboard">Home</Link>
             <Link className={navLinkClass(isProductsPage)} to="/products">Categories</Link>
             <Link className={navLinkClass(isOrdersPage)} to="/orders">Orders</Link>
-            <a className="text-zinc-500 hover:text-zinc-900 transition-all duration-200 px-2 py-1" href="#">Help</a>
+            <Link className={navLinkClass(isHelpPage)} to="/help">Help</Link>
           </nav>
         </div>
         <div className="flex items-center gap-4">

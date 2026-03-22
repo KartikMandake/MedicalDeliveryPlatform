@@ -7,9 +7,9 @@ const {
 	updateProduct,
 	deleteProduct,
 } = require('../controllers/productController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, optionalProtect } = require('../middleware/auth');
 
-router.get('/', getProducts);
+router.get('/', optionalProtect, getProducts);
 router.get('/filters', getProductFilters);
 router.get('/:id', getProduct);
 router.post('/', protect, authorize('retailer', 'admin'), createProduct);

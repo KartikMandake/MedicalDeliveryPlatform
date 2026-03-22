@@ -12,6 +12,7 @@ const ProductDetailsPage = lazy(() => import('./pages/ProductDetailsPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
 const CheckoutPage = lazy(() => import('./pages/CheckoutPage'));
 const OrdersPage = lazy(() => import('./pages/OrdersPage'));
+const HelpPage = lazy(() => import('./pages/HelpPage'));
 const TrackingPage = lazy(() => import('./pages/TrackingPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const AgentDashboardPage = lazy(() => import('./pages/AgentDashboardPage'));
@@ -64,6 +65,7 @@ function RouteTitleManager() {
       '/cart': 'Cart',
       '/checkout': 'Checkout',
       '/orders': 'Orders',
+      '/help': 'Help',
       '/tracking': 'Tracking',
       '/dashboard': 'Dashboard',
       '/agent': 'Agent Dashboard',
@@ -110,6 +112,7 @@ function App() {
                   <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />
                   <Route path="/checkout" element={<ErrorBoundary><CheckoutPage /></ErrorBoundary>} />
                   <Route path="/orders" element={<ErrorBoundary><OrdersPage /></ErrorBoundary>} />
+                  <Route path="/help" element={<ErrorBoundary><HelpPage /></ErrorBoundary>} />
                   <Route path="/tracking" element={<ErrorBoundary><TrackingPage /></ErrorBoundary>} />
                   <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
                   <Route path="/agent" element={<ErrorBoundary><AgentDashboardPage /></ErrorBoundary>} />

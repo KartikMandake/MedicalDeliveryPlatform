@@ -5,7 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
-export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onFiltersChange }) {
+export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onFiltersChange, userLocation, locationStatus }) {
   const [products, setProducts] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -28,6 +28,24 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
   };
 
   useEffect(() => {
+    if (locationStatus === 'loading') {
+      setLoading(true);
+      return;
+    }
+
+    const lat = Number(userLocation?.lat);
+    const lng = Number(userLocation?.lng);
+    const hasLocation = Number.isFinite(lat) && Number.isFinite(lng);
+
+    if (!hasLocation) {
+      setProducts([]);
+      setTotal(0);
+      if (onTotalPages) onTotalPages(1);
+      setLoadError('Location is required to show nearby stock (within 8 km).');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     const params = {
       ...filters,
@@ -36,6 +54,9 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
       maxPrice: filters.maxPrice,
       categories: (filters.categories || []).join(','),
       brands: (filters.brands || []).join(','),
+      userLat: lat,
+      userLng: lng,
+      radiusKm: 8,
     };
     getProducts(params)
       .then((res) => {
@@ -49,10 +70,10 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
         setProducts([]);
         setTotal(0);
         if (onTotalPages) onTotalPages(1);
-        setLoadError('Unable to reach server. Retrying automatically...');
+          setLoadError(err?.response?.data?.message || 'Unable to reach server. Retrying automatically...');
       })
       .finally(() => setLoading(false));
-  }, [filters, page]);
+        }, [filters, page, userLocation?.lat, userLocation?.lng, locationStatus]);
 
   const handleAdd = async (productId) => {
     if (!user) { window.location.href = '/login'; return; }

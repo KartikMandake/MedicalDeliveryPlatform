@@ -107,6 +107,7 @@ export default function CheckoutPage() {
   const [saveAddress, setSaveAddress] = useState(true);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [addressType, setAddressType] = useState('home');
 
   const itemCount = useMemo(
     () => (cart.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0),
@@ -180,12 +181,18 @@ export default function CheckoutPage() {
 
   const handleSelectSavedAddress = (saved) => {
     setSelectedAddressId(saved.id);
-    setAddress({ ...EMPTY_ADDRESS, ...sanitizeAddress(saved) });
+    const normalized = { ...EMPTY_ADDRESS, ...sanitizeAddress(saved) };
+    setAddress(normalized);
+    const label = String(normalized.label || '').toLowerCase();
+    if (label.includes('work')) setAddressType('work');
+    else if (label.includes('other')) setAddressType('other');
+    else setAddressType('home');
   };
 
   const handleUseNewAddress = () => {
     setSelectedAddressId(null);
     setAddress(EMPTY_ADDRESS);
+    setAddressType('home');
   };
 
   const handlePlaceOrder = async () => {
@@ -200,6 +207,7 @@ export default function CheckoutPage() {
     }
 
     const payloadAddress = sanitizeAddress(address);
+    payloadAddress.label = addressType === 'home' ? 'Home' : addressType === 'work' ? 'Work' : 'Other';
     const validationError = validateAddress(payloadAddress);
     if (validationError) {
       showToast(validationError, 'error');
@@ -257,252 +265,336 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="bg-background min-h-screen text-on-surface font-body">
+    <div className="bg-surface min-h-screen text-on-surface font-body">
       <ProductsNavBar />
 
-      <main className="pt-20 pb-32 px-6 max-w-6xl mx-auto w-full">
-        <header className="mb-8">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Checkout Flow</span>
-          <h1 className="mt-2 text-3xl md:text-4xl font-headline font-extrabold tracking-tight">Secure Checkout</h1>
-          <p className="mt-2 text-sm text-on-surface-variant max-w-2xl">
-            Address is mandatory before payment. You can select a saved address, edit it, or create a new one.
-          </p>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <section className="lg:col-span-8 bg-white rounded-2xl border border-zinc-100 p-6 md:p-8 shadow-[0_10px_30px_rgba(15,23,42,0.06)]">
-            <div className="flex items-center justify-between gap-3 mb-6">
-              <h2 className="text-xl font-headline font-bold">Delivery Address</h2>
-              {loadingAddress && <span className="text-xs text-zinc-500">Checking saved addresses...</span>}
-            </div>
-
-            {addresses.length > 0 && (
-              <div className="mb-5">
-                <p className="text-xs font-bold uppercase tracking-[0.08em] text-zinc-400 mb-2">Saved Addresses</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {addresses.map((saved) => (
-                    <button
-                      key={saved.id}
-                      type="button"
-                      onClick={() => handleSelectSavedAddress(saved)}
-                      className={`text-left rounded-xl border p-3 transition-colors ${selectedAddressId === saved.id ? 'border-primary bg-primary/5' : 'border-zinc-200 hover:bg-zinc-50'}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-zinc-700">{saved.label || 'Address'}</p>
-                        {saved.isDefault && <span className="text-[10px] font-bold text-primary">Default</span>}
-                      </div>
-                      <p className="text-xs text-zinc-600 mt-1 line-clamp-2">{saved.line1}, {saved.city}, {saved.state} - {saved.pincode}</p>
-                    </button>
-                  ))}
+      <main className="max-w-7xl mx-auto pt-24 pb-16 px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+          <div className="lg:col-span-8 space-y-12">
+            <section className="flex items-center justify-between max-w-2xl mx-auto">
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
+                  <span className="material-symbols-outlined text-sm">check</span>
                 </div>
+                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Cart</span>
+              </div>
+              <div className="flex-1 h-px bg-outline-variant/30 mx-4 mt-[-20px]" />
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold ring-4 ring-primary/10">2</div>
+                <span className="text-xs font-label uppercase tracking-widest text-primary font-bold">Address</span>
+              </div>
+              <div className="flex-1 h-px bg-outline-variant/30 mx-4 mt-[-20px]" />
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center font-bold">3</div>
+                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant/50">Payment</span>
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center justify-between mb-6 gap-3">
+                <h2 className="text-2xl font-headline font-extrabold tracking-tight">Saved Addresses</h2>
+                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant/70">Step 2 of 3</span>
+              </div>
+
+              {loadingAddress && <p className="text-xs text-zinc-500 mb-4">Checking saved addresses...</p>}
+
+              {!!addresses.length && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {addresses.map((saved) => {
+                    const selected = selectedAddressId === saved.id;
+                    const savedLabel = String(saved.label || 'Home').toLowerCase();
+                    const chipIcon = savedLabel.includes('work') ? 'work' : savedLabel.includes('other') ? 'location_on' : 'home';
+                    const chipText = savedLabel.includes('work') ? 'Work' : savedLabel.includes('other') ? 'Other' : 'Home';
+
+                    return (
+                      <button
+                        key={saved.id}
+                        type="button"
+                        onClick={() => handleSelectSavedAddress(saved)}
+                        className={`relative text-left p-6 rounded-xl border transition-all ${selected ? 'bg-surface-container-lowest border-2 border-primary shadow-[0_16px_32px_rgba(0,110,47,0.08)]' : 'bg-surface-container-lowest shadow-[0_8px_24px_rgba(25,28,29,0.04)] hover:bg-surface-container-low border-transparent'}`}
+                      >
+                        <div className="flex justify-between items-start mb-4">
+                          <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${selected ? 'bg-secondary-container/30' : 'bg-surface-container-high'}`}>
+                            <span className={`material-symbols-outlined text-sm ${selected ? 'text-secondary' : 'text-on-surface-variant'}`}>{chipIcon}</span>
+                            <span className={`text-xs font-bold uppercase tracking-tight ${selected ? 'text-secondary' : 'text-on-surface-variant'}`}>{chipText}</span>
+                          </div>
+                          {selected && (
+                            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                          )}
+                        </div>
+                        <p className={`font-bold text-lg mb-1 ${selected ? 'text-on-surface' : 'text-on-surface-variant/80'}`}>{saved.fullName || 'Recipient'}</p>
+                        <p className={`text-sm leading-relaxed mb-4 ${selected ? 'text-on-surface-variant' : 'text-on-surface-variant/60'}`}>
+                          {saved.line1 || '--'}{saved.line2 ? `, ${saved.line2}` : ''}<br />
+                          {saved.city || '--'}, {saved.state || '--'} {saved.pincode || ''}
+                        </p>
+                        <p className={`text-sm font-medium ${selected ? 'text-on-surface-variant' : 'text-on-surface-variant/60'}`}>{saved.phone || '--'}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={handleUseNewAddress}
+                className="mt-4 text-xs font-semibold text-primary hover:underline"
+              >
+                + Use a new address
+              </button>
+
+              {!loadingAddress && !address.line1 && (
+                <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
+                  No saved address found. Please add your address to continue.
+                </div>
+              )}
+            </section>
+
+            <section className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-outline-variant/10">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <h2 className="text-xl font-headline font-bold">Add New Delivery Address</h2>
                 <button
                   type="button"
-                  onClick={handleUseNewAddress}
-                  className="mt-2 text-xs font-semibold text-primary hover:underline"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/5 text-primary font-bold text-sm hover:bg-primary/10 transition-all border border-primary/20 disabled:opacity-60"
                 >
-                  + Use a new address
+                  <span className="material-symbols-outlined text-lg">my_location</span>
+                  {locating ? 'Detecting...' : 'Use Current Location'}
                 </button>
               </div>
-            )}
 
-            {!loadingAddress && !address.line1 && (
-              <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-                No saved address found. Please add your address to continue.
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Full Name</span>
+                  <input
+                    type="text"
+                    value={address.fullName}
+                    onChange={(e) => handleAddressChange('fullName', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="Enter recipient name"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Phone Number</span>
+                  <input
+                    type="tel"
+                    value={address.phone}
+                    onChange={(e) => handleAddressChange('phone', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="Enter phone number"
+                  />
+                </label>
+                <label className="space-y-2 md:col-span-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">House No / Building</span>
+                  <input
+                    type="text"
+                    value={address.line1}
+                    onChange={(e) => handleAddressChange('line1', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="e.g., Flat 402, Sunshine Residency"
+                  />
+                </label>
+                <label className="space-y-2 md:col-span-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Street / Area</span>
+                  <input
+                    type="text"
+                    value={address.line2}
+                    onChange={(e) => handleAddressChange('line2', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="e.g., Landmark St, Sector 12"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">City</span>
+                  <input
+                    type="text"
+                    value={address.city}
+                    onChange={(e) => handleAddressChange('city', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="Seattle"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">State</span>
+                  <input
+                    type="text"
+                    value={address.state}
+                    onChange={(e) => handleAddressChange('state', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="Washington"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Pincode</span>
+                  <input
+                    type="text"
+                    value={address.pincode}
+                    onChange={(e) => handleAddressChange('pincode', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="98101"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Landmark (Optional)</span>
+                  <input
+                    type="text"
+                    value={address.landmark}
+                    onChange={(e) => handleAddressChange('landmark', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="e.g., Near City Hospital"
+                  />
+                </label>
+
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-2 gap-3">
+                    <p className="text-xs font-semibold text-zinc-600">Pin Exact Location On Map *</p>
+                  </div>
+                  <AddressPinMap
+                    latitude={toNullableNumber(address.lat)}
+                    longitude={toNullableNumber(address.lng)}
+                    onPinChange={handlePinChange}
+                  />
+                  <p className="mt-2 text-[11px] text-zinc-500">
+                    Tap on the map to drop a pin for route optimization and faster delivery assignment.
+                  </p>
+                </div>
+
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Latitude</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={address.lat}
+                    onChange={(e) => handleAddressChange('lat', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="e.g., 47.606200"
+                  />
+                </label>
+                <label className="space-y-2">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Longitude</span>
+                  <input
+                    type="number"
+                    step="any"
+                    value={address.lng}
+                    onChange={(e) => handleAddressChange('lng', e.target.value)}
+                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                    placeholder="e.g., -122.332100"
+                  />
+                </label>
               </div>
-            )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <label className="text-xs font-semibold text-zinc-600">
-                Label
+              <div className="pt-4 mt-2 border-t border-outline-variant/10">
+                <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-4">Address Type</label>
+                <div className="flex flex-wrap gap-4">
+                  {[
+                    { key: 'home', label: 'Home' },
+                    { key: 'work', label: 'Work' },
+                    { key: 'other', label: 'Other' },
+                  ].map((type) => (
+                    <label key={type.key} className="flex items-center gap-3 px-6 py-3 rounded-full bg-surface-container-low cursor-pointer hover:bg-surface-container-high transition-all">
+                      <input
+                        className="w-4 h-4 text-primary focus:ring-primary"
+                        name="address_type"
+                        type="radio"
+                        value={type.key}
+                        checked={addressType === type.key}
+                        onChange={(e) => setAddressType(e.target.value)}
+                      />
+                      <span className="text-sm font-bold">{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-4">
                 <input
-                  type="text"
-                  value={address.label || ''}
-                  onChange={(e) => handleAddressChange('label', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="Home / Office"
+                  className="w-5 h-5 rounded text-primary focus:ring-primary border-outline-variant"
+                  id="save_address"
+                  type="checkbox"
+                  checked={saveAddress}
+                  onChange={(e) => setSaveAddress(e.target.checked)}
                 />
-              </label>
+                <label className="text-sm text-on-surface-variant font-medium" htmlFor="save_address">Save this address for future use</label>
+              </div>
+            </section>
+          </div>
 
-              <label className="text-xs font-semibold text-zinc-600">
-                Full Name *
-                <input
-                  type="text"
-                  value={address.fullName}
-                  onChange={(e) => handleAddressChange('fullName', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
+          <div className="lg:col-span-4">
+            <div className="sticky top-24 space-y-6">
+              <div className="bg-surface-container-lowest p-6 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-outline-variant/5">
+                <h3 className="text-lg font-headline font-extrabold mb-6 tracking-tight">Order Summary</h3>
 
-              <label className="text-xs font-semibold text-zinc-600">
-                Phone *
-                <input
-                  type="text"
-                  value={address.phone}
-                  onChange={(e) => handleAddressChange('phone', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
+                <div className="space-y-4 mb-8">
+                  {(cart.items || []).slice(0, 4).map((item) => (
+                    <div key={item.id} className="flex items-center justify-between group">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
+                          <span className="material-symbols-outlined text-xl">medication</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold truncate">{item.name || 'Medicine'}</p>
+                          <p className="text-xs text-on-surface-variant">Qty {item.quantity}{item.brand ? ` • ${item.brand}` : ''}</p>
+                        </div>
+                      </div>
+                      <span className="text-sm font-bold whitespace-nowrap">{formatMoney(item.lineTotal)}</span>
+                    </div>
+                  ))}
+                </div>
 
-              <label className="md:col-span-2 text-xs font-semibold text-zinc-600">
-                Address Line 1 *
-                <input
-                  type="text"
-                  value={address.line1}
-                  onChange={(e) => handleAddressChange('line1', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
+                <div className="space-y-3 pt-6 border-t border-dashed border-outline-variant/50">
+                  <div className="flex justify-between text-sm text-on-surface-variant">
+                    <span>Items</span>
+                    <span className="font-medium">{itemCount}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-on-surface-variant">
+                    <span>Subtotal</span>
+                    <span className="font-medium">{formatMoney(cart.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-on-surface-variant">
+                    <span>Tax</span>
+                    <span className="font-medium">{formatMoney(cart.taxes)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-on-surface-variant">
+                    <span>Delivery Charges</span>
+                    <span className="font-medium text-primary">FREE</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2">
+                    <span className="text-lg font-headline font-bold">Total Price</span>
+                    <span className="text-2xl font-headline font-black text-primary">{formatMoney(cart.total)}</span>
+                  </div>
+                </div>
 
-              <label className="md:col-span-2 text-xs font-semibold text-zinc-600">
-                Address Line 2
-                <input
-                  type="text"
-                  value={address.line2}
-                  onChange={(e) => handleAddressChange('line2', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
+                <div className="mt-8 p-4 bg-primary/5 rounded-xl flex items-start gap-3">
+                  <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
+                  <div>
+                    <p className="text-sm font-bold text-primary">Deliver to {address.city || 'your city'}</p>
+                    <p className="text-xs text-on-secondary-container mt-0.5">Estimated arrival: Today, before 8:00 PM</p>
+                  </div>
+                </div>
 
-              <label className="text-xs font-semibold text-zinc-600">
-                City *
-                <input
-                  type="text"
-                  value={address.city}
-                  onChange={(e) => handleAddressChange('city', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
-
-              <label className="text-xs font-semibold text-zinc-600">
-                State *
-                <input
-                  type="text"
-                  value={address.state}
-                  onChange={(e) => handleAddressChange('state', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
-
-              <label className="text-xs font-semibold text-zinc-600">
-                Pincode *
-                <input
-                  type="text"
-                  value={address.pincode}
-                  onChange={(e) => handleAddressChange('pincode', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
-
-              <label className="text-xs font-semibold text-zinc-600">
-                Landmark
-                <input
-                  type="text"
-                  value={address.landmark}
-                  onChange={(e) => handleAddressChange('landmark', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </label>
-
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-2 gap-3">
-                  <p className="text-xs font-semibold text-zinc-600">Pin Exact Location On Map *</p>
+                <div className="mt-8 space-y-4">
                   <button
                     type="button"
-                    onClick={handleUseCurrentLocation}
-                    disabled={locating}
-                    className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[11px] font-bold bg-zinc-100 text-zinc-700 hover:bg-zinc-200 disabled:opacity-60"
+                    onClick={handlePlaceOrder}
+                    disabled={placingOrder || loadingAddress || !cart.items?.length}
+                    className="w-full py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-white font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-[0_8px_24px_rgba(25,28,29,0.04)] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    <span className="material-symbols-outlined text-sm">my_location</span>
-                    {locating ? 'Detecting...' : 'Use my current location'}
+                    {placingOrder ? 'Processing payment...' : 'Proceed to Payment'}
                   </button>
+                  <Link to="/cart" className="block w-full text-center text-sm font-bold text-on-surface-variant hover:text-primary transition-colors py-2">
+                    Back to Cart
+                  </Link>
                 </div>
-                <AddressPinMap
-                  latitude={toNullableNumber(address.lat)}
-                  longitude={toNullableNumber(address.lng)}
-                  onPinChange={handlePinChange}
-                />
-                <p className="mt-2 text-[11px] text-zinc-500">
-                  Tap on the map to drop a pin for route optimization and faster delivery assignment.
+              </div>
+
+              <div className="bg-surface-container-low p-4 rounded-xl flex items-center gap-3">
+                <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant/60 leading-tight">
+                  HIPAA Compliant and Secure Checkout Environment
                 </p>
               </div>
-
-              <label className="text-xs font-semibold text-zinc-600">
-                Latitude *
-                <input
-                  type="number"
-                  step="any"
-                  value={address.lat}
-                  onChange={(e) => handleAddressChange('lat', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="e.g. 28.613939"
-                />
-              </label>
-
-              <label className="text-xs font-semibold text-zinc-600">
-                Longitude *
-                <input
-                  type="number"
-                  step="any"
-                  value={address.lng}
-                  onChange={(e) => handleAddressChange('lng', e.target.value)}
-                  className="mt-1 w-full rounded-xl border border-zinc-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                  placeholder="e.g. 77.209021"
-                />
-              </label>
             </div>
-
-            <label className="mt-4 inline-flex items-center gap-2 text-xs text-zinc-600 font-semibold">
-              <input
-                type="checkbox"
-                checked={saveAddress}
-                onChange={(e) => setSaveAddress(e.target.checked)}
-                className="rounded border-zinc-300 text-primary focus:ring-primary/30"
-              />
-              Save this address and use it next time
-            </label>
-          </section>
-
-          <aside className="lg:col-span-4 bg-white rounded-2xl border border-zinc-100 p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] sticky top-24">
-            <h3 className="text-lg font-headline font-bold">Order Summary</h3>
-
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Items</span>
-                <span className="font-semibold">{itemCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Subtotal</span>
-                <span className="font-semibold">{formatMoney(cart.subtotal)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Tax</span>
-                <span className="font-semibold">{formatMoney(cart.taxes)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Delivery</span>
-                <span className="font-semibold text-primary">FREE</span>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-zinc-100 flex justify-between items-center">
-              <span className="font-bold">Total</span>
-              <span className="text-xl font-extrabold text-primary">{formatMoney(cart.total)}</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handlePlaceOrder}
-              disabled={placingOrder || loadingAddress || !cart.items?.length}
-              className="mt-6 w-full rounded-full px-4 py-3 bg-primary text-white text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed hover:opacity-95"
-            >
-              {placingOrder ? 'Processing payment...' : 'Pay & Place Order'}
-            </button>
-
-            <Link to="/cart" className="mt-3 inline-flex w-full items-center justify-center gap-1 text-xs font-semibold text-zinc-500 hover:text-zinc-700">
-              <span className="material-symbols-outlined text-base">arrow_back</span>
-              Back to cart
-            </Link>
-          </aside>
+          </div>
         </div>
       </main>
 

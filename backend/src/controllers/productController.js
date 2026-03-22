@@ -2,6 +2,37 @@ const { Op, QueryTypes } = require('sequelize');
 const Product = require('../models/Product');
 const sequelize = require('../db');
 
+async function resolveUserLocation(req) {
+  const queryLat = Number(req.query?.userLat);
+  const queryLng = Number(req.query?.userLng);
+  if (Number.isFinite(queryLat) && Number.isFinite(queryLng)) {
+    return { lat: queryLat, lng: queryLng, source: 'query' };
+  }
+
+  if (!req.user?.id) return null;
+
+  const rows = await sequelize.query(
+    `
+    SELECT lat, lng
+    FROM user_addresses
+    WHERE user_id = :userId
+      AND lat IS NOT NULL
+      AND lng IS NOT NULL
+    ORDER BY is_default DESC, updated_at DESC
+    LIMIT 1
+    `,
+    {
+      type: QueryTypes.SELECT,
+      replacements: { userId: req.user.id },
+    }
+  );
+
+  const lat = Number(rows[0]?.lat);
+  const lng = Number(rows[0]?.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  return { lat, lng, source: 'default-address' };
+}
+
 exports.getProducts = async (req, res) => {
   try {
     const {
@@ -16,6 +47,7 @@ exports.getProducts = async (req, res) => {
       sort = 'newest',
       page = 1,
       limit = 12,
+      radiusKm = 8,
     } = req.query;
 
     const categoryList = [];
@@ -44,7 +76,37 @@ exports.getProducts = async (req, res) => {
       offset,
     };
 
+    const resolvedLocation = await resolveUserLocation(req);
+    const parsedUserLat = Number(resolvedLocation?.lat);
+    const parsedUserLng = Number(resolvedLocation?.lng);
+    const parsedRadiusKm = Number(radiusKm);
+    const hasUserLocation = Number.isFinite(parsedUserLat) && Number.isFinite(parsedUserLng);
+
     const where = ['m.is_active = TRUE'];
+
+    if (!hasUserLocation) {
+      return res.status(400).json({ message: 'User location is required. Set a default address with map pin or pass userLat/userLng.' });
+    }
+
+    replacements.userLat = parsedUserLat;
+    replacements.userLng = parsedUserLng;
+    replacements.radiusKm = Number.isFinite(parsedRadiusKm) && parsedRadiusKm > 0 ? parsedRadiusKm : 8;
+
+    const nearbyRetailerDistanceSql = `
+      (
+        6371 * ACOS(
+          LEAST(
+            1,
+            GREATEST(
+              -1,
+              COS(RADIANS(:userLat)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lng) - RADIANS(:userLng))
+              + SIN(RADIANS(:userLat)) * SIN(RADIANS(r.lat))
+            )
+          )
+        )
+      )
+    `;
+
     if (search) {
       replacements.search = `%${search}%`;
       where.push('(m.name ILIKE :search OR m.salt_name ILIKE :search OR m.manufacturer ILIKE :search)');
@@ -74,7 +136,11 @@ exports.getProducts = async (req, res) => {
         EXISTS (
           SELECT 1
           FROM inventory i
+          JOIN retailers r ON r.id = i.retailer_id
           WHERE i.medicine_id = m.id
+            AND r.lat IS NOT NULL
+            AND r.lng IS NOT NULL
+            AND ${nearbyRetailerDistanceSql} <= :radiusKm
             AND GREATEST(i.stock_quantity - COALESCE(i.reserved_quantity, 0), 0) > 0
         )
       `);
@@ -109,10 +175,14 @@ exports.getProducts = async (req, res) => {
       LEFT JOIN categories c ON c.id = m.category_id
       LEFT JOIN (
         SELECT
-          medicine_id,
+          i.medicine_id,
           SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
-        FROM inventory
-        GROUP BY medicine_id
+        FROM inventory i
+        JOIN retailers r ON r.id = i.retailer_id
+        WHERE r.lat IS NOT NULL
+          AND r.lng IS NOT NULL
+          AND ${nearbyRetailerDistanceSql} <= :radiusKm
+        GROUP BY i.medicine_id
       ) inv ON inv.medicine_id = m.id
       WHERE ${whereSql}
       ORDER BY ${orderBy}

@@ -21,4 +21,22 @@ const authorize = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { protect, authorize };
+const optionalProtect = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    req.user = null;
+    return next();
+  }
+
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    req.user = await User.findByPk(decoded.id, { attributes: { exclude: ['password'] } });
+    return next();
+  } catch {
+    req.user = null;
+    return next();
+  }
+};
+
+module.exports = { protect, authorize, optionalProtect };

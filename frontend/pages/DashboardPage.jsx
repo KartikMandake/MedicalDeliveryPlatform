@@ -104,6 +104,8 @@ export default function DashboardPage() {
         if (!mounted) return;
         const fetchedProducts = Array.isArray(productsRes.data?.items)
           ? productsRes.data.items
+          : Array.isArray(productsRes.data?.products)
+            ? productsRes.data.products
           : Array.isArray(productsRes.data)
             ? productsRes.data
             : [];

@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import ProductsNavBar from '../components/products/ProductsNavBar';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
@@ -11,7 +12,7 @@ function formatMoney(value) {
 
 export default function UploadPage() {
   const { user, loading } = useAuth();
-  const { itemCount, fetchCart } = useCart();
+  const { fetchCart } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
@@ -21,8 +22,6 @@ export default function UploadPage() {
   const [previewUrl, setPreviewUrl] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [result, setResult] = useState(null);
-
-  const displayName = user?.name || 'Customer';
 
   const matchedItems = useMemo(() => {
     const items = Array.isArray(result?.items) ? result.items : [];
@@ -76,8 +75,6 @@ export default function UploadPage() {
     onFilePicked(file);
   };
 
-  const activeOrderNavClass = 'text-zinc-500 hover:text-zinc-900 transition-all duration-200';
-
   if (loading) return null;
   if (!user) return <Navigate to="/login" replace />;
   if (user.role !== 'user') {
@@ -89,28 +86,7 @@ export default function UploadPage() {
 
   return (
     <div className="bg-surface font-body text-on-surface antialiased min-h-screen">
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl shadow-sm">
-        <div className="flex justify-between items-center w-full px-6 py-3 max-w-screen-2xl mx-auto">
-          <div className="flex items-center gap-8">
-            <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MediFlow</span>
-            <div className="hidden md:flex gap-6 font-headline text-sm font-medium tracking-tight">
-              <Link className={activeOrderNavClass} to="/dashboard">Home</Link>
-              <Link className={activeOrderNavClass} to="/products">Categories</Link>
-              <Link className={activeOrderNavClass} to="/orders">Orders</Link>
-              <Link className={activeOrderNavClass} to="/tracking">Help</Link>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            <button type="button" onClick={() => navigate('/cart')} className="relative p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all">
-              <span className="material-symbols-outlined">shopping_cart</span>
-              <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-primary text-[10px] text-white flex items-center justify-center rounded-full font-bold">{itemCount}</span>
-            </button>
-            <button type="button" onClick={() => showToast('No new notifications.', 'info')} className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all"><span className="material-symbols-outlined">notifications</span></button>
-            <div className="w-8 h-8 rounded-full bg-zinc-900 text-white flex items-center justify-center text-xs font-bold">{(displayName[0] || 'U').toUpperCase()}</div>
-          </div>
-        </div>
-        <div className="bg-zinc-100/50 h-[1px]" />
-      </nav>
+      <ProductsNavBar />
 
       <main className="pt-24 pb-32 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
         <section className="lg:col-span-7 space-y-12">
@@ -309,7 +285,7 @@ export default function UploadPage() {
             <span className="material-symbols-outlined">description</span>
             <span className="text-[10px] font-bold uppercase tracking-widest font-headline mt-1">Upload</span>
           </Link>
-          <Link className="flex flex-col items-center justify-center text-zinc-400 active:scale-90 transition-transform duration-200" to="/tracking">
+          <Link className="flex flex-col items-center justify-center text-zinc-400 active:scale-90 transition-transform duration-200" to="/help">
             <span className="material-symbols-outlined">contact_support</span>
             <span className="text-[10px] font-bold uppercase tracking-widest font-headline mt-1">Help</span>
           </Link>

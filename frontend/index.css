@@ -66,8 +66,16 @@
     box-shadow: 0 12px 32px -4px rgba(25, 28, 30, 0.06);
   }
   .glass-nav {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background-color: rgba(255, 255, 255, 0.72);
+    backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid rgba(188, 203, 185, 0.35);
+  }
+
+  @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .glass-nav {
+      background-color: rgba(255, 255, 255, 0.95);
+    }
   }
   .tonal-card {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
