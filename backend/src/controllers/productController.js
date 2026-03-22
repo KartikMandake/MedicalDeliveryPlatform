@@ -29,8 +29,42 @@ async function resolveUserLocation(req) {
 
   const lat = Number(rows[0]?.lat);
   const lng = Number(rows[0]?.lng);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return { lat, lng, source: 'default-address' };
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return { lat, lng, source: 'default-address' };
+  }
+
+  const orderRows = await sequelize.query(
+    `
+    SELECT
+      CASE
+        WHEN (delivery_address->>'lat') ~ '^[-+]?[0-9]*\\.?[0-9]+$'
+          THEN (delivery_address->>'lat')::double precision
+        ELSE NULL
+      END AS lat,
+      CASE
+        WHEN (delivery_address->>'lng') ~ '^[-+]?[0-9]*\\.?[0-9]+$'
+          THEN (delivery_address->>'lng')::double precision
+        ELSE NULL
+      END AS lng
+    FROM orders
+    WHERE user_id = :userId
+      AND delivery_address IS NOT NULL
+    ORDER BY placed_at DESC
+    LIMIT 1
+    `,
+    {
+      type: QueryTypes.SELECT,
+      replacements: { userId: req.user.id },
+    }
+  );
+
+  const orderLat = Number(orderRows[0]?.lat);
+  const orderLng = Number(orderRows[0]?.lng);
+  if (Number.isFinite(orderLat) && Number.isFinite(orderLng)) {
+    return { lat: orderLat, lng: orderLng, source: 'latest-order-address' };
+  }
+
+  return null;
 }
 
 exports.getProducts = async (req, res) => {
