@@ -128,7 +128,7 @@ export default function RetailerTopNav() {
           >
             <span className="material-symbols-outlined">location_on</span>
           </button>
-          <div className="flex items-center gap-3 pl-4 ml-4 border-l border-[#e1e3e4]">
+          <Link to="/retailer/profile" className="flex items-center gap-3 pl-4 ml-4 border-l border-[#e1e3e4] hover:opacity-80 transition-opacity">
             <div className="text-right block">
               <p className="text-xs font-bold font-headline text-[#191c1d] max-w-[140px] truncate">{displayName}</p>
               <p className="text-[10px] text-zinc-500 uppercase" style={{ letterSpacing: '0.05em' }}>Premium Partner</p>
@@ -136,7 +136,7 @@ export default function RetailerTopNav() {
             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#006e2f] to-[#22c55e] flex items-center justify-center text-white font-bold text-sm ring-2 ring-[#006e2f]/10">
               {displayInitials}
             </div>
-          </div>
+          </Link>
         </div>
         </div>
       </header>

@@ -24,7 +24,9 @@ const UploadPage = lazy(() => import('./pages/UploadPage'));
 const RetailerDashboardPage = lazy(() => import('./pages/RetailerDashboardPage'));
 const RetailerOrdersPage = lazy(() => import('./pages/RetailerOrdersPage'));
 const RetailerInventoryPage = lazy(() => import('./pages/RetailerInventoryPage'));
+const RetailerProfilePage = lazy(() => import('./pages/RetailerProfilePage'));
 const PatientProfilePage = lazy(() => import('./pages/PatientProfilePage'));
+const AgentProfilePage = lazy(() => import('./pages/AgentProfilePage'));
 
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -78,6 +80,8 @@ function RouteTitleManager() {
       '/retailer/dashboard': 'Retailer Dashboard',
       '/retailer/orders': 'Retailer Orders',
       '/retailer/inventory': 'Retailer Inventory',
+      '/retailer/profile': 'Store Profile',
+      '/agent/profile': 'Agent Profile',
       '/profile': 'My Profile',
     };
 
@@ -127,6 +131,9 @@ function App() {
                   <Route path="/retailer/dashboard" element={<ErrorBoundary><RetailerDashboardPage /></ErrorBoundary>} />
                   <Route path="/retailer/orders" element={<ErrorBoundary><RetailerOrdersPage /></ErrorBoundary>} />
                   <Route path="/retailer/inventory" element={<ErrorBoundary><RetailerInventoryPage /></ErrorBoundary>} />
+                  <Route path="/retailer/profile" element={<ErrorBoundary><RetailerProfilePage /></ErrorBoundary>} />
+                  {/* Agent routes improvements */}
+                  <Route path="/agent/profile" element={<ErrorBoundary><AgentProfilePage /></ErrorBoundary>} />
                   {/* Patient profile */}
                   <Route path="/profile" element={<ErrorBoundary><PatientProfilePage /></ErrorBoundary>} />
                 </Routes>

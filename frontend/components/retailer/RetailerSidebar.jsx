@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { to: '/retailer/dashboard', icon: 'dashboard', label: 'Global Overview', fill: true },
   { to: '/retailer/inventory', icon: 'inventory_2', label: 'Inventory Hub' },
   { to: '/retailer/orders', icon: 'local_shipping', label: 'Order Tracking' },
+  { to: '/retailer/profile', icon: 'person', label: 'Store Profile' },
 ];
 
 export default function RetailerSidebar() {
