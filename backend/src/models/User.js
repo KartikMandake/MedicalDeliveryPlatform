@@ -8,6 +8,7 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING, allowNull: true },
   password: { type: DataTypes.STRING, allowNull: true, field: 'password_hash' },
   phone: { type: DataTypes.STRING, allowNull: false, defaultValue: '' },
+  address: { type: DataTypes.TEXT, allowNull: true, defaultValue: '' },
   role: { type: DataTypes.ENUM('user', 'retailer', 'agent', 'admin'), defaultValue: 'user' },
   status: { type: DataTypes.ENUM('active', 'suspended', 'pending_kyc'), defaultValue: 'active' },
   fcmToken: { type: DataTypes.TEXT, field: 'fcm_token' },

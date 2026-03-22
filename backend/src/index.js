@@ -78,10 +78,19 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }
 
 socketHandler(io);
 
-// Sync models without forcing schema alterations at startup.
+// Sync models then run any needed column migrations before accepting traffic.
 sequelize.sync()
-  .then(() => {
+  .then(async () => {
     console.log('✅ PostgreSQL connected & tables synced');
+
+    // Safe migration: add address column to users table if it doesn't exist
+    try {
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`);
+      console.log('✅ users.address column ready');
+    } catch (err) {
+      console.warn('⚠️  Could not add address column:', err.message);
+    }
+
     const PORT = process.env.PORT || 5000;
     server.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
   })

@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 import { getProducts } from '../api/products';
 import { getMyOrders } from '../api/orders';
+import { updateProfile, reverseGeocode } from '../api/auth';
 
 const ACTIVE_STATUSES = new Set(['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'in_transit']);
 
@@ -89,6 +90,57 @@ export default function DashboardPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [contactOpen, setContactOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [detecting, setDetecting] = useState(false);
+
+  const handleDetectLocation = () => {
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser', 'error');
+      return;
+    }
+    setDetecting(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        try {
+          // Now using our own backend proxy for reliability
+          const res = await reverseGeocode(latitude, longitude);
+          const addressText = res.data?.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+          
+          // Persist to backend and update context
+          const updateRes = await updateProfile({ 
+            name: user.name, 
+            phone: user.phone, 
+            address: addressText 
+          });
+          login(localStorage.getItem('token'), updateRes.data);
+          
+          showToast('Delivery address updated successfully.', 'success');
+        } catch (err) {
+          console.error('Reverse Geocoding Error:', err);
+          showToast('Location detected, but address lookup failed. Please set manually.', 'warning');
+        } finally {
+          setDetecting(false);
+        }
+      },
+      (error) => {
+        setDetecting(false);
+        if (error.code === 1) {
+          showToast('Location permission denied. Please allow location access.', 'error');
+        } else {
+          showToast('Unable to detect location. Please set address in profile.', 'error');
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Auto-detect location on mount if not set
+  useEffect(() => {
+    if (user && !user.address && !detecting) {
+      handleDetectLocation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.address]);
 
   useEffect(() => {
     if (!user || user.role !== 'user') return;
@@ -192,6 +244,22 @@ export default function DashboardPage() {
             <span className="text-xl font-bold tracking-tighter text-zinc-900 font-headline">MediFlow</span>
           </Link>
 
+          <button
+            type="button"
+            onClick={handleDetectLocation}
+            className="hidden xl:flex items-center gap-2 ml-8 px-4 py-2 hover:bg-zinc-100 rounded-2xl transition-all group"
+          >
+            <div className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center group-hover:bg-primary group-hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-sm">{detecting ? 'progress_activity' : 'location_on'}</span>
+            </div>
+            <div className="text-left">
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest leading-none mb-1">Deliver to</p>
+              <p className="text-xs font-bold text-zinc-900 leading-none truncate max-w-[120px]">
+                {user?.address || (detecting ? 'Detecting...' : 'Set Location')}
+              </p>
+            </div>
+          </button>
+
           <form onSubmit={handleSearchSubmit} className="hidden md:flex flex-1 max-w-md mx-8">
             <div className="relative w-full group">
               <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
@@ -220,9 +288,14 @@ export default function DashboardPage() {
             <button className="p-2 hover:bg-zinc-100 rounded-lg transition-all active:scale-95" type="button" onClick={() => showToast('No new notifications.', 'info')}>
               <span className="material-symbols-outlined text-zinc-600">notifications</span>
             </button>
-            <div className="w-10 h-10 rounded-full border-2 border-white shadow-sm overflow-hidden bg-zinc-900 text-white flex items-center justify-center font-bold">
+            <button
+              onClick={() => navigate('/profile')}
+              className="w-10 h-10 rounded-full border-2 border-white shadow-sm overflow-hidden bg-zinc-900 text-white flex items-center justify-center font-bold hover:border-primary hover:ring-2 hover:ring-primary/30 transition-all active:scale-95"
+              title="View Profile"
+              type="button"
+            >
               {(displayName[0] || 'U').toUpperCase()}
-            </div>
+            </button>
           </div>
         </div>
         <div className="bg-zinc-100/50 h-[1px] w-full" />
