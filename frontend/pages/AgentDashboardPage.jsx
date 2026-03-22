@@ -339,10 +339,15 @@ export default function AgentDashboardPage() {
             <span className={`w-2 h-2 rounded-full ${online ? 'bg-[#006e2f] animate-pulse' : 'bg-slate-400'}`} />
             <span className="text-[10px] font-bold tracking-wider uppercase">{online ? 'Online' : 'Offline'}</span>
           </button>
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-900">{user.name || 'Agent'}</p>
-            <p className="text-[10px] text-slate-500">Delivery Partner</p>
-          </div>
+          <NavLink to="/agent/profile" className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer">
+            <div className="text-right hidden sm:block">
+              <p className="text-xs font-bold text-slate-900">{user.name || 'Agent'}</p>
+              <p className="text-[10px] text-slate-500">Delivery Partner</p>
+            </div>
+            <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white text-xs font-bold ring-2 ring-zinc-900/10">
+              {user.name?.[0]?.toUpperCase() || 'A'}
+            </div>
+          </NavLink>
         </div>
       </nav>
 
@@ -357,8 +362,11 @@ export default function AgentDashboardPage() {
           <NavLink to="/agent/performance" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
             <span className="material-symbols-outlined">monitoring</span> Performance
           </NavLink>
-          <NavLink to="/agent/history" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
+          <NavLink to="/agent/history" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive ? 'bg-white text-green-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-100'}`}>
             <span className="material-symbols-outlined">history</span> Transit History
+          </NavLink>
+          <NavLink to="/agent/profile" className={({ isActive }) => `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${isActive ? 'bg-white text-green-600 shadow-sm' : 'text-zinc-500 hover:bg-zinc-100'}`}>
+            <span className="material-symbols-outlined">person</span> My Profile
           </NavLink>
         </nav>
         <div className="mt-auto bg-white p-4 rounded-xl shadow-sm border border-zinc-200/60">

@@ -79,14 +79,15 @@ export default function AgentHistoryPage() {
             <span className="text-green-600 font-semibold border-b-2 border-green-600 font-['Manrope'] text-sm h-16 flex items-center">Transit History</span>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={handleOnlineToggle}
-          className={`flex items-center rounded-full px-3 py-1 gap-2 border ${online ? 'bg-[#f3f4f5] border-[#bccbb9]/40 text-[#3d4a3d]' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
-        >
-          <span className={`w-2 h-2 rounded-full ${online ? 'bg-[#006e2f] animate-pulse' : 'bg-slate-400'}`} />
-          <span className="text-[10px] font-bold tracking-wider uppercase">{online ? 'Online' : 'Offline'}</span>
-        </button>
+        <NavLink to="/agent/profile" className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer">
+          <div className="text-right hidden sm:block">
+            <p className="text-xs font-bold text-slate-900">{user.name || 'Agent'}</p>
+            <p className="text-[10px] text-slate-500">Delivery Partner</p>
+          </div>
+          <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white text-xs font-bold ring-2 ring-zinc-900/10">
+            {user.name?.[0]?.toUpperCase() || 'A'}
+          </div>
+        </NavLink>
       </nav>
 
       <aside className="fixed left-0 top-0 h-full w-64 z-40 bg-zinc-50 pt-20 pb-6 px-4 hidden lg:flex flex-col">
@@ -102,6 +103,9 @@ export default function AgentHistoryPage() {
           </NavLink>
           <NavLink to="/agent/history" className="flex items-center gap-3 px-4 py-3 bg-white text-green-600 rounded-xl shadow-sm text-sm font-medium">
             <span className="material-symbols-outlined">history</span> Transit History
+          </NavLink>
+          <NavLink to="/agent/profile" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
+            <span className="material-symbols-outlined">person</span> My Profile
           </NavLink>
         </nav>
       </aside>

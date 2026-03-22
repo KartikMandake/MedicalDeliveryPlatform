@@ -167,9 +167,29 @@ export default function CheckoutPage() {
 
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        handlePinChange(position.coords.latitude, position.coords.longitude);
-        setLocating(false);
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        handlePinChange(latitude, longitude);
+        
+        try {
+          const { reverseGeocode } = await import('../api/auth');
+          const res = await reverseGeocode(latitude.toFixed(6), longitude.toFixed(6));
+          if (res.data) {
+            setAddress((prev) => ({
+              ...prev,
+              city: res.data.city || prev.city,
+              state: res.data.state || prev.state,
+              pincode: res.data.pincode || prev.pincode,
+              line2: res.data.address || prev.line2, // Use full address as secondary hint if needed
+            }));
+            showToast('Location detected. City, state and pincode updated.', 'success');
+          }
+        } catch (err) {
+          console.error('Reverse Geocoding failed:', err);
+          // Fallback handled, coords already updated
+        } finally {
+          setLocating(false);
+        }
       },
       () => {
         showToast('Unable to detect your location. Please pin manually on the map.', 'error');

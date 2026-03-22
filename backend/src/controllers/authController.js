@@ -81,7 +81,13 @@ exports.reverseGeocode = async (req, res) => {
       headers: { 'User-Agent': 'MediFlow/1.0' },
       timeout: 5000
     });
-    res.json({ address: response.data.display_name });
+    const { display_name, address } = response.data;
+    res.json({
+      address: display_name,
+      city: address.city || address.town || address.village || address.suburb || '',
+      state: address.state || '',
+      pincode: address.postcode || '',
+    });
   } catch (err) {
     res.status(500).json({ message: 'Reverse geocode failed' });
   }
