@@ -4,7 +4,7 @@ import ProductsFooter from '../components/products/ProductsFooter';
 
 export default function HelpPage() {
   return (
-    <div className="bg-background min-h-screen text-on-surface font-body">
+    <div className="bg-background fixed inset-0 overflow-y-auto overflow-x-hidden text-on-surface font-body">
       <ProductsNavBar />
 
       <main className="pt-24 pb-28 px-6 max-w-6xl mx-auto w-full">

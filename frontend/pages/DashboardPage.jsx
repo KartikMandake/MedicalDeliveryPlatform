@@ -79,7 +79,7 @@ function greetingLabel() {
 }
 
 export default function DashboardPage() {
-  const { user, loading } = useAuth();
+  const { user, loading, login } = useAuth();
   const { itemCount, addItem, isAdding } = useCart();
   const { showToast } = useToast();
   const navigate = useNavigate();
@@ -105,15 +105,15 @@ export default function DashboardPage() {
           // Now using our own backend proxy for reliability
           const res = await reverseGeocode(latitude, longitude);
           const addressText = res.data?.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
-          
+
           // Persist to backend and update context
-          const updateRes = await updateProfile({ 
-            name: user.name, 
-            phone: user.phone, 
-            address: addressText 
+          const updateRes = await updateProfile({
+            name: user.name,
+            phone: user.phone,
+            address: addressText
           });
           login(localStorage.getItem('token'), updateRes.data);
-          
+
           showToast('Delivery address updated successfully.', 'success');
         } catch (err) {
           console.error('Reverse Geocoding Error:', err);
@@ -158,9 +158,9 @@ export default function DashboardPage() {
           ? productsRes.data.items
           : Array.isArray(productsRes.data?.products)
             ? productsRes.data.products
-          : Array.isArray(productsRes.data)
-            ? productsRes.data
-            : [];
+            : Array.isArray(productsRes.data)
+              ? productsRes.data
+              : [];
         setProducts(fetchedProducts.slice(0, 6));
         setOrders(Array.isArray(ordersRes.data) ? ordersRes.data : []);
       })
@@ -234,7 +234,7 @@ export default function DashboardPage() {
   const displayName = user?.name || 'Customer';
 
   return (
-    <div className="bg-background font-body text-on-background selection:bg-primary-container selection:text-on-primary-container min-h-screen">
+    <div className="bg-background font-body text-on-background selection:bg-primary-container selection:text-on-primary-container fixed inset-0 overflow-y-auto overflow-x-hidden">
       <nav className="fixed top-0 w-full z-50 glass-nav shadow-sm">
         <div className="flex justify-between items-center w-full px-6 py-3 max-w-screen-2xl mx-auto">
           <Link to="/dashboard" className="flex items-center gap-3">

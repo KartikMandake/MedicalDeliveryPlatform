@@ -10,7 +10,7 @@ export default function CartPage() {
   const totalItems = (cart.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0);
 
   return (
-    <div className="bg-background font-body text-on-surface min-h-screen flex flex-col">
+    <div className="bg-background font-body text-on-surface fixed inset-0 overflow-y-auto overflow-x-hidden flex flex-col">
       <ProductsNavBar />
       <main className="pt-20 pb-32 px-6 max-w-7xl mx-auto w-full flex-grow">
         <header className="mb-12">

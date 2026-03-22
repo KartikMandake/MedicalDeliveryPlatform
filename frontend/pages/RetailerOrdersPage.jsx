@@ -12,7 +12,7 @@ export default function RetailerOrdersPage() {
   if (!user || user.role !== 'retailer') return <Navigate to="/login" replace />;
 
   return (
-    <div className="bg-[#f8f9fa] font-body text-[#191c1d] antialiased min-h-screen">
+    <div className="bg-[#f8f9fa] font-body text-[#191c1d] antialiased fixed inset-0 overflow-y-auto overflow-x-hidden">
       <RetailerTopNav />
       <RetailerSidebar />
 

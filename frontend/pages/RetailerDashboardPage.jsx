@@ -15,7 +15,7 @@ export default function RetailerDashboardPage() {
   const today = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   return (
-    <div className="bg-[#f8f9fa] font-body text-[#191c1d] antialiased min-h-screen">
+    <div className="bg-[#f8f9fa] font-body text-[#191c1d] antialiased fixed inset-0 overflow-y-auto overflow-x-hidden">
       <RetailerTopNav />
       <RetailerSidebar />
 

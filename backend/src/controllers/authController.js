@@ -9,6 +9,7 @@ const signToken = (id) =>
 
 exports.register = async (req, res) => {
   try {
+    console.log('--- REGISTER ATTEMPT ---', req.body);
     const { name, email, password, phone, role, shopName, drugLicense, gstin } = req.body;
     if (!password) return res.status(400).json({ message: 'Password is required' });
     if (!email) return res.status(400).json({ message: 'Email is required' });
@@ -45,10 +46,19 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
+    console.log('--- LOGIN ATTEMPT ---', req.body);
     const { email, password } = req.body;
     const user = await User.findOne({ where: { email } });
-    if (!user || !(await user.comparePassword(password)))
+    if (!user) {
+      console.log('Login failed: User not found for email:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      console.log('Login failed: Password mismatch for email:', email);
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+    console.log('Login successful for email:', email);
     const token = signToken(user.id);
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, phone: user.phone, address: user.address } });
   } catch (err) { res.status(500).json({ message: err.message }); }

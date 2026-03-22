@@ -57,7 +57,7 @@ export default function AgentPerformancePage() {
   if (!user || user.role !== 'agent') return <Navigate to="/login" replace />;
 
   return (
-    <div className="bg-[#f8f9fa] text-[#191c1d] min-h-screen overflow-x-hidden">
+    <div className="bg-[#f8f9fa] text-[#191c1d] fixed inset-0 overflow-y-auto overflow-x-hidden">
       <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-sm shadow-zinc-200/50">
         <div className="flex items-center gap-8">
           <span className="text-xl font-bold tracking-tight text-zinc-900 font-['Manrope']">MediFlow</span>

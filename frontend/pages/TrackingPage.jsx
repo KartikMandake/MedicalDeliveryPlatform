@@ -83,7 +83,7 @@ export default function TrackingPage() {
   };
 
   return (
-    <div className="bg-[#f7f9fc] font-['Inter'] text-[#191c1e] min-h-screen antialiased">
+    <div className="bg-[#f7f9fc] font-['Inter'] text-[#191c1e] fixed inset-0 overflow-y-auto overflow-x-hidden antialiased">
       <ProductsNavBar />
       <main className="pt-20 pb-32 px-6 max-w-7xl mx-auto w-full min-h-screen flex flex-col">
         <div className="w-full py-6 md:py-8 flex-1">

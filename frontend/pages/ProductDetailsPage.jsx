@@ -104,7 +104,7 @@ export default function ProductDetailsPage() {
   };
 
   return (
-    <div className="bg-background min-h-screen flex flex-col text-on-surface font-body">
+    <div className="bg-background fixed inset-0 overflow-y-auto overflow-x-hidden flex flex-col text-on-surface font-body">
       <ProductsNavBar />
 
       <main className="pt-24 pb-16 px-6 max-w-7xl mx-auto w-full flex-1">

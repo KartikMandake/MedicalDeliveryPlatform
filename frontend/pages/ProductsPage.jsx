@@ -82,7 +82,7 @@ export default function ProductsPage() {
   }, []);
 
   return (
-    <>
+    <div className="bg-background font-body text-on-surface fixed inset-0 overflow-y-auto overflow-x-hidden">
       <ProductsNavBar />
       <main className="pt-20 pb-16 px-4 lg:px-5 max-w-screen-2xl mx-auto flex gap-6">
         <div className="flex flex-col lg:flex-row gap-6 w-full">
@@ -106,6 +106,6 @@ export default function ProductsPage() {
         </div>
       </main>
       <ProductsFooter />
-    </>
+    </div>
   );
 }
