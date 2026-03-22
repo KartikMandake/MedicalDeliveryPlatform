@@ -286,6 +286,7 @@ exports.getOrders = async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10));
     const offset = (page - 1) * limit;
     const statusFilter = req.query.status || null;
+    const bucket = req.query.bucket || null;
 
     let whereClause = `
       WHERE EXISTS (
@@ -296,9 +297,28 @@ exports.getOrders = async (req, res) => {
       )
     `;
     const replacements = { retailerId, limit, offset };
+    if (bucket === 'incoming') {
+      whereClause += ` AND o.status IN (:incomingStatuses)`;
+      replacements.incomingStatuses = ['placed', 'confirmed'];
+    } else if (bucket === 'recent_active') {
+      whereClause += ` AND o.status IN (:recentStatuses)`;
+      replacements.recentStatuses = ['packing', 'ready', 'picked_up', 'in_transit', 'delivered', 'cancelled'];
+    }
+
     if (statusFilter) {
-      whereClause += ` AND o.status = :statusFilter`;
-      replacements.statusFilter = mapUiStatusToDb(statusFilter);
+      const statuses = String(statusFilter)
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .map((value) => mapUiStatusToDb(value));
+
+      if (statuses.length === 1) {
+        whereClause += ` AND o.status = :statusFilter`;
+        replacements.statusFilter = statuses[0];
+      } else if (statuses.length > 1) {
+        whereClause += ` AND o.status IN (:statusFilters)`;
+        replacements.statusFilters = statuses;
+      }
     }
 
     const countRows = await sequelize.query(
@@ -354,7 +374,7 @@ exports.getOrders = async (req, res) => {
       items: itemsByOrder[o.id] || [],
     }));
 
-    res.json({ orders: enrichedOrders, total, page, pages: Math.ceil(total / limit) });
+    res.json({ orders: enrichedOrders, total, page, pages: Math.ceil(total / limit), limit });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

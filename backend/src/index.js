@@ -23,12 +23,41 @@ const { socketHandler } = require('./utils/socket');
 const app = express();
 const server = http.createServer(app);
 
+const explicitOrigins = [
+  process.env.CLIENT_URL,
+  process.env.CLIENT_URLS,
+]
+  .filter(Boolean)
+  .flatMap((value) => String(value).split(','))
+  .map((value) => value.trim())
+  .filter(Boolean);
+
+const defaultOrigins = ['http://localhost:5173', 'http://127.0.0.1:5173'];
+const allowedOrigins = [...new Set([...defaultOrigins, ...explicitOrigins])];
+const allowVercelPreviews = String(process.env.ALLOW_VERCEL_PREVIEWS || '').toLowerCase() === 'true';
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (allowedOrigins.includes(origin)) return true;
+  if (allowVercelPreviews && /\.vercel\.app$/i.test(origin)) return true;
+  return false;
+};
+
+const corsOriginHandler = (origin, callback) => {
+  if (isAllowedOrigin(origin)) return callback(null, true);
+  return callback(new Error('Not allowed by CORS'));
+};
+
 const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_URL || 'http://localhost:5173', methods: ['GET', 'POST'] },
+  cors: {
+    origin: corsOriginHandler,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
 });
 
 app.set('io', io);
-app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
+app.use(cors({ origin: corsOriginHandler, credentials: true }));
 app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 

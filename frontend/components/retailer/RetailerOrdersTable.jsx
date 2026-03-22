@@ -43,12 +43,16 @@ function formatStatus(status) {
 
 function AgentPills({ agents = [], selectedAgentId, onSelect }) {
   if (!agents.length) {
-    return <p className="text-[11px] text-zinc-500">No online agents available right now.</p>;
+    return (
+      <div className="rounded-lg border border-dashed border-zinc-200 bg-white p-3">
+        <p className="text-[11px] text-zinc-500">No nearby active agents available right now.</p>
+      </div>
+    );
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {agents.slice(0, 4).map((agent, idx) => {
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+      {agents.slice(0, 6).map((agent, idx) => {
         const selected = selectedAgentId === agent.id;
         const label = agent.name || 'Agent';
         const distance = Number.isFinite(agent.distanceToPharmacyKm)
@@ -56,19 +60,70 @@ function AgentPills({ agents = [], selectedAgentId, onSelect }) {
           : Number.isFinite(agent.distanceToCustomerKm)
             ? `${agent.distanceToCustomerKm} km`
             : 'distance unknown';
+        const activeOrders = Number(agent.activeOrders || 0);
 
         return (
           <button
             key={agent.id}
             type="button"
             onClick={() => onSelect(agent.id)}
-            className={`px-3 py-1.5 rounded-full border text-[11px] font-semibold transition-colors ${selected ? 'bg-[#006e2f] text-white border-[#006e2f]' : 'bg-white text-zinc-600 border-zinc-200 hover:border-[#006e2f]/40'}`}
+            className={`text-left rounded-lg border p-2.5 transition-all ${selected ? 'bg-[#006e2f] text-white border-[#006e2f] shadow-sm shadow-green-900/20' : 'bg-white text-zinc-700 border-zinc-200 hover:border-[#006e2f]/40'}`}
             title={`${label} • ${distance}${idx === 0 ? ' • nearest' : ''}`}
           >
-            {label}{idx === 0 ? ' • nearest' : ''}
+            <p className="text-xs font-bold">
+              {label}
+              {idx === 0 ? ' • nearest' : ''}
+            </p>
+            <p className={`text-[10px] mt-0.5 ${selected ? 'text-white/90' : 'text-zinc-500'}`}>
+              {distance} • {activeOrders} active
+            </p>
           </button>
         );
       })}
+    </div>
+  );
+}
+
+function Pagination({ page, pages, onPageChange }) {
+  if (!pages || pages <= 1) return null;
+
+  const from = Math.max(1, page - 1);
+  const to = Math.min(pages, page + 1);
+  const pageList = [];
+  for (let p = from; p <= to; p += 1) pageList.push(p);
+
+  return (
+    <div className="px-4 py-3 border-t border-zinc-100 bg-zinc-50/60 flex items-center justify-between gap-3">
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.max(1, page - 1))}
+        disabled={page <= 1}
+        className="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-600 disabled:opacity-45 disabled:cursor-not-allowed hover:bg-white"
+      >
+        Previous
+      </button>
+
+      <div className="flex items-center gap-1.5">
+        {pageList.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onPageChange(p)}
+            className={`w-8 h-8 rounded-lg text-xs font-bold ${p === page ? 'bg-[#006e2f] text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:border-[#006e2f]/40'}`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onPageChange(Math.min(pages, page + 1))}
+        disabled={page >= pages}
+        className="px-3 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-zinc-600 disabled:opacity-45 disabled:cursor-not-allowed hover:bg-white"
+      >
+        Next
+      </button>
     </div>
   );
 }
@@ -105,38 +160,99 @@ function OrderItems({ items = [] }) {
 
 export default function RetailerOrdersTable({ compact = false }) {
   const { showToast } = useToast();
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const incomingLimit = compact ? 4 : 6;
+  const recentLimit = compact ? 5 : 8;
+
+  const [incomingPage, setIncomingPage] = useState(1);
+  const [recentPage, setRecentPage] = useState(1);
+  const [incomingOrders, setIncomingOrders] = useState([]);
+  const [incomingTotal, setIncomingTotal] = useState(0);
+  const [incomingPages, setIncomingPages] = useState(1);
+  const [incomingLoading, setIncomingLoading] = useState(true);
+  const [recentOrders, setRecentOrders] = useState([]);
+  const [recentTotal, setRecentTotal] = useState(0);
+  const [recentPages, setRecentPages] = useState(1);
+  const [recentLoading, setRecentLoading] = useState(true);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [actingOrderId, setActingOrderId] = useState('');
   const [agentsByOrder, setAgentsByOrder] = useState({});
   const [selectedAgentByOrder, setSelectedAgentByOrder] = useState({});
 
-  const fetchOrders = async () => {
-    setLoading(true);
+  const fetchIncomingOrders = async (pageToLoad = incomingPage) => {
+    setIncomingLoading(true);
     try {
-      const res = await getRetailerOrders({ page: 1, limit: compact ? 8 : 40 });
-      setOrders(Array.isArray(res.data?.orders) ? res.data.orders : []);
+      const res = await getRetailerOrders({
+        page: pageToLoad,
+        limit: incomingLimit,
+        bucket: 'incoming',
+      });
+      const payload = res.data || {};
+      const loadedOrders = Array.isArray(payload.orders) ? payload.orders : [];
+      const total = Number(payload.total || 0);
+      const pages = Math.max(1, Number(payload.pages || 1));
+
+      if (pageToLoad > pages) {
+        setIncomingPage(pages);
+        return;
+      }
+
+      setIncomingOrders(loadedOrders);
+      setIncomingTotal(total);
+      setIncomingPages(pages);
     } catch (err) {
       showToast(err.response?.data?.message || 'Unable to load retailer orders.', 'error');
     } finally {
-      setLoading(false);
+      setIncomingLoading(false);
     }
   };
 
+  const fetchRecentOrders = async (pageToLoad = recentPage) => {
+    setRecentLoading(true);
+    try {
+      const res = await getRetailerOrders({
+        page: pageToLoad,
+        limit: recentLimit,
+        bucket: 'recent_active',
+      });
+      const payload = res.data || {};
+      const loadedOrders = Array.isArray(payload.orders) ? payload.orders : [];
+      const total = Number(payload.total || 0);
+      const pages = Math.max(1, Number(payload.pages || 1));
+
+      if (pageToLoad > pages) {
+        setRecentPage(pages);
+        return;
+      }
+
+      setRecentOrders(loadedOrders);
+      setRecentTotal(total);
+      setRecentPages(pages);
+    } catch (err) {
+      showToast(err.response?.data?.message || 'Unable to load retailer orders.', 'error');
+    } finally {
+      setRecentLoading(false);
+    }
+  };
+
+  const refreshOrders = async () => {
+    await Promise.all([fetchIncomingOrders(incomingPage), fetchRecentOrders(recentPage)]);
+  };
+
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    fetchIncomingOrders(incomingPage);
+  }, [incomingPage, incomingLimit]);
 
-  const incomingOrders = useMemo(
-    () => orders.filter((order) => order.status === 'placed'),
-    [orders]
-  );
+  useEffect(() => {
+    fetchRecentOrders(recentPage);
+  }, [recentPage, recentLimit]);
 
-  const recentOrders = useMemo(
-    () => orders.filter((order) => order.status !== 'placed'),
-    [orders]
-  );
+  useEffect(() => {
+    recentOrders.forEach((order) => {
+      if (assignableStatuses.has(order.status)) {
+        fetchAgentsForOrder(order.id);
+      }
+    });
+  }, [recentOrders]);
 
   const fetchAgentsForOrder = async (orderId) => {
     if (!orderId || agentsByOrder[orderId]) return;
@@ -168,7 +284,7 @@ export default function RetailerOrdersTable({ compact = false }) {
       } else {
         showToast('Order updated.', 'success');
       }
-      await fetchOrders();
+      await refreshOrders();
     } catch (err) {
       showToast(err.response?.data?.message || 'Failed to update order.', 'error');
     } finally {
@@ -176,24 +292,30 @@ export default function RetailerOrdersTable({ compact = false }) {
     }
   };
 
+  const assignableStatuses = useMemo(() => new Set(['preparing', 'confirmed']), []);
+
   const renderIncomingSection = () => (
-    <section className="bg-white rounded-xl border border-zinc-100/70 shadow-sm overflow-hidden">
-      <div className="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between">
-        <h2 className="font-headline text-lg font-bold text-zinc-900">Incoming Orders</h2>
-        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-[0.08em]">
-          {incomingOrders.length} new
+    <section className="bg-[#ffffff] rounded-xl border border-[#e1e3e4] shadow-sm overflow-hidden">
+      <div className="px-4 py-3.5 border-b border-[#e1e3e4] flex items-center justify-between bg-[#f8f9fa]">
+        <h2 className="font-headline text-lg font-bold text-[#191c1d]">Incoming Orders</h2>
+        <span className="px-2 py-0.5 rounded-md bg-[#ba1a1a] text-white text-[10px] font-bold uppercase tracking-[0.08em]">
+          {incomingTotal} new
         </span>
       </div>
 
       <div className="p-4 space-y-3.5">
-        {incomingOrders.length === 0 ? (
+        {incomingLoading ? (
+          <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-zinc-500">
+            Loading incoming orders...
+          </div>
+        ) : incomingOrders.length === 0 ? (
           <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-zinc-500">
             <span className="material-symbols-outlined text-3xl mb-2 block">inbox</span>
             No new incoming orders.
           </div>
         ) : (
           incomingOrders.map((order) => (
-            <div key={order.id} className="rounded-xl border border-zinc-200 p-4">
+            <div key={order.id} className="rounded-xl border-l-4 border-[#006e2f] border border-zinc-200 p-4 bg-white">
               <div className="flex items-start justify-between gap-3 mb-2.5">
                 <div>
                   <p className="text-[10px] uppercase tracking-[0.08em] text-zinc-400 font-bold">Order #{order.order_number}</p>
@@ -238,23 +360,27 @@ export default function RetailerOrdersTable({ compact = false }) {
           ))
         )}
       </div>
+
+      <Pagination page={incomingPage} pages={incomingPages} onPageChange={setIncomingPage} />
     </section>
   );
 
   const renderRecentSection = () => (
-    <section className="bg-white rounded-xl border border-zinc-100/70 shadow-sm overflow-hidden">
-      <div className="px-4 py-3.5 border-b border-zinc-100 flex items-center justify-between">
-        <h2 className="font-headline text-lg font-bold text-zinc-900">Recent and Active Orders</h2>
-        <span className="text-[11px] text-zinc-500">Track preparation, dispatch, and delivery</span>
+    <section className="bg-[#ffffff] rounded-xl border border-[#e1e3e4] shadow-sm overflow-hidden">
+      <div className="px-4 py-3.5 border-b border-[#e1e3e4] flex items-center justify-between bg-[#f8f9fa]">
+        <h2 className="font-headline text-lg font-bold text-[#191c1d]">Recent and Active Orders</h2>
+        <span className="text-[11px] text-zinc-500">{recentTotal} orders</span>
       </div>
 
       <div className="divide-y divide-zinc-100">
-        {recentOrders.length === 0 ? (
+        {recentLoading ? (
+          <div className="p-8 text-center text-zinc-500">Loading recent and active orders...</div>
+        ) : recentOrders.length === 0 ? (
           <div className="p-8 text-center text-zinc-500">No accepted/recent orders yet.</div>
         ) : (
           recentOrders.map((order) => {
             const status = order.status;
-            const needsAgentAssignment = status === 'preparing' || status === 'confirmed';
+            const needsAgentAssignment = assignableStatuses.has(status);
             const chosenAgent = selectedAgentByOrder[order.id] || '';
 
             return (
@@ -272,11 +398,11 @@ export default function RetailerOrdersTable({ compact = false }) {
                   </div>
 
                   {needsAgentAssignment && (
-                    <div className="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-100">
+                    <div className="mt-4 p-3 rounded-xl bg-[#f3f4f5] border border-[#e1e3e4]">
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div>
                           <p className="text-xs font-bold text-zinc-800">Step 2: Assign delivery agent and send pickup request</p>
-                          <p className="text-[11px] text-zinc-500 mt-1">Once assigned, agent receives request directly. No manual in-transit update needed.</p>
+                          <p className="text-[11px] text-zinc-500 mt-1">Nearby active agents are sorted by distance. Select one and assign instantly.</p>
                         </div>
                         <button
                           type="button"
@@ -357,10 +483,12 @@ export default function RetailerOrdersTable({ compact = false }) {
           })
         )}
       </div>
+
+      <Pagination page={recentPage} pages={recentPages} onPageChange={setRecentPage} />
     </section>
   );
 
-  if (loading) {
+  if (incomingLoading && recentLoading) {
     return (
       <section className="bg-white rounded-xl border border-zinc-100/70 shadow-sm p-5">
         <p className="text-sm text-zinc-500">Loading orders...</p>

@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: mediflow-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DB_SSL
+        value: true
+      - key: ALLOW_VERCEL_PREVIEWS
+        value: true
+      - key: CLIENT_URLS
+        value: https://your-frontend.vercel.app
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: DATABASE_URL
+        fromDatabase:
+          name: mediflow-postgres
+          property: connectionString
+
+databases:
+  - name: mediflow-postgres
+    databaseName: medicaldelivery
+    plan: free

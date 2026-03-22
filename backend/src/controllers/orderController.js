@@ -5,6 +5,13 @@ const { generateOtp } = require('../utils/otp');
 const sequelize = require('../db');
 const { QueryTypes } = require('sequelize');
 
+const normalizeStatusForUi = (status) => {
+  if (status === 'packing') return 'preparing';
+  if (status === 'ready') return 'ready_for_pickup';
+  if (status === 'picked_up') return 'in_transit';
+  return status;
+};
+
 let ensureOrderItemRetailerColumnPromise = null;
 
 async function ensureOrderItemRetailerColumn() {
@@ -381,7 +388,7 @@ exports.getMyOrders = async (req, res) => {
     const payload = orders.map((order) => ({
       id: order.id,
       orderId: order.order_number,
-      status: order.status,
+      status: normalizeStatusForUi(order.status),
       paymentStatus: order.payment_status,
       subtotal: Number(order.subtotal || 0),
       deliveryFee: Number(order.delivery_fee || 0),
@@ -461,7 +468,7 @@ exports.getOrder = async (req, res) => {
       userId: order.user_id,
       agentId: order.agent_id,
       retailerId: order.retailer_id,
-      status: order.status,
+      status: normalizeStatusForUi(order.status),
       paymentStatus: order.payment_status,
       subtotal: Number(order.subtotal || 0),
       deliveryFee: Number(order.delivery_fee || 0),
