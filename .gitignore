@@ -16,6 +16,7 @@ server/.env
 
 # Uploads
 server/uploads/
+Backend/uploads/
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*

@@ -22,6 +22,15 @@ export default function CreateAccountPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!form.name.trim() || !/^[a-zA-Z\s]+$/.test(form.name.trim())) {
+      setError('Name can only contain alphabetic characters and spaces');
+      return;
+    }
+    if (!form.phone || !/^\d{10}$/.test(form.phone.trim())) {
+      setError('Mobile number must be exactly 10 digits');
+      return;
+    }
     if (form.password !== form.confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -30,6 +39,7 @@ export default function CreateAccountPage() {
       setError('Password must be at least 6 characters');
       return;
     }
+
     setLoading(true);
     try {
       const payload = {
@@ -58,10 +68,10 @@ export default function CreateAccountPage() {
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
 
   return (
-    <div className="bg-[#f8f9fa] font-['Inter'] text-[#191c1d] antialiased min-h-screen">
-      <main className="min-h-screen flex flex-col md:flex-row">
+    <div className="bg-[#f8f9fa] font-['Inter'] text-[#191c1d] antialiased fixed inset-0 overflow-hidden flex flex-col">
+      <main className="h-full flex flex-col md:flex-row">
         {/* LEFT — Branding */}
-        <section className="relative hidden md:flex md:w-5/12 lg:w-1/2 flex-col justify-center p-16 overflow-hidden bg-[#006e2f]">
+        <section className="relative hidden md:flex md:w-5/12 lg:w-1/2 flex-col justify-center p-16 h-full overflow-hidden bg-[#006e2f]">
           <div className="absolute inset-0 z-0">
             <img
               alt="Modern clean laboratory interior"
@@ -100,33 +110,32 @@ export default function CreateAccountPage() {
         </section>
 
         {/* RIGHT — Form */}
-        <section className="flex-1 flex flex-col justify-center items-center p-6 md:p-12 lg:p-24 bg-[#f8f9fa]">
-          <div className="w-full max-w-md">
+        <section className="flex-1 flex flex-col items-center p-4 md:p-8 lg:p-12 h-full overflow-y-auto bg-[#f8f9fa]">
+          <div className="w-full max-w-md m-auto py-8">
             {/* Mobile branding */}
-            <div className="flex md:hidden items-center justify-center space-x-2 mb-8">
+            <div className="flex md:hidden items-center justify-center space-x-2 mb-6">
               <span className="material-symbols-outlined text-[#006e2f] text-3xl">clinical_notes</span>
               <span className="font-['Manrope'] font-extrabold text-xl tracking-tight text-[#191c1d]">MediFlow</span>
             </div>
 
-            <div className="mb-10 text-center md:text-left">
-              <h2 className="font-['Manrope'] text-3xl font-bold text-[#191c1d] mb-2">Create Account</h2>
-              <p className="text-[#3d4a3d]">Elevate your medical logistics management.</p>
+            <div className="mb-6 text-center md:text-left">
+              <h2 className="font-['Manrope'] text-2xl md:text-3xl font-bold text-[#191c1d] mb-1">Create Account</h2>
+              <p className="text-[#3d4a3d] text-sm">Elevate your medical logistics management.</p>
             </div>
 
             {/* Portal Selection */}
-            <div className="mb-10">
-              <label className="block font-['Inter'] text-xs font-bold uppercase tracking-widest text-[#3d4a3d] mb-4 px-1">Select Your Access Portal</label>
-              <div className="grid grid-cols-3 gap-3">
+            <div className="mb-6">
+              <label className="block font-['Inter'] text-xs font-bold uppercase tracking-widest text-[#3d4a3d] mb-3 px-1">Select Your Access Portal</label>
+              <div className="grid grid-cols-3 gap-2">
                 {ROLES.map(({ value, label, icon }) => (
                   <button
                     key={value}
                     type="button"
                     onClick={() => setForm({ ...form, role: value })}
-                    className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all duration-200 ${
-                      form.role === value
+                    className={`flex flex-col items-center justify-center py-3 px-2 rounded-xl border-2 transition-all duration-200 ${form.role === value
                         ? 'border-[#006e2f] bg-white shadow-lg'
                         : 'border-transparent bg-[#f3f4f5] hover:bg-[#e7e8e9] text-[#3d4a3d]'
-                    }`}
+                      }`}
                   >
                     <span className={`material-symbols-outlined mb-2 ${form.role === value ? 'text-[#006e2f]' : ''}`}>{icon}</span>
                     <span className="font-['Inter'] text-[10px] font-bold uppercase tracking-tighter">{label}</span>
@@ -139,84 +148,86 @@ export default function CreateAccountPage() {
               <div className="mb-6 p-3 bg-red-50 text-red-600 rounded-xl text-sm font-medium">{error}</div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-name">Full Name</label>
-                <input id="reg-name" type="text" value={form.name} onChange={set('name')} required placeholder="Dr. Julian Vane"
-                  className="w-full px-5 py-4 rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all placeholder:text-[#3d4a3d]/50" />
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-name">Full Name</label>
+                  <input id="reg-name" type="text" value={form.name} onChange={set('name')} required placeholder="Dr. Julian Vane"
+                    className="w-full px-4 py-3 text-sm rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all placeholder:text-[#3d4a3d]/50" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-email">Email Address</label>
+                  <input id="reg-email" type="email" value={form.email} onChange={set('email')} required placeholder="julian@mediflow.io"
+                    className="w-full px-4 py-3 text-sm rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all placeholder:text-[#3d4a3d]/50" />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-email">Email Address</label>
-                <input id="reg-email" type="email" value={form.email} onChange={set('email')} required placeholder="julian@mediflow.io"
-                  className="w-full px-5 py-4 rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all placeholder:text-[#3d4a3d]/50" />
-              </div>
-
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-phone">Phone Number</label>
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-phone">Phone Number</label>
                 <input id="reg-phone" type="tel" value={form.phone} onChange={set('phone')} placeholder="9876543210"
-                  className="w-full px-5 py-4 rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all placeholder:text-[#3d4a3d]/50" />
+                  className="w-full px-4 py-3 text-sm rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all placeholder:text-[#3d4a3d]/50" />
               </div>
 
               {/* Retailer-specific fields */}
               {form.role === 'retailer' && (
-                <div className="space-y-4 p-5 rounded-xl bg-[#22c55e]/5 border border-[#22c55e]/20">
-                  <p className="text-xs font-bold uppercase tracking-widest text-[#006e2f]">Pharmacy Details</p>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-shop">Shop Name</label>
+                <div className="space-y-3 p-4 rounded-xl bg-[#22c55e]/5 border border-[#22c55e]/20">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-[#006e2f]">Pharmacy Details</p>
+                  <div className="space-y-1.5">
+                    <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-shop">Shop Name</label>
                     <input id="reg-shop" type="text" value={form.shopName} onChange={set('shopName')} placeholder="MedCare Pharmacy"
-                      className="w-full px-5 py-4 rounded-xl border-none bg-white focus:ring-2 focus:ring-[#006e2f] transition-all placeholder:text-[#3d4a3d]/50" />
+                      className="w-full px-4 py-2.5 text-sm rounded-xl border-none bg-white focus:ring-2 focus:ring-[#006e2f] transition-all placeholder:text-[#3d4a3d]/50" />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-license">Drug License</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-license">Drug License</label>
                       <input id="reg-license" type="text" value={form.drugLicense} onChange={set('drugLicense')} placeholder="DL-12345"
-                        className="w-full px-5 py-4 rounded-xl border-none bg-white focus:ring-2 focus:ring-[#006e2f] transition-all placeholder:text-[#3d4a3d]/50" />
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border-none bg-white focus:ring-2 focus:ring-[#006e2f] transition-all placeholder:text-[#3d4a3d]/50" />
                     </div>
-                    <div className="space-y-2">
-                      <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-gstin">GSTIN</label>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-gstin">GSTIN</label>
                       <input id="reg-gstin" type="text" value={form.gstin} onChange={set('gstin')} placeholder="22AAAAA0000A1Z5"
-                        className="w-full px-5 py-4 rounded-xl border-none bg-white focus:ring-2 focus:ring-[#006e2f] transition-all placeholder:text-[#3d4a3d]/50" />
+                        className="w-full px-4 py-2.5 text-sm rounded-xl border-none bg-white focus:ring-2 focus:ring-[#006e2f] transition-all placeholder:text-[#3d4a3d]/50" />
                     </div>
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-pass">Password</label>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-pass">Password</label>
                   <input id="reg-pass" type="password" value={form.password} onChange={set('password')} required placeholder="••••••••"
-                    className="w-full px-5 py-4 rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all" />
+                    className="w-full px-4 py-3 text-sm rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all" />
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-semibold text-[#191c1d] px-1" htmlFor="reg-confirm">Confirm Password</label>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-[#191c1d] px-1" htmlFor="reg-confirm">Confirm Password</label>
                   <input id="reg-confirm" type="password" value={form.confirmPassword} onChange={set('confirmPassword')} required placeholder="••••••••"
-                    className="w-full px-5 py-4 rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all" />
+                    className="w-full px-4 py-3 text-sm rounded-xl border-none bg-[#f3f4f5] focus:ring-2 focus:ring-[#006e2f] focus:bg-white transition-all" />
                 </div>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-4 px-6 rounded-full bg-gradient-to-r from-[#006e2f] to-[#22c55e] text-white font-bold text-lg shadow-lg hover:scale-105 active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-60"
+                className="w-full py-3 px-6 rounded-full bg-gradient-to-r from-[#006e2f] to-[#22c55e] text-white font-bold text-base md:text-lg shadow-lg hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-60"
               >
                 <span>{loading ? 'Creating...' : 'Create My Account'}</span>
                 {!loading && <span className="material-symbols-outlined text-xl">arrow_forward</span>}
               </button>
             </form>
 
-            <div className="mt-8 text-center">
-              <p className="text-[#3d4a3d] font-medium">
+            <div className="mt-6 text-center">
+              <p className="text-[#3d4a3d] font-medium text-sm">
                 Already have an account?{' '}
                 <Link to="/login" className="text-[#006e2f] font-bold hover:underline ml-1">Sign In</Link>
               </p>
             </div>
 
             {/* Info Box */}
-            <div className="mt-12 p-6 rounded-xl bg-[#f3f4f5] border border-[#bccbb9]/15">
+            <div className="mt-8 p-4 rounded-xl bg-[#f3f4f5] border border-[#bccbb9]/15">
               <div className="flex items-start space-x-3">
-                <span className="material-symbols-outlined text-[#006e2f] text-xl">verified_user</span>
-                <p className="text-xs text-[#3d4a3d] leading-relaxed">
+                <span className="material-symbols-outlined text-[#006e2f] text-lg">verified_user</span>
+                <p className="text-[10px] md:text-xs text-[#3d4a3d] leading-relaxed">
                   By signing up, you agree to our <a className="text-[#006e2f] hover:underline" href="#">Terms</a> and <a className="text-[#006e2f] hover:underline" href="#">HIPAA Compliance</a> standards. Your data is encrypted and managed under strict clinical privacy protocols.
                 </p>
               </div>
@@ -225,18 +236,10 @@ export default function CreateAccountPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="w-full py-8 border-t border-zinc-200/50 bg-zinc-50">
-        <div className="flex flex-col md:flex-row justify-between items-center px-8 space-y-4 md:space-y-0 max-w-7xl mx-auto">
-          <div className="text-sm font-black text-zinc-900 font-['Manrope'] uppercase tracking-tighter">MediFlow</div>
-          <div className="flex flex-wrap justify-center gap-6">
-            <a className="font-['Inter'] text-xs tracking-wider uppercase text-zinc-400 hover:text-[#006e2f] transition-colors duration-300" href="#">Privacy Policy</a>
-            <a className="font-['Inter'] text-xs tracking-wider uppercase text-zinc-400 hover:text-[#006e2f] transition-colors duration-300" href="#">HIPAA Compliance</a>
-            <a className="font-['Inter'] text-xs tracking-wider uppercase text-zinc-400 hover:text-[#006e2f] transition-colors duration-300" href="#">Terms of Service</a>
-            <a className="font-['Inter'] text-xs tracking-wider uppercase text-zinc-400 hover:text-[#006e2f] transition-colors duration-300" href="#">Security</a>
-          </div>
-          <div className="font-['Inter'] text-xs tracking-wider text-zinc-400 uppercase">© 2024 MediFlow Intelligence. All rights reserved.</div>
-        </div>
+      {/* Footer - Only visible on really large screens or fixed at bottom */}
+      <footer className="fixed bottom-0 right-0 w-full lg:w-1/2 py-4 px-8 flex justify-between items-center pointer-events-none z-50">
+        <div className="text-[10px] font-black text-zinc-900/40 font-['Manrope'] uppercase tracking-tighter">MediFlow</div>
+        <div className="font-['Inter'] text-[10px] tracking-wider text-zinc-400/80 uppercase">© 2024</div>
       </footer>
     </div>
   );

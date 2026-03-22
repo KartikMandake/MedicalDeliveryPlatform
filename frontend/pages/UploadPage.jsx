@@ -85,7 +85,7 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="bg-surface font-body text-on-surface antialiased min-h-screen">
+    <div className="bg-surface font-body text-on-surface antialiased fixed inset-0 overflow-y-auto overflow-x-hidden">
       <ProductsNavBar />
 
       <main className="pt-24 pb-32 px-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">

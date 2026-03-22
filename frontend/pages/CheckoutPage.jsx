@@ -265,7 +265,7 @@ export default function CheckoutPage() {
   };
 
   return (
-    <div className="bg-surface min-h-screen text-on-surface font-body">
+    <div className="bg-surface fixed inset-0 overflow-y-auto overflow-x-hidden text-on-surface font-body">
       <ProductsNavBar />
 
       <main className="max-w-7xl mx-auto pt-24 pb-16 px-8">

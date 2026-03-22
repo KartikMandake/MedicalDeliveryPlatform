@@ -6,7 +6,7 @@ import PaymentsLiveStatus from '../components/payments/PaymentsLiveStatus';
 
 export default function PaymentsPage() {
   return (
-    <div className="bg-[#f7f9fc] text-[#191c1e] min-h-screen flex">
+    <div className="bg-[#f7f9fc] text-[#191c1e] fixed inset-0 overflow-y-auto overflow-x-hidden flex">
       <PaymentsSidebar />
       <main className="flex-1 ml-72 min-h-screen relative pb-10">
         <PaymentsHeader />

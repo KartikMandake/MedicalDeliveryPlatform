@@ -19,6 +19,16 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!form.email.trim()) {
+      setError('Email or Username is required');
+      return;
+    }
+    if (form.password.length < 6) {
+      setError('Password must be at least 6 characters');
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await apiLogin(form);
@@ -36,10 +46,10 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="bg-[#f8f9fa] font-['Inter'] text-[#191c1d] antialiased min-h-screen">
-      <main className="flex min-h-screen w-full">
+    <div className="bg-[#f8f9fa] font-['Inter'] text-[#191c1d] antialiased fixed inset-0 overflow-hidden flex flex-col">
+      <main className="flex h-full w-full">
         {/* LEFT PANEL — Branding */}
-        <section className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-[#191c1d]">
+        <section className="hidden lg:flex lg:w-1/2 relative h-full overflow-hidden bg-[#191c1d]">
           <div className="absolute inset-0 z-0">
             <img
               alt="Clinical Environment"
@@ -75,8 +85,8 @@ export default function LoginPage() {
         </section>
 
         {/* RIGHT PANEL — Login Form */}
-        <section className="w-full lg:w-1/2 bg-[#f8f9fa] flex items-center justify-center p-8 md:p-16">
-          <div className="w-full max-w-lg">
+        <section className="w-full lg:w-1/2 bg-[#f8f9fa] flex flex-col items-center p-6 md:p-12 lg:p-16 h-full overflow-y-auto">
+          <div className="w-full max-w-lg m-auto py-8">
             {/* Mobile branding */}
             <div className="lg:hidden flex items-center gap-2 mb-12">
               <span className="material-symbols-outlined text-[#006e2f] text-3xl">medical_services</span>

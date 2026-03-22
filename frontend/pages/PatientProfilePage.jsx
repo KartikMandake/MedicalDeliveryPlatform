@@ -185,7 +185,7 @@ export default function PatientProfilePage() {
   ];
 
   return (
-    <div className="bg-background font-body text-on-background selection:bg-primary-container selection:text-on-primary-container min-h-screen">
+    <div className="bg-background font-body text-on-background selection:bg-primary-container selection:text-on-primary-container fixed inset-0 overflow-y-auto overflow-x-hidden">
 
       {/* ── Top Navbar ─────────────────────────────────────────────────── */}
       <nav className="fixed top-0 w-full z-50 glass-nav shadow-sm">
