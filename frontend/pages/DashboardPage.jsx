@@ -399,7 +399,7 @@ export default function DashboardPage() {
           <div className="relative group">
             <div className="absolute -inset-4 bg-primary/5 rounded-[3rem] blur-3xl group-hover:bg-primary/10 transition-colors duration-500" />
             <div className="relative bg-white rounded-3xl overflow-hidden shadow-2xl shadow-zinc-200/50">
-              <img alt="Delivery illustration" className="w-full h-[400px] object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDrKwKcXq93bEhIE1eA87-dxEiPHMrri6j_Pfv9ZBnfQKzNrRbyIQ_k3BTUdauiHgnSDCXDb1wN82YJJjjiIyzfT0yxgUiTpGcooG5mgj33b5TYIo8JeBRkcG_0Sv7b9O-_mxImrLeldFiLcprWl8OVx93MHbMJNMSL79mzNzyI-6BRP65FV-oFa-hXbcMcOE5ghVSeZc3u73jcqGg_UOZwDia_uMX-qQntMNNLY5bCpMZOuns8aNRrq9u4JlHxu-eHgKTX77MfNK0h" />
+              <img alt="Delivery illustration" className="w-full h-[400px] object-cover" src="/imagecopy.png" />
               <div className="absolute top-6 right-6 px-4 py-2 bg-white/90 backdrop-blur rounded-2xl shadow-xl flex items-center gap-3 border border-white">
                 <div className="w-8 h-8 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
                   <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
@@ -477,46 +477,10 @@ export default function DashboardPage() {
           </aside>
 
           <div className="flex-1 space-y-16">
-            <section>
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-black font-headline text-zinc-900">Health Alerts in Your Area</h2>
-                <button type="button" onClick={() => showToast('Local health map is coming soon.', 'info')} className="text-primary text-sm font-bold flex items-center gap-1 hover:underline">
-                  View Local Map <span className="material-symbols-outlined text-sm">map</span>
-                </button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {ALERTS.map((alert) => (
-                  <div key={alert.title} className={`p-6 rounded-3xl border-l-4 shadow-sm bg-gradient-to-br from-white to-primary/5 ${alert.accent}`}>
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3 className="font-bold text-zinc-900 font-headline">{alert.title}</h3>
-                        <p className="text-xs text-zinc-500 mt-1">{alert.subtitle}</p>
-                      </div>
-                      <span className={`material-symbols-outlined ${alert.iconColor}`} style={{ fontVariationSettings: "'FILL' 1" }}>{alert.icon}</span>
-                    </div>
-                    <div className="flex flex-wrap gap-2 mt-4">
-                      {alert.tags.map((tag) => (
-                        <button key={tag} onClick={() => navigate(`/products?search=${encodeURIComponent(tag)}`)} className="px-3 py-1.5 bg-white shadow-sm border border-zinc-100 rounded-full text-[10px] font-bold text-zinc-600 hover:border-primary transition-colors" type="button">
-                          {tag}
-                        </button>
-                      ))}
-                    </div>
-                    <button onClick={() => navigate('/products')} className="w-full mt-6 py-2 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-primary transition-colors" type="button">
-                      Add Essentials to Cart
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </section>
+
 
             <section>
-              <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-black font-headline text-zinc-900">Recommended Medicines</h2>
-                <div className="flex gap-2">
-                  <button className="p-2 border border-zinc-200 rounded-xl hover:bg-white transition-colors" type="button"><span className="material-symbols-outlined">grid_view</span></button>
-                  <button className="p-2 border border-zinc-200 rounded-xl hover:bg-white transition-colors" type="button"><span className="material-symbols-outlined">list</span></button>
-                </div>
-              </div>
+
 
               {loadingData ? (
                 <div className="bg-white p-8 rounded-3xl text-sm text-zinc-500 border border-zinc-100">Loading recommendations...</div>

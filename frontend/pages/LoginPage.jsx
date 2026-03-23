@@ -48,41 +48,25 @@ export default function LoginPage() {
   return (
     <div className="bg-[#f8f9fa] font-['Inter'] text-[#191c1d] antialiased fixed inset-0 overflow-hidden flex flex-col">
       <main className="flex h-full w-full">
-        {/* LEFT PANEL — Branding */}
-        <section className="hidden lg:flex lg:w-1/2 relative h-full overflow-hidden bg-[#191c1d]">
-          <div className="absolute inset-0 z-0">
-            <img
-              alt="Clinical Environment"
-              className="w-full h-full object-cover opacity-40 mix-blend-luminosity"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBK0JdZtDI310gtWg8eCr5pbRzhhGWqK3lW3kUTl_XDmTiN5obPci31m58eDe_x2sRioLZ9d4Dv__Khkc1-keodmLfUXPVc8_31Cqq93j6bYKITuDIixuuU2RItP8D2FRdmEXaBJVR7QB6KMjedUqAnqJm4oWs6ls39a9DP_QOofYEC-Zk12KRXfMRXOaLhzyFfqy-S91yhxPQTjEVWxtanFCO4AWcxZqdlepF-GPyT2ql8Xv2kHU9_X_w43wo1TGhF9lvD3ZZ-v6wv"
-            />
-          </div>
-          <div className="relative z-10 w-full flex flex-col justify-between p-16">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-[#22c55e] rounded-xl flex items-center justify-center shadow-lg shadow-[#006e2f]/20">
-                <span className="material-symbols-outlined text-white text-3xl" style={{ fontVariationSettings: "'FILL' 1" }}>medical_services</span>
-              </div>
-              <span className="font-['Manrope'] text-3xl font-extrabold tracking-tighter text-white">MediFlow</span>
-            </div>
-            <div className="max-w-md">
-              <h1 className="font-['Manrope'] text-5xl font-bold text-white leading-tight mb-6">
-                Precision Logistics. <br />
-                <span className="text-[#4ae176]">Clinical Grade Reliability.</span>
-              </h1>
-              <div className="h-1 w-24 bg-[#22c55e] rounded-full mb-8" />
-              <p className="text-[#e1e3e4] text-lg leading-relaxed opacity-90">
-                Harnessing AI-driven intelligence to synchronize medical inventory across the global healthcare ecosystem.
-              </p>
-            </div>
-            <div className="flex items-center gap-6 text-[#e1e3e4]/60 text-xs font-['Inter'] tracking-[0.2em] uppercase">
-              <span>Clinical Intelligence Network</span>
-              <span className="w-1 h-1 bg-[#e1e3e4]/40 rounded-full" />
-              <span>v4.2.0−SafeGuard</span>
-            </div>
-          </div>
-          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-[#006e2f]/20 rounded-full blur-[120px]" />
-          <div className="absolute top-1/2 right-0 w-64 h-64 bg-[#22c55e]/10 rounded-full blur-[100px]" />
+        {/* LEFT PANEL — Delivery Character Hero */}
+        <section className="hidden md:flex md:w-1/2 relative h-full overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#101314] to-[#022c22] border-r border-[#191c1d]/5">
+
+          {/* Background Image */}
+          <img
+            src="/image.png"
+            alt="MediFlow Delivery Visualization"
+
+            className="h-full object-cover absolute left-[55%] top-[55%] -translate-x-1/2 -translate-y-1/2 h-[730px] w-auto scale-125 object-contain"
+          />
+
+          {/* Soft Blend Overlay (removes harsh edges) */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#101314]/70 via-transparent to-transparent" />
+
+          {/* Bottom Branding Card */}
+
+
         </section>
+
 
         {/* RIGHT PANEL — Login Form */}
         <section className="w-full lg:w-1/2 bg-[#f8f9fa] flex flex-col items-center p-6 md:p-12 lg:p-16 h-full overflow-y-auto">
@@ -94,7 +78,9 @@ export default function LoginPage() {
             </div>
 
             <div className="mb-10">
-              <h2 className="font-['Manrope'] text-3xl font-bold text-[#191c1d] mb-2">Welcome to MediFlow</h2>
+              <h2 className="font-['Manrope'] text-3xl font-bold text-[#191c1d] mb-2">
+                Welcome to <span className="text-[#006e2f]">MediFlow</span>
+              </h2>
               <p className="text-[#3d4a3d]">Secure entry for the clinical intelligence network.</p>
             </div>
 
@@ -194,18 +180,8 @@ export default function LoginPage() {
               </div>
             </form>
 
-            {/* Insight Glow */}
-            <div className="mt-16 p-6 rounded-xl border border-[#bccbb9]/10" style={{ background: 'linear-gradient(135deg, #ffffff 0%, rgba(74, 225, 118, 0.05) 100%)', borderTop: '1px solid rgba(0, 110, 47, 0.2)' }}>
-              <div className="flex items-start gap-4">
-                <div className="p-2 bg-[#22c55e]/10 rounded-lg">
-                  <span className="material-symbols-outlined text-[#006e2f]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-[#191c1d] mb-1">Intelligence Protocol Active</p>
-                  <p className="text-xs text-[#3d4a3d] leading-relaxed">System monitoring real-time logistics. HIPAA compliant secure connection established from your current endpoint.</p>
-                </div>
-              </div>
-            </div>
+
+
           </div>
         </section>
       </main>
@@ -213,12 +189,9 @@ export default function LoginPage() {
       {/* Footer */}
       <footer className="fixed bottom-0 right-0 w-full lg:w-1/2 p-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-transparent pointer-events-none">
         <div className="text-[10px] font-['Inter'] tracking-widest uppercase text-zinc-400 font-bold pointer-events-auto">
-          © 2024 MediFlow Intelligence. Clinical Grade Reliability.
+
         </div>
-        <div className="flex gap-4 pointer-events-auto">
-          <a className="text-[10px] font-['Inter'] tracking-widest uppercase text-zinc-400 hover:text-[#006e2f] transition-colors" href="#">HIPAA Compliance</a>
-          <a className="text-[10px] font-['Inter'] tracking-widest uppercase text-zinc-400 hover:text-[#006e2f] transition-colors" href="#">Security Audit</a>
-        </div>
+
       </footer>
     </div>
   );
