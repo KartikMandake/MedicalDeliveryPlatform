@@ -71,42 +71,22 @@ export default function CreateAccountPage() {
     <div className="bg-[#f8f9fa] font-['Inter'] text-[#191c1d] antialiased fixed inset-0 overflow-hidden flex flex-col">
       <main className="h-full flex flex-col md:flex-row">
         {/* LEFT — Branding */}
-        <section className="relative hidden md:flex md:w-5/12 lg:w-1/2 flex-col justify-center p-16 h-full overflow-hidden bg-[#006e2f]">
-          <div className="absolute inset-0 z-0">
-            <img
-              alt="Modern clean laboratory interior"
-              className="w-full h-full object-cover opacity-30 mix-blend-overlay"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuBElrfTFnrX1j0lPqpnrUlrgS8ENoPEpYcFTL5Zbd5wTG-M80Ed6my7DMOKGq42JFqexpoAv4J0PRcxYk3AlswOHSBJc2Bs35bezyYPHTIQ9xkru9co0sFDFQwD0MgH2nvy5_c0k9p2ma-AEWsLn4giHueQr3QoPxtFL1bp870gDQpmhPAoVq3a709zJj86KdxP3vxpdMmQlxmPZQQRJOMMfaRhfVDKEDGjz4RKra74QSv7cZjwiq1Ve9ugHXQZOlNyLxvlNjzx8E6G"
-            />
-            <div className="absolute inset-0 bg-gradient-to-tr from-[#006e2f] via-[#006e2f]/80 to-transparent" />
-          </div>
-          <div className="relative z-10 max-w-lg">
-            <div className="mb-12 flex items-center space-x-3">
-              <div className="w-10 h-10 rounded-xl bg-[#4ae176] flex items-center justify-center shadow-lg">
-                <span className="material-symbols-outlined text-[#002109]">clinical_notes</span>
-              </div>
-              <span className="font-['Manrope'] font-extrabold text-2xl tracking-tight text-white">MediFlow</span>
-            </div>
-            <h1 className="font-['Manrope'] text-4xl lg:text-6xl font-extrabold text-white leading-tight mb-8" style={{ letterSpacing: '-0.02em' }}>
-              Join the Clinical <span className="text-[#6bff8f]">Intelligence</span> Network.
-            </h1>
-            <div className="space-y-6">
-              <div className="flex items-center space-x-4">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#6bff8f]" />
-                <p className="text-white/90 text-lg font-medium">Secure. Scalable. Precise.</p>
-              </div>
-            </div>
-            {/* Insight Glow */}
-            <div className="mt-20 p-8 rounded-xl border border-white/10 backdrop-blur-md" style={{ background: 'linear-gradient(to bottom right, #ffffff, rgba(74, 225, 118, 0.05))', borderTop: '1px solid rgba(0, 110, 47, 0.2)' }}>
-              <div className="flex items-center space-x-3 mb-3">
-                <span className="material-symbols-outlined text-[#6bff8f]" style={{ fontVariationSettings: "'FILL' 1" }}>auto_awesome</span>
-                <span className="font-['Inter'] text-xs uppercase tracking-widest text-[#6bff8f] font-bold">Real-time Intelligence</span>
-              </div>
-              <p className="text-white/80 leading-relaxed italic">
-                "Empowering medical logistics through invisible AI layers that ensure data integrity at every touchpoint."
-              </p>
-            </div>
-          </div>
+        <section className="hidden md:flex md:w-1/2 relative h-full overflow-hidden bg-gradient-to-br from-[#0f172a] via-[#101314] to-[#022c22] border-r border-[#191c1d]/5">
+
+          {/* Background Image */}
+          <img
+            src="/image.png"
+            alt="MediFlow Delivery Visualization"
+
+            className="h-full object-cover absolute left-[55%] top-[55%] -translate-x-1/2 -translate-y-1/2 h-[730px] w-auto scale-125 object-contain"
+          />
+
+          {/* Soft Blend Overlay (removes harsh edges) */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#101314]/70 via-transparent to-transparent" />
+
+          {/* Bottom Branding Card */}
+
+
         </section>
 
         {/* RIGHT — Form */}
@@ -133,8 +113,8 @@ export default function CreateAccountPage() {
                     type="button"
                     onClick={() => setForm({ ...form, role: value })}
                     className={`flex flex-col items-center justify-center py-3 px-2 rounded-xl border-2 transition-all duration-200 ${form.role === value
-                        ? 'border-[#006e2f] bg-white shadow-lg'
-                        : 'border-transparent bg-[#f3f4f5] hover:bg-[#e7e8e9] text-[#3d4a3d]'
+                      ? 'border-[#006e2f] bg-white shadow-lg'
+                      : 'border-transparent bg-[#f3f4f5] hover:bg-[#e7e8e9] text-[#3d4a3d]'
                       }`}
                   >
                     <span className={`material-symbols-outlined mb-2 ${form.role === value ? 'text-[#006e2f]' : ''}`}>{icon}</span>
@@ -223,24 +203,13 @@ export default function CreateAccountPage() {
               </p>
             </div>
 
-            {/* Info Box */}
-            <div className="mt-8 p-4 rounded-xl bg-[#f3f4f5] border border-[#bccbb9]/15">
-              <div className="flex items-start space-x-3">
-                <span className="material-symbols-outlined text-[#006e2f] text-lg">verified_user</span>
-                <p className="text-[10px] md:text-xs text-[#3d4a3d] leading-relaxed">
-                  By signing up, you agree to our <a className="text-[#006e2f] hover:underline" href="#">Terms</a> and <a className="text-[#006e2f] hover:underline" href="#">HIPAA Compliance</a> standards. Your data is encrypted and managed under strict clinical privacy protocols.
-                </p>
-              </div>
-            </div>
+
           </div>
         </section>
       </main>
 
       {/* Footer - Only visible on really large screens or fixed at bottom */}
-      <footer className="fixed bottom-0 right-0 w-full lg:w-1/2 py-4 px-8 flex justify-between items-center pointer-events-none z-50">
-        <div className="text-[10px] font-black text-zinc-900/40 font-['Manrope'] uppercase tracking-tighter">MediFlow</div>
-        <div className="font-['Inter'] text-[10px] tracking-wider text-zinc-400/80 uppercase">© 2024</div>
-      </footer>
+
     </div>
   );
 }
