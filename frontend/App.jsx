@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Component, lazy, Suspense, useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
@@ -105,19 +105,18 @@ function App() {
       <AuthProvider>
         <ToastProvider>
           <CartProvider>
-            <Router>
-              <RouteTitleManager />
-              <Suspense fallback={<Loader />}>
-                <Routes>
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                  <Route path="/home" element={<ErrorBoundary><HomePage /></ErrorBoundary>} />
-                  <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
-                  <Route path="/register" element={<ErrorBoundary><CreateAccountPage /></ErrorBoundary>} />
-                  <Route path="/products" element={<ErrorBoundary><ProductsPage /></ErrorBoundary>} />
-                  <Route path="/products/:id" element={<ErrorBoundary><ProductDetailsPage /></ErrorBoundary>} />
-                  <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />
-                  <Route path="/checkout" element={<ErrorBoundary><CheckoutPage /></ErrorBoundary>} />
-                  <Route path="/orders" element={<ErrorBoundary><OrdersPage /></ErrorBoundary>} />
+            <RouteTitleManager />
+            <Suspense fallback={<Loader />}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/home" element={<ErrorBoundary><HomePage /></ErrorBoundary>} />
+                <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
+                <Route path="/register" element={<ErrorBoundary><CreateAccountPage /></ErrorBoundary>} />
+                <Route path="/products" element={<ErrorBoundary><ProductsPage /></ErrorBoundary>} />
+                <Route path="/products/:id" element={<ErrorBoundary><ProductDetailsPage /></ErrorBoundary>} />
+                <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />
+                <Route path="/checkout" element={<ErrorBoundary><CheckoutPage /></ErrorBoundary>} />
+                <Route path="/orders" element={<ErrorBoundary><OrdersPage /></ErrorBoundary>} />
                   <Route path="/help" element={<ErrorBoundary><HelpPage /></ErrorBoundary>} />
                   <Route path="/tracking" element={<ErrorBoundary><TrackingPage /></ErrorBoundary>} />
                   <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
@@ -138,7 +137,6 @@ function App() {
                   <Route path="/profile" element={<ErrorBoundary><PatientProfilePage /></ErrorBoundary>} />
                 </Routes>
               </Suspense>
-            </Router>
           </CartProvider>
         </ToastProvider>
       </AuthProvider>
