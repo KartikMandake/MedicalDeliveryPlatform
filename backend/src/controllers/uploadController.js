@@ -1,8 +1,31 @@
 const fs = require('fs');
 const path = require('path');
 const { PDFParse } = require('pdf-parse');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { QueryTypes } = require('sequelize');
 const sequelize = require('../db');
+
+const SUPPORTED_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+]);
+
+const MIME_BY_EXT = {
+  '.pdf': 'application/pdf',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+};
+
+const geminiModelsCache = new Map();
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function normalizeText(value) {
   return String(value || '')
@@ -16,6 +39,160 @@ function clampQuantity(value) {
   const qty = Number(value);
   if (!Number.isFinite(qty)) return 1;
   return Math.max(1, Math.min(90, Math.round(qty)));
+}
+
+function getMimeTypeFromUpload(file) {
+  const ext = path.extname(file?.originalname || '').toLowerCase();
+  const fromExt = MIME_BY_EXT[ext] || '';
+  const fromFile = String(file?.mimetype || '').toLowerCase();
+  return fromExt || fromFile;
+}
+
+function parseGeminiJsonPayload(rawText) {
+  const text = String(rawText || '').trim();
+  if (!text) return [];
+
+  const withoutFences = text
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim();
+
+  let payload;
+  try {
+    payload = JSON.parse(withoutFences);
+  } catch {
+    const start = withoutFences.indexOf('[');
+    const end = withoutFences.lastIndexOf(']');
+    if (start === -1 || end === -1 || end <= start) return [];
+    try {
+      payload = JSON.parse(withoutFences.slice(start, end + 1));
+    } catch {
+      return [];
+    }
+  }
+
+  if (!Array.isArray(payload)) return [];
+
+  return payload
+    .map((item) => {
+      const medicineName = String(item?.medicineName || item?.name || '').trim();
+      if (!medicineName) return null;
+      return {
+        rawLine: String(item?.rawLine || item?.line || medicineName),
+        medicineName,
+        dosage: String(item?.dosage || '').trim(),
+        quantity: clampQuantity(item?.quantity),
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 30);
+}
+
+function getGeminiModelCandidates() {
+  const configured = String(process.env.GEMINI_VISION_MODELS || '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean);
+
+  if (configured.length) return configured;
+  return ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+}
+
+function getGeminiModel(modelName) {
+  if (geminiModelsCache.has(modelName)) return geminiModelsCache.get(modelName);
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    const err = new Error('GEMINI_API_KEY is not configured.');
+    err.statusCode = 503;
+    throw err;
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: modelName });
+  geminiModelsCache.set(modelName, model);
+  return model;
+}
+
+async function extractWithGeminiVision(fileBuffer, mimeType) {
+  const prompt = [
+    'You are extracting medicine lines from a medical prescription image or PDF.',
+    'Return ONLY valid JSON array without markdown fences.',
+    'Each item must be an object with exactly these keys: medicineName, dosage, quantity, rawLine.',
+    'Rules:',
+    '- Include only medicine entries, not doctor/patient metadata.',
+    '- dosage should be compact when available (e.g., "500mg", "5ml").',
+    '- quantity must be a number from 1 to 90. Estimate from frequency and days when needed.',
+    '- If uncertain, still include best-effort medicineName with quantity 1.',
+  ].join('\n');
+
+  const models = getGeminiModelCandidates();
+  const transientCodePattern = /(429|500|502|503|504|deadline|timeout|temporar)/i;
+  const attemptErrors = [];
+
+  for (const modelName of models) {
+    const model = getGeminiModel(modelName);
+
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      try {
+        const response = await model.generateContent([
+          { text: prompt },
+          {
+            inlineData: {
+              mimeType,
+              data: fileBuffer.toString('base64'),
+            },
+          },
+        ]);
+
+        const modelText = response?.response?.text?.() || '';
+        const parsedJson = parseGeminiJsonPayload(modelText);
+        if (parsedJson.length) {
+          return {
+            items: parsedJson,
+            engine: `gemini_vision:${modelName}`,
+          };
+        }
+
+        const parsedText = parsePrescriptionText(modelText);
+        if (parsedText.length) {
+          return {
+            items: parsedText,
+            engine: `gemini_vision_text:${modelName}`,
+          };
+        }
+
+        attemptErrors.push(`${modelName}: empty parse output`);
+        break;
+      } catch (err) {
+        const raw = String(err?.message || err || '').trim();
+        const message = raw || 'unknown vision extraction error';
+        attemptErrors.push(`${modelName}: ${message}`);
+
+        if (transientCodePattern.test(message) && attempt < 2) {
+          await sleep(350 * attempt);
+          continue;
+        }
+
+        break;
+      }
+    }
+  }
+
+  const fallbackErr = new Error(attemptErrors.join(' | ') || 'Vision extraction failed for all configured models.');
+  fallbackErr.statusCode = 422;
+  throw fallbackErr;
+}
+
+async function extractTextFromPdf(fileBuffer) {
+  const parser = new PDFParse({ data: fileBuffer });
+  try {
+    const pdfData = await parser.getText();
+    return String(pdfData?.text || '').trim();
+  } finally {
+    if (typeof parser.destroy === 'function') await parser.destroy();
+  }
 }
 
 function extractFrequency(line) {
@@ -286,21 +463,47 @@ exports.extractPrescriptionMedicines = async (req, res) => {
     localFilePath = req.file.path;
 
     const ext = path.extname(req.file.originalname || '').toLowerCase();
-    if (ext !== '.pdf' || req.file.mimetype !== 'application/pdf') {
-      return res.status(400).json({ message: 'Please upload a PDF prescription for extraction.' });
+    const mimeType = getMimeTypeFromUpload(req.file);
+    const isPdf = ext === '.pdf' || mimeType === 'application/pdf';
+
+    if (!SUPPORTED_MIME_TYPES.has(mimeType) && !Object.prototype.hasOwnProperty.call(MIME_BY_EXT, ext)) {
+      return res.status(400).json({ message: 'Please upload a prescription as PDF, JPG, PNG, or WEBP.' });
     }
 
     const fileBuffer = fs.readFileSync(localFilePath);
-    const parser = new PDFParse({ data: fileBuffer });
-    const pdfData = await parser.getText();
-    const extractedText = String(pdfData?.text || '').trim();
-    if (typeof parser.destroy === 'function') await parser.destroy();
+    let extractedText = '';
+    let parsedMedicines = [];
+    let extractionEngine = 'gemini_vision';
 
-    if (!extractedText) {
-      return res.status(422).json({ message: 'Could not extract text from this PDF. Please try a clearer prescription.' });
+    if (isPdf) {
+      extractedText = await extractTextFromPdf(fileBuffer);
+      if (extractedText) {
+        parsedMedicines = parsePrescriptionText(extractedText);
+        if (parsedMedicines.length) extractionEngine = 'pdf_text_layer';
+      }
     }
 
-    const parsedMedicines = parsePrescriptionText(extractedText);
+    if (!parsedMedicines.length) {
+      try {
+        const visionResult = await extractWithGeminiVision(fileBuffer, mimeType || MIME_BY_EXT[ext] || 'application/pdf');
+        parsedMedicines = visionResult.items;
+        extractionEngine = visionResult.engine;
+      } catch (visionErr) {
+        const statusCode = Number(visionErr?.statusCode || 0);
+        if (statusCode >= 400 && statusCode < 600) {
+          return res.status(statusCode).json({
+            message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
+            details: visionErr?.message,
+          });
+        }
+
+        return res.status(422).json({
+          message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
+          details: visionErr?.message,
+        });
+      }
+    }
+
     if (!parsedMedicines.length) {
       return res.status(422).json({ message: 'No medicine entries were detected in this prescription.' });
     }
@@ -350,12 +553,14 @@ exports.extractPrescriptionMedicines = async (req, res) => {
       message: uniqueCartItems.length
         ? 'Prescription processed and detected medicines were added to cart.'
         : 'Prescription processed, but no in-stock matching medicines were found to add.',
+      extractionEngine,
+      sourceType: isPdf ? 'pdf' : 'image',
       extractedCount: detectionResults.length,
       addedToCartCount: uniqueCartItems.length,
       items: detectionResults,
     });
   } catch (err) {
-    return res.status(500).json({ message: err.message || 'Failed to process prescription PDF.' });
+    return res.status(500).json({ message: err.message || 'Failed to process prescription.' });
   } finally {
     if (localFilePath && fs.existsSync(localFilePath)) {
       fs.unlink(localFilePath, () => {});

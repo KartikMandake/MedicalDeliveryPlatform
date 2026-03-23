@@ -1,13 +1,22 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import ProductsNavBar from '../components/products/ProductsNavBar';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
-import { extractPrescriptionFromPdf } from '../api/upload';
+import { extractPrescriptionFromFile } from '../api/upload';
 
 function formatMoney(value) {
   return `Rs.${Number(value || 0).toFixed(2)}`;
+}
+
+function isSupportedPrescriptionFile(file) {
+  const mime = String(file?.type || '').toLowerCase();
+  const name = String(file?.name || '').toLowerCase();
+  const allowedMime = new Set(['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+  if (allowedMime.has(mime)) return true;
+  return /\.(pdf|jpg|jpeg|png|webp)$/i.test(name);
 }
 
 export default function UploadPage() {
@@ -33,12 +42,15 @@ export default function UploadPage() {
     [matchedItems]
   );
 
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   const onFilePicked = async (file) => {
     if (!file) return;
 
-    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '');
-    if (!isPdf) {
-      showToast('Please upload a PDF prescription file.', 'error');
+    if (!isSupportedPrescriptionFile(file)) {
+      showToast('Please upload a prescription as PDF, JPG, PNG, or WEBP.', 'error');
       return;
     }
 
@@ -49,19 +61,22 @@ export default function UploadPage() {
     }
 
     setSelectedFile(file);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     const nextPreview = URL.createObjectURL(file);
     setPreviewUrl(nextPreview);
 
     setExtracting(true);
     setResult(null);
     try {
-      const res = await extractPrescriptionFromPdf(file);
+      const res = await extractPrescriptionFromFile(file);
       setResult(res.data || null);
       await fetchCart();
       showToast(res.data?.message || 'Prescription processed successfully.', 'success');
     } catch (err) {
       setResult(null);
-      showToast(err.response?.data?.message || 'Unable to process this prescription PDF.', 'error');
+      const baseMessage = err.response?.data?.message || 'Unable to process this prescription file.';
+      const details = err.response?.data?.details;
+      showToast(details ? `${baseMessage} (${details})` : baseMessage, 'error');
     } finally {
       setExtracting(false);
     }
@@ -93,7 +108,7 @@ export default function UploadPage() {
           <header>
             <span className="text-primary font-bold tracking-widest text-[10px] uppercase font-headline">Clinical Portal</span>
             <h1 className="text-4xl font-extrabold tracking-tighter text-on-surface font-headline mt-2">Upload Prescription</h1>
-            <p className="text-on-surface-variant mt-4 max-w-lg leading-relaxed">Securely upload your prescription PDF. Our AI engine extracts medicines and automatically adds matched products to your cart using detected dosage or quantity.</p>
+            <p className="text-on-surface-variant mt-4 max-w-lg leading-relaxed">Securely upload your prescription as PDF or image. Our AI engine extracts medicines and automatically adds matched products to your cart using detected dosage or quantity.</p>
           </header>
 
           <div className="space-y-6">
@@ -109,12 +124,12 @@ export default function UploadPage() {
                 <span className="material-symbols-outlined text-primary text-3xl">cloud_upload</span>
               </div>
               <p className="font-headline font-bold text-lg">Drop your file here</p>
-              <p className="text-on-surface-variant text-sm mt-1">PDF only (Max 10MB)</p>
+              <p className="text-on-surface-variant text-sm mt-1">PDF, JPG, PNG, WEBP (Max 10MB)</p>
               <input
                 ref={fileInputRef}
                 className="absolute inset-0 opacity-0 cursor-pointer"
                 type="file"
-                accept="application/pdf,.pdf"
+                accept="application/pdf,.pdf,image/jpeg,.jpg,.jpeg,image/png,.png,image/webp,.webp"
                 onChange={(e) => onFilePicked(e.target.files?.[0])}
               />
             </div>
@@ -126,7 +141,7 @@ export default function UploadPage() {
                 className="flex-1 flex items-center justify-center gap-3 py-4 px-6 rounded-full bg-gradient-to-br from-primary to-primary-container text-on-primary font-headline font-bold hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-primary/10"
               >
                 <span className="material-symbols-outlined">upload_file</span>
-                Choose PDF
+                Choose File
               </button>
               <button
                 type="button"
@@ -149,7 +164,9 @@ export default function UploadPage() {
 
             <div className="relative aspect-[3/4] w-full max-w-md mx-auto rounded-xl overflow-hidden bg-surface-container-low">
               {previewUrl ? (
-                <iframe title="Prescription preview" src={previewUrl} className="w-full h-full" />
+                selectedFile?.type === 'application/pdf' || /\.pdf$/i.test(selectedFile?.name || '')
+                  ? <iframe title="Prescription preview" src={previewUrl} className="w-full h-full" />
+                  : <img alt="Prescription preview" src={previewUrl} className="w-full h-full object-contain" />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-sm text-on-surface-variant">No prescription selected yet.</div>
               )}
@@ -172,14 +189,14 @@ export default function UploadPage() {
 
             {extracting && (
               <div className="space-y-3">
-                <div className="p-4 rounded-xl bg-white text-sm text-on-surface-variant">Extracting medicine names from PDF...</div>
+                <div className="p-4 rounded-xl bg-white text-sm text-on-surface-variant">Extracting medicine names from prescription...</div>
                 <div className="p-4 rounded-xl bg-white text-sm text-on-surface-variant">Matching against your live medicine inventory...</div>
                 <div className="p-4 rounded-xl bg-white text-sm text-on-surface-variant">Preparing auto-cart entries with detected quantity...</div>
               </div>
             )}
 
             {!extracting && !result && (
-              <div className="p-4 rounded-xl bg-white text-sm text-on-surface-variant">Upload a PDF prescription to detect medicines and auto-add matching items to cart.</div>
+              <div className="p-4 rounded-xl bg-white text-sm text-on-surface-variant">Upload a prescription PDF/image to detect medicines and auto-add matching items to cart.</div>
             )}
 
             {!extracting && result && (
@@ -210,6 +227,10 @@ export default function UploadPage() {
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-outline-variant/20">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-on-surface-variant font-label text-xs uppercase tracking-widest font-bold">Extraction Engine</span>
+                    <span className="font-headline font-bold text-sm uppercase tracking-wide">{String(result.extractionEngine || 'ai').replace(/_/g, ' ')}</span>
+                  </div>
                   <div className="flex justify-between items-center mb-3">
                     <span className="text-on-surface-variant font-label text-xs uppercase tracking-widest font-bold">Matched Items</span>
                     <span className="font-headline font-extrabold text-2xl">{matchedItems.length}</span>

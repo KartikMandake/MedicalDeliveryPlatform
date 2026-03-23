@@ -10,11 +10,18 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  const allowed = /jpeg|jpg|png|pdf/;
-  const ext = allowed.test(path.extname(file.originalname).toLowerCase());
-  const mime = allowed.test(file.mimetype);
-  if (ext && mime) cb(null, true);
-  else cb(new Error('Only images (jpg/png) and PDFs are allowed'));
+  const ext = path.extname(file.originalname || '').toLowerCase();
+  const mime = String(file.mimetype || '').toLowerCase();
+
+  const allowedExt = new Set(['.jpg', '.jpeg', '.png', '.webp', '.pdf']);
+  const allowedMime = new Set(['image/jpg', 'image/jpeg', 'image/png', 'image/webp', 'application/pdf']);
+
+  if (allowedExt.has(ext) && allowedMime.has(mime)) {
+    cb(null, true);
+    return;
+  }
+
+  cb(new Error('Only PDF, JPG, JPEG, PNG, and WEBP files are allowed'));
 };
 
 module.exports = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });

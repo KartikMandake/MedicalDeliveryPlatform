@@ -9,7 +9,7 @@ export const uploadPrescription = (file) => {
   });
 };
 
-export const extractPrescriptionFromPdf = (file) => {
+export const extractPrescriptionFromFile = (file) => {
   const formData = new FormData();
   formData.append('prescription', file);
 
@@ -17,3 +17,5 @@ export const extractPrescriptionFromPdf = (file) => {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
 };
+
+export const extractPrescriptionFromPdf = extractPrescriptionFromFile;
