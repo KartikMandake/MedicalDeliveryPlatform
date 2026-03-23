@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 import { updateProfile, reverseGeocode } from '../api/auth';
+import { getAddresses, createAddress, updateAddress } from '../api/addresses';
 import { getMyOrders } from '../api/orders';
 
 /* ─── Static sample data (replace with API calls as needed) ─────────────── */
@@ -65,6 +66,46 @@ function statusChip(status) {
   if (status === 'expired') return 'bg-rose-100 text-rose-700';
   if (status === 'delivered') return 'bg-sky-100 text-sky-700';
   return 'bg-zinc-100 text-zinc-500';
+}
+
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) return digits;
+  if (digits.length > 10) return digits.slice(-10);
+  return '';
+}
+
+function buildAddressPayload({ existingAddress, user, reverseData, latitude, longitude }) {
+  const lineAddress = reverseData?.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+  const phone = normalizePhone(existingAddress?.phone || user?.phone);
+
+  return {
+    label: existingAddress?.label || 'Home',
+    fullName: String(existingAddress?.fullName || user?.name || '').trim(),
+    phone,
+    line1: String(existingAddress?.line1 || lineAddress).trim(),
+    line2: String(existingAddress?.line2 || '').trim(),
+    city: String(existingAddress?.city || reverseData?.city || '').trim(),
+    state: String(existingAddress?.state || reverseData?.state || '').trim(),
+    pincode: String(existingAddress?.pincode || reverseData?.pincode || '').replace(/\D/g, '').slice(0, 6),
+    landmark: String(existingAddress?.landmark || '').trim(),
+    lat: Number(latitude.toFixed(6)),
+    lng: Number(longitude.toFixed(6)),
+    isDefault: true,
+  };
+}
+
+function isAddressPayloadComplete(payload) {
+  return Boolean(
+    payload.fullName &&
+    /^\d{10}$/.test(payload.phone) &&
+    payload.line1 &&
+    payload.city &&
+    payload.state &&
+    /^\d{6}$/.test(payload.pincode) &&
+    Number.isFinite(payload.lat) &&
+    Number.isFinite(payload.lng)
+  );
 }
 
 export default function PatientProfilePage() {
@@ -132,9 +173,34 @@ export default function PatientProfilePage() {
           const res = await reverseGeocode(latitude, longitude);
           const addressText = res.data?.address;
 
+          const addressesRes = await getAddresses().catch(() => ({ data: [] }));
+          const savedAddresses = Array.isArray(addressesRes.data) ? addressesRes.data : [];
+          const defaultAddress = savedAddresses.find((a) => a.isDefault) || savedAddresses[0] || null;
+          const payload = buildAddressPayload({
+            existingAddress: defaultAddress,
+            user,
+            reverseData: res.data,
+            latitude,
+            longitude,
+          });
+          let addressSynced = false;
+
+          if (isAddressPayloadComplete(payload)) {
+            if (defaultAddress?.id) {
+              await updateAddress(defaultAddress.id, payload);
+            } else {
+              await createAddress(payload);
+            }
+            addressSynced = true;
+          }
+
           if (addressText) {
             setFormData(f => ({ ...f, address: addressText }));
-            showToast('Location detected and address updated.', 'success');
+            if (addressSynced) {
+              showToast('Location detected and delivery coordinates saved.', 'success');
+            } else {
+              showToast('Location detected. Please complete full address details once to save coordinates for delivery.', 'warning');
+            }
           } else {
             setFormData(f => ({ ...f, address: `${latitude.toFixed(4)}, ${longitude.toFixed(4)}` }));
             showToast('Coordinates detected, but address lookup failed.', 'info');
