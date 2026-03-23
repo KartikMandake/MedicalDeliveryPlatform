@@ -6,6 +6,7 @@ import { useToast } from '../context/ToastContext';
 import { getProducts } from '../api/products';
 import { getMyOrders } from '../api/orders';
 import { updateProfile, reverseGeocode } from '../api/auth';
+import { getAddresses, createAddress, updateAddress } from '../api/addresses';
 
 const ACTIVE_STATUSES = new Set(['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'in_transit']);
 
@@ -78,6 +79,46 @@ function greetingLabel() {
   return 'Good Evening';
 }
 
+function normalizePhone(value) {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length === 10) return digits;
+  if (digits.length > 10) return digits.slice(-10);
+  return '';
+}
+
+function buildAddressPayload({ existingAddress, user, reverseData, latitude, longitude }) {
+  const lineAddress = reverseData?.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+  const phone = normalizePhone(existingAddress?.phone || user?.phone);
+
+  return {
+    label: existingAddress?.label || 'Home',
+    fullName: String(existingAddress?.fullName || user?.name || '').trim(),
+    phone,
+    line1: String(existingAddress?.line1 || lineAddress).trim(),
+    line2: String(existingAddress?.line2 || '').trim(),
+    city: String(existingAddress?.city || reverseData?.city || '').trim(),
+    state: String(existingAddress?.state || reverseData?.state || '').trim(),
+    pincode: String(existingAddress?.pincode || reverseData?.pincode || '').replace(/\D/g, '').slice(0, 6),
+    landmark: String(existingAddress?.landmark || '').trim(),
+    lat: Number(latitude.toFixed(6)),
+    lng: Number(longitude.toFixed(6)),
+    isDefault: true,
+  };
+}
+
+function isAddressPayloadComplete(payload) {
+  return Boolean(
+    payload.fullName &&
+    /^\d{10}$/.test(payload.phone) &&
+    payload.line1 &&
+    payload.city &&
+    payload.state &&
+    /^\d{6}$/.test(payload.pincode) &&
+    Number.isFinite(payload.lat) &&
+    Number.isFinite(payload.lng)
+  );
+}
+
 export default function DashboardPage() {
   const { user, loading, login } = useAuth();
   const { itemCount, addItem, isAdding } = useCart();
@@ -106,6 +147,27 @@ export default function DashboardPage() {
           const res = await reverseGeocode(latitude, longitude);
           const addressText = res.data?.address || `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
 
+          const addressesRes = await getAddresses().catch(() => ({ data: [] }));
+          const savedAddresses = Array.isArray(addressesRes.data) ? addressesRes.data : [];
+          const defaultAddress = savedAddresses.find((a) => a.isDefault) || savedAddresses[0] || null;
+          const payload = buildAddressPayload({
+            existingAddress: defaultAddress,
+            user,
+            reverseData: res.data,
+            latitude,
+            longitude,
+          });
+          let addressSynced = false;
+
+          if (isAddressPayloadComplete(payload)) {
+            if (defaultAddress?.id) {
+              await updateAddress(defaultAddress.id, payload);
+            } else {
+              await createAddress(payload);
+            }
+            addressSynced = true;
+          }
+
           // Persist to backend and update context
           const updateRes = await updateProfile({
             name: user.name,
@@ -114,7 +176,11 @@ export default function DashboardPage() {
           });
           login(localStorage.getItem('token'), updateRes.data);
 
-          showToast('Delivery address updated successfully.', 'success');
+          if (addressSynced) {
+            showToast('Delivery address with map coordinates updated successfully.', 'success');
+          } else {
+            showToast('Location updated, but please complete full address once in checkout/profile to save coordinates for delivery.', 'warning');
+          }
         } catch (err) {
           console.error('Reverse Geocoding Error:', err);
           showToast('Location detected, but address lookup failed. Please set manually.', 'warning');
