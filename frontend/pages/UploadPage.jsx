@@ -19,6 +19,27 @@ function isSupportedPrescriptionFile(file) {
   return /\.(pdf|jpg|jpeg|png|webp)$/i.test(name);
 }
 
+function getPrescriptionErrorToast(err) {
+  const data = err?.response?.data || {};
+  const code = String(data?.errorCode || '').toUpperCase();
+
+  if (code === 'PRESCRIPTION_INVALID') {
+    return 'Prescription is not valid. Please upload a genuine doctor-issued prescription.';
+  }
+
+  if (code === 'PRESCRIPTION_UNREADABLE' || code === 'PRESCRIPTION_NO_MEDICINES') {
+    return 'Could not read this prescription clearly. Please upload a clearer image/PDF with visible medicine names.';
+  }
+
+  if (code === 'OCR_SERVICE_UNAVAILABLE' || code === 'OCR_SERVICE_BUSY') {
+    return 'Prescription OCR is temporarily unavailable. Please try again shortly.';
+  }
+
+  const fallback = String(data?.message || '').trim();
+  if (fallback) return fallback;
+  return 'Unable to process this prescription file.';
+}
+
 export default function UploadPage() {
   const { user, loading } = useAuth();
   const { fetchCart } = useCart();
@@ -74,9 +95,7 @@ export default function UploadPage() {
       showToast(res.data?.message || 'Prescription processed successfully.', 'success');
     } catch (err) {
       setResult(null);
-      const baseMessage = err.response?.data?.message || 'Unable to process this prescription file.';
-      const details = err.response?.data?.details;
-      showToast(details ? `${baseMessage} (${details})` : baseMessage, 'error');
+      showToast(getPrescriptionErrorToast(err), 'error');
     } finally {
       setExtracting(false);
     }
