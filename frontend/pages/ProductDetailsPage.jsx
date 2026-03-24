@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import SaltComposition from '../components/ui/SaltComposition';
+import SanitizedHTML from '../components/ui/SanitizedHTML';
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
@@ -300,7 +301,7 @@ export default function ProductDetailsPage() {
 
               <div className="bg-white rounded-[2rem] p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col gap-8">
                 {parsedDescription.isHtml ? (
-                  <div className="prose prose-sm prose-slate max-w-none [&>div>h3]:text-sm [&>div>h3]:font-black [&>div>h3]:mb-2 [&>div>h3]:text-slate-800 [&>div>p]:mb-2" dangerouslySetInnerHTML={{ __html: parsedDescription.content }} />
+                  <SanitizedHTML className="prose prose-sm prose-slate max-w-none [&>div>h3]:text-sm [&>div>h3]:font-black [&>div>h3]:mb-2 [&>div>h3]:text-slate-800 [&>div>p]:mb-2" html={parsedDescription.content} />
                 ) : (
                   parsedDescription.general && (
                     <div className="space-y-2">
