@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { PDFParse } = require('pdf-parse');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 const { QueryTypes } = require('sequelize');
 const sequelize = require('../db');
 
@@ -21,8 +21,6 @@ const MIME_BY_EXT = {
   '.webp': 'image/webp',
 };
 
-const geminiModelsCache = new Map();
-
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -41,6 +39,12 @@ function clampQuantity(value) {
   return Math.max(1, Math.min(90, Math.round(qty)));
 }
 
+function clampUnit(value, min, max) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.max(min, Math.min(max, num));
+}
+
 function getMimeTypeFromUpload(file) {
   const ext = path.extname(file?.originalname || '').toLowerCase();
   const fromExt = MIME_BY_EXT[ext] || '';
@@ -48,9 +52,9 @@ function getMimeTypeFromUpload(file) {
   return fromExt || fromFile;
 }
 
-function parseGeminiJsonPayload(rawText) {
+function parseJsonPayload(rawText) {
   const text = String(rawText || '').trim();
-  if (!text) return [];
+  if (!text) return null;
 
   const withoutFences = text
     .replace(/^```json\s*/i, '')
@@ -64,17 +68,21 @@ function parseGeminiJsonPayload(rawText) {
   } catch {
     const start = withoutFences.indexOf('[');
     const end = withoutFences.lastIndexOf(']');
-    if (start === -1 || end === -1 || end <= start) return [];
+    if (start === -1 || end === -1 || end <= start) return null;
     try {
       payload = JSON.parse(withoutFences.slice(start, end + 1));
     } catch {
-      return [];
+      return null;
     }
   }
 
-  if (!Array.isArray(payload)) return [];
+  return payload;
+}
 
-  return payload
+function coerceMedicineItems(items) {
+  if (!Array.isArray(items)) return [];
+
+  return items
     .map((item) => {
       const medicineName = String(item?.medicineName || item?.name || '').trim();
       if (!medicineName) return null;
@@ -89,85 +97,200 @@ function parseGeminiJsonPayload(rawText) {
     .slice(0, 30);
 }
 
-function getGeminiModelCandidates() {
-  const configured = String(process.env.GEMINI_VISION_MODELS || '')
+function coercePrescriptionValidation(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+
+  const directBool =
+    payload.isLikelyGenuinePrescription ??
+    payload.isLikelyGenuine ??
+    payload.isGenuine ??
+    payload.genuine;
+
+  const confidence =
+    clampUnit(
+      payload.genuinenessConfidence ?? payload.confidence ?? payload.genuinenessScore ?? payload.authenticityScore,
+      0,
+      1
+    );
+
+  const reasons = (Array.isArray(payload.genuinenessReasons) ? payload.genuinenessReasons : [])
+    .map((reason) => String(reason || '').trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  let isLikelyGenuine = null;
+  if (typeof directBool === 'boolean') {
+    isLikelyGenuine = directBool;
+  } else if (confidence !== null) {
+    isLikelyGenuine = confidence >= 0.6;
+  }
+
+  if (isLikelyGenuine === null && confidence === null && reasons.length === 0) return null;
+
+  return {
+    isLikelyGenuine,
+    confidence,
+    reasons,
+  };
+}
+
+function parseVisionJsonPayload(rawText) {
+  const payload = parseJsonPayload(rawText);
+  if (!payload) return { items: [], validation: null };
+
+  if (Array.isArray(payload)) {
+    return {
+      items: coerceMedicineItems(payload),
+      validation: null,
+    };
+  }
+
+  if (typeof payload === 'object') {
+    const items = coerceMedicineItems(payload.medicines || payload.items || payload.detectedMedicines);
+    const validation = coercePrescriptionValidation(payload);
+    return { items, validation };
+  }
+
+  return { items: [], validation: null };
+}
+
+function buildVisionExtractionPrompt() {
+  return [
+    'You are reviewing a prescription image/document for medicine extraction and authenticity clues.',
+    'Return ONLY a valid JSON object. Do not use markdown fences.',
+    'JSON schema:',
+    '{',
+    '  "isLikelyGenuinePrescription": boolean,',
+    '  "genuinenessConfidence": number,',
+    '  "genuinenessReasons": string[],',
+    '  "medicines": [',
+    '    { "medicineName": string, "dosage": string, "quantity": number, "rawLine": string }',
+    '  ]',
+    '}',
+    'Rules:',
+    '- isLikelyGenuinePrescription should be true only when the document looks like a real clinical prescription (doctor details/signature/stamp/header/format) and not just a plain handwritten medicine list on normal paper.',
+    '- genuinenessConfidence must be between 0 and 1.',
+    '- genuinenessReasons should include concise reasons for your decision.',
+    '- Include only medicine entries, not patient metadata.',
+    '- dosage should be compact when available (e.g., "500mg", "5ml").',
+    '- quantity must be a number from 1 to 90. Estimate from frequency and days when needed.',
+    '- If uncertain on medicine quantity, use 1.',
+  ].join('\n');
+}
+
+function getGroqModelCandidates() {
+  const configured = String(process.env.GROQ_VISION_MODELS || '')
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean);
 
   if (configured.length) return configured;
-  return ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+  return [
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'meta-llama/llama-4-maverick-17b-128e-instruct',
+    'llama-3.2-90b-vision-preview',
+    'llama-3.2-11b-vision-preview',
+  ];
 }
 
-function getGeminiModel(modelName) {
-  if (geminiModelsCache.has(modelName)) return geminiModelsCache.get(modelName);
+function shouldRejectAsInvalidPrescription(validation, extractedItems) {
+  if (!validation || validation.isLikelyGenuine !== false) return false;
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const confidence = Number(validation.confidence);
+  const hasStrongConfidence = Number.isFinite(confidence) && confidence >= 0.8;
+  const itemCount = Array.isArray(extractedItems) ? extractedItems.length : 0;
+
+  // Reject only when the model is strongly confident and extraction is weak/absent.
+  return hasStrongConfidence && itemCount < 2;
+}
+
+async function extractWithGroqVision(fileBuffer, mimeType) {
+  const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    const err = new Error('GEMINI_API_KEY is not configured.');
+    const err = new Error('GROQ_API_KEY is not configured.');
     err.statusCode = 503;
     throw err;
   }
 
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: modelName });
-  geminiModelsCache.set(modelName, model);
-  return model;
-}
-
-async function extractWithGeminiVision(fileBuffer, mimeType) {
-  const prompt = [
-    'You are extracting medicine lines from a medical prescription image or PDF.',
-    'Return ONLY valid JSON array without markdown fences.',
-    'Each item must be an object with exactly these keys: medicineName, dosage, quantity, rawLine.',
-    'Rules:',
-    '- Include only medicine entries, not doctor/patient metadata.',
-    '- dosage should be compact when available (e.g., "500mg", "5ml").',
-    '- quantity must be a number from 1 to 90. Estimate from frequency and days when needed.',
-    '- If uncertain, still include best-effort medicineName with quantity 1.',
-  ].join('\n');
-
-  const models = getGeminiModelCandidates();
-  const transientCodePattern = /(429|500|502|503|504|deadline|timeout|temporar)/i;
+  const prompt = buildVisionExtractionPrompt();
+  const models = getGroqModelCandidates();
+  const transientCodePattern = /(429|500|502|503|504|timeout|temporar)/i;
   const attemptErrors = [];
+  let sawRateLimit = false;
+  let sawServerError = false;
+  let sawAuthError = false;
+  const dataUrl = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
 
   for (const modelName of models) {
-    const model = getGeminiModel(modelName);
-
     for (let attempt = 1; attempt <= 2; attempt += 1) {
       try {
-        const response = await model.generateContent([
-          { text: prompt },
+        const response = await axios.post(
+          'https://api.groq.com/openai/v1/chat/completions',
           {
-            inlineData: {
-              mimeType,
-              data: fileBuffer.toString('base64'),
-            },
+            model: modelName,
+            temperature: 0,
+            max_tokens: 1800,
+            response_format: { type: 'json_object' },
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: prompt },
+                  { type: 'image_url', image_url: { url: dataUrl } },
+                ],
+              },
+            ],
           },
-        ]);
+          {
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            timeout: 25000,
+          }
+        );
 
-        const modelText = response?.response?.text?.() || '';
-        const parsedJson = parseGeminiJsonPayload(modelText);
-        if (parsedJson.length) {
+        const modelText = response?.data?.choices?.[0]?.message?.content || '';
+        const parsedVision = parseVisionJsonPayload(modelText);
+
+        if (parsedVision.items.length) {
           return {
-            items: parsedJson,
-            engine: `gemini_vision:${modelName}`,
+            items: parsedVision.items,
+            validation: parsedVision.validation,
+            engine: `groq_vision:${modelName}`,
           };
         }
 
-        const parsedText = parsePrescriptionText(modelText);
-        if (parsedText.length) {
-          return {
-            items: parsedText,
-            engine: `gemini_vision_text:${modelName}`,
-          };
+        const looksLikeJson = /^[\[{]/.test(String(modelText || '').trim());
+        if (!looksLikeJson) {
+          const parsedText = parsePrescriptionText(modelText);
+          if (parsedText.length) {
+            return {
+              items: parsedText,
+              validation: parsedVision.validation,
+              engine: `groq_vision_text:${modelName}`,
+            };
+          }
         }
 
         attemptErrors.push(`${modelName}: empty parse output`);
         break;
       } catch (err) {
-        const raw = String(err?.message || err || '').trim();
-        const message = raw || 'unknown vision extraction error';
+        const errorData = err?.response?.data;
+        const status = Number(err?.response?.status || 0);
+        const remoteMessage =
+          typeof errorData?.error?.message === 'string'
+            ? errorData.error.message
+            : typeof errorData?.message === 'string'
+              ? errorData.message
+              : '';
+
+        if (status === 429) sawRateLimit = true;
+        if (status >= 500) sawServerError = true;
+        if (status === 401 || status === 403) sawAuthError = true;
+
+        const raw = String(remoteMessage || err?.message || err || '').trim();
+        const message = raw || `http_${status || 'error'}`;
         attemptErrors.push(`${modelName}: ${message}`);
 
         if (transientCodePattern.test(message) && attempt < 2) {
@@ -180,8 +303,21 @@ async function extractWithGeminiVision(fileBuffer, mimeType) {
     }
   }
 
-  const fallbackErr = new Error(attemptErrors.join(' | ') || 'Vision extraction failed for all configured models.');
+  const fallbackErr = new Error('Groq vision extraction failed.');
   fallbackErr.statusCode = 422;
+  fallbackErr.code = 'OCR_EXTRACTION_FAILED';
+  fallbackErr.internalDetails = attemptErrors.join(' | ');
+
+  if (sawAuthError) {
+    fallbackErr.statusCode = 503;
+    fallbackErr.code = 'OCR_SERVICE_UNAVAILABLE';
+    fallbackErr.message = 'Prescription OCR service is unavailable.';
+  } else if (sawRateLimit || sawServerError) {
+    fallbackErr.statusCode = 503;
+    fallbackErr.code = 'OCR_SERVICE_BUSY';
+    fallbackErr.message = 'Prescription OCR service is busy. Please retry shortly.';
+  }
+
   throw fallbackErr;
 }
 
@@ -473,7 +609,8 @@ exports.extractPrescriptionMedicines = async (req, res) => {
     const fileBuffer = fs.readFileSync(localFilePath);
     let extractedText = '';
     let parsedMedicines = [];
-    let extractionEngine = 'gemini_vision';
+    let extractionEngine = 'groq_vision';
+    let prescriptionValidation = null;
 
     if (isPdf) {
       extractedText = await extractTextFromPdf(fileBuffer);
@@ -484,28 +621,62 @@ exports.extractPrescriptionMedicines = async (req, res) => {
     }
 
     if (!parsedMedicines.length) {
+      const normalizedMime = mimeType || MIME_BY_EXT[ext] || 'application/pdf';
       try {
-        const visionResult = await extractWithGeminiVision(fileBuffer, mimeType || MIME_BY_EXT[ext] || 'application/pdf');
-        parsedMedicines = visionResult.items;
-        extractionEngine = visionResult.engine;
-      } catch (visionErr) {
-        const statusCode = Number(visionErr?.statusCode || 0);
-        if (statusCode >= 400 && statusCode < 600) {
+        const groqResult = await extractWithGroqVision(fileBuffer, normalizedMime);
+        prescriptionValidation = groqResult.validation || null;
+
+        if (shouldRejectAsInvalidPrescription(groqResult.validation, groqResult.items)) {
+          return res.status(422).json({
+            errorCode: 'PRESCRIPTION_INVALID',
+            message: 'Prescription is not valid. Please upload a genuine doctor-issued prescription.',
+            prescriptionValidation: {
+              source: 'groq',
+              ...groqResult.validation,
+            },
+          });
+        }
+
+        if (Array.isArray(groqResult.items) && groqResult.items.length) {
+          parsedMedicines = groqResult.items;
+          extractionEngine = groqResult.engine;
+        }
+      } catch (groqErr) {
+        const statusCode = Number(groqErr?.statusCode || 0);
+        if (statusCode >= 500) {
           return res.status(statusCode).json({
-            message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
-            details: visionErr?.message,
+            errorCode: 'OCR_SERVICE_UNAVAILABLE',
+            message: 'Prescription OCR is temporarily unavailable. Please try again shortly.',
           });
         }
 
         return res.status(422).json({
+          errorCode: 'PRESCRIPTION_UNREADABLE',
           message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
-          details: visionErr?.message,
+        });
+      }
+
+      if (shouldRejectAsInvalidPrescription(prescriptionValidation, parsedMedicines)) {
+        return res.status(422).json({
+          errorCode: 'PRESCRIPTION_INVALID',
+          message: 'Prescription is not valid. Please upload a genuine doctor-issued prescription.',
+          prescriptionValidation,
+        });
+      }
+
+      if (!parsedMedicines.length) {
+        return res.status(422).json({
+          errorCode: 'PRESCRIPTION_UNREADABLE',
+          message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
         });
       }
     }
 
     if (!parsedMedicines.length) {
-      return res.status(422).json({ message: 'No medicine entries were detected in this prescription.' });
+      return res.status(422).json({
+        errorCode: 'PRESCRIPTION_NO_MEDICINES',
+        message: 'No medicine entries were detected in this prescription. Please upload a clearer prescription.',
+      });
     }
 
     const detectionResults = [];
@@ -554,6 +725,11 @@ exports.extractPrescriptionMedicines = async (req, res) => {
         ? 'Prescription processed and detected medicines were added to cart.'
         : 'Prescription processed, but no in-stock matching medicines were found to add.',
       extractionEngine,
+      prescriptionValidation: prescriptionValidation || {
+        isLikelyGenuine: null,
+        confidence: null,
+        reasons: [],
+      },
       sourceType: isPdf ? 'pdf' : 'image',
       extractedCount: detectionResults.length,
       addedToCartCount: uniqueCartItems.length,
