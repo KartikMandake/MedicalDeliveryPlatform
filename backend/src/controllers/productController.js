@@ -143,7 +143,7 @@ exports.getProducts = async (req, res) => {
 
     if (search) {
       replacements.search = `%${search}%`;
-      where.push('(m.name ILIKE :search OR m.salt_name ILIKE :search OR m.manufacturer ILIKE :search)');
+      where.push('(m.name ILIKE :search OR m."saltName" ILIKE :search OR m.brand ILIKE :search)');
     }
     if (categoryList.length) {
       replacements.categoryList = categoryList;
@@ -151,7 +151,7 @@ exports.getProducts = async (req, res) => {
     }
     if (brandList.length) {
       replacements.brandList = brandList;
-      where.push('m.manufacturer IN (:brandList)');
+      where.push('m.brand IN (:brandList)');
     }
     if (minPrice) {
       replacements.minPrice = Number(minPrice);
@@ -163,7 +163,7 @@ exports.getProducts = async (req, res) => {
     }
     if (requiresPrescription !== undefined) {
       replacements.requiresRx = String(requiresPrescription) === 'true';
-      where.push('m.requires_rx = :requiresRx');
+      where.push('m."requiresPrescription" = :requiresRx');
     }
     if (String(inStockOnly) === 'true') {
       where.push(`
@@ -171,7 +171,7 @@ exports.getProducts = async (req, res) => {
           SELECT 1
           FROM inventory i
           JOIN retailers r ON r.id = i.retailer_id
-          WHERE i.medicine_id = m.id
+          WHERE (i.medicine_id = m.id OR i.ecommerce_product_id = m.id)
             AND r.lat IS NOT NULL
             AND r.lng IS NOT NULL
             AND ${nearbyRetailerDistanceSql} <= :radiusKm
@@ -182,42 +182,93 @@ exports.getProducts = async (req, res) => {
 
     const whereSql = where.join('\n        AND ');
 
+    const cteSql = `
+      WITH combined_products AS (
+        SELECT
+          id,
+          name,
+          description,
+          type::text,
+          section,
+          manufacturer AS brand,
+          category_id,
+          selling_price,
+          mrp,
+          requires_rx AS "requiresPrescription",
+          images,
+          salt_name AS "saltName",
+          is_active,
+          FALSE AS "isEcom",
+          NULL::numeric AS rating,
+          NULL::int AS "reviewCount",
+          id AS medicine_id,
+          NULL::uuid AS ecommerce_product_id
+        FROM medicines
+        UNION ALL
+        SELECT
+          id,
+          name,
+          description,
+          'E-Commerce'::text AS type,
+          NULL AS section,
+          brand,
+          category_id,
+          selling_price,
+          mrp,
+          FALSE AS "requiresPrescription",
+          images,
+          NULL AS "saltName",
+          is_active,
+          TRUE AS "isEcom",
+          average_rating AS rating,
+          total_reviews AS "reviewCount",
+          NULL::uuid AS medicine_id,
+          id AS ecommerce_product_id
+        FROM ecommerce_products
+      )
+    `;
+
     const countQuery = `
+      ${cteSql}
       SELECT COUNT(*)::int AS total
-      FROM medicines m
+      FROM combined_products m
       LEFT JOIN categories c ON c.id = m.category_id
       WHERE ${whereSql}
     `;
 
     const listQuery = `
+      ${cteSql}
       SELECT
         m.id,
         m.name,
         m.description,
         m.type,
         m.section,
-        m.manufacturer AS brand,
+        m.brand,
         c.name AS category,
         c.icon_url AS "categoryIcon",
         COALESCE(m.selling_price, m.mrp, 0)::float AS price,
         COALESCE(m.mrp, m.selling_price, 0)::float AS mrp,
-        m.requires_rx AS "requiresPrescription",
+        m."requiresPrescription",
         NULLIF(array_to_string(m.images, ','), '') AS image,
         COALESCE(inv.stock_quantity, 0)::int AS stock,
-        m.salt_name AS "saltName"
-      FROM medicines m
+        m."saltName",
+        m."isEcom",
+        m.rating,
+        m."reviewCount"
+      FROM combined_products m
       LEFT JOIN categories c ON c.id = m.category_id
       LEFT JOIN (
         SELECT
-          i.medicine_id,
+          COALESCE(i.medicine_id, i.ecommerce_product_id) AS product_id,
           SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
         FROM inventory i
         JOIN retailers r ON r.id = i.retailer_id
         WHERE r.lat IS NOT NULL
           AND r.lng IS NOT NULL
           AND ${nearbyRetailerDistanceSql} <= :radiusKm
-        GROUP BY i.medicine_id
-      ) inv ON inv.medicine_id = m.id
+        GROUP BY COALESCE(i.medicine_id, i.ecommerce_product_id)
+      ) inv ON inv.product_id = m.id
       WHERE ${whereSql}
       ORDER BY ${orderBy}
       LIMIT :limit OFFSET :offset
@@ -241,14 +292,19 @@ exports.getProduct = async (req, res) => {
         m.id,
         m.name,
         m.description,
+        m.type::text AS type,
         m.manufacturer AS brand,
         c.name AS category,
         c.icon_url AS "categoryIcon",
         COALESCE(m.selling_price, m.mrp, 0)::float AS price,
+        m.mrp::float AS mrp,
         m.requires_rx AS "requiresPrescription",
         NULLIF(array_to_string(m.images, ','), '') AS image,
         COALESCE(inv.stock_quantity, 0)::int AS stock,
-        m.salt_name AS "saltName"
+        m.salt_name AS "saltName",
+        FALSE AS "isEcom",
+        NULL::numeric AS rating,
+        NULL::int AS "reviewCount"
       FROM medicines m
       LEFT JOIN categories c ON c.id = m.category_id
       LEFT JOIN (
@@ -259,6 +315,37 @@ exports.getProduct = async (req, res) => {
         GROUP BY medicine_id
       ) inv ON inv.medicine_id = m.id
       WHERE m.id = :id
+      
+      UNION ALL
+      
+      SELECT
+        ep.id,
+        ep.name,
+        ep.description,
+        'E-Commerce' AS type,
+        ep.brand,
+        c.name AS category,
+        c.icon_url AS "categoryIcon",
+        COALESCE(ep.selling_price, ep.mrp, 0)::float AS price,
+        ep.mrp::float AS mrp,
+        FALSE AS "requiresPrescription",
+        NULLIF(array_to_string(ep.images, ','), '') AS image,
+        COALESCE(inv.stock_quantity, 0)::int AS stock,
+        NULL AS "saltName",
+        TRUE AS "isEcom",
+        ep.average_rating AS rating,
+        ep.total_reviews AS "reviewCount"
+      FROM ecommerce_products ep
+      LEFT JOIN categories c ON c.id = ep.category_id
+      LEFT JOIN (
+        SELECT
+          ecommerce_product_id,
+          SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
+        FROM inventory
+        GROUP BY ecommerce_product_id
+      ) inv ON inv.ecommerce_product_id = ep.id
+      WHERE ep.id = :id
+      
       LIMIT 1
       `,
       { type: QueryTypes.SELECT, replacements: { id: req.params.id } }
@@ -268,6 +355,84 @@ exports.getProduct = async (req, res) => {
     res.json(product);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
+
+exports.getProductSuggestions = async (req, res) => {
+  try {
+    const resolvedLocation = await resolveUserLocation(req);
+    const parsedUserLat = Number(resolvedLocation?.lat);
+    const parsedUserLng = Number(resolvedLocation?.lng);
+    const hasUserLocation = Number.isFinite(parsedUserLat) && Number.isFinite(parsedUserLng);
+
+    if (!hasUserLocation) {
+      return res.json({ suggestions: [] });
+    }
+
+    const nearbyRetailerDistanceSql = `
+      (
+        6371 * ACOS(
+          LEAST(
+            1,
+            GREATEST(
+              -1,
+              COS(RADIANS(:userLat)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lng) - RADIANS(:userLng))
+              + SIN(RADIANS(:userLat)) * SIN(RADIANS(r.lat))
+            )
+          )
+        )
+      )
+    `;
+
+    const listQuery = `
+      SELECT
+        ep.id,
+        ep.name,
+        ep.description,
+        ep.brand,
+        c.name AS category,
+        NULL AS "categoryIcon",
+        COALESCE(ep.selling_price, ep.mrp, 0)::float AS price,
+        COALESCE(ep.mrp, ep.selling_price, 0)::float AS mrp,
+        FALSE AS "requiresPrescription",
+        NULLIF(array_to_string(ep.images, ','), '') AS image,
+        COALESCE(inv.stock_quantity, 0)::int AS stock,
+        NULL AS "saltName",
+        TRUE AS "isEcom",
+        ep.average_rating AS rating,
+        ep.total_reviews AS "reviewCount"
+      FROM ecommerce_products ep
+      LEFT JOIN categories c ON c.id = ep.category_id
+      JOIN (
+        SELECT
+          i.ecommerce_product_id,
+          SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
+        FROM inventory i
+        JOIN retailers r ON r.id = i.retailer_id
+        WHERE i.ecommerce_product_id IS NOT NULL
+          AND r.lat IS NOT NULL
+          AND r.lng IS NOT NULL
+          AND ${nearbyRetailerDistanceSql} <= :radiusKm
+        GROUP BY i.ecommerce_product_id
+      ) inv ON inv.ecommerce_product_id = ep.id
+      WHERE ep.is_active = TRUE
+        AND inv.stock_quantity > 0
+      ORDER BY RANDOM()
+      LIMIT :limit
+    `;
+
+    const replacements = {
+      limit: 4,
+      userLat: parsedUserLat,
+      userLng: parsedUserLng,
+      radiusKm: 8
+    };
+
+    const suggestions = await sequelize.query(listQuery, { type: QueryTypes.SELECT, replacements });
+    res.json({ suggestions });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 exports.getProductFilters = async (req, res) => {
   try {
@@ -280,7 +445,11 @@ exports.getProductFilters = async (req, res) => {
           c.icon_url AS "iconUrl",
           COUNT(m.id)::int AS "productCount"
         FROM categories c
-        LEFT JOIN medicines m
+        LEFT JOIN (
+          SELECT id, category_id, is_active FROM medicines
+          UNION ALL
+          SELECT id, category_id, is_active FROM ecommerce_products
+        ) m
           ON m.category_id = c.id
          AND m.is_active = TRUE
         GROUP BY c.id, c.name, c.icon_url
@@ -290,15 +459,17 @@ exports.getProductFilters = async (req, res) => {
       ),
       sequelize.query(
         `
+        WITH combined_brands AS (
+          SELECT manufacturer AS name FROM medicines WHERE is_active = TRUE AND manufacturer IS NOT NULL AND manufacturer <> ''
+          UNION ALL
+          SELECT brand AS name FROM ecommerce_products WHERE is_active = TRUE AND brand IS NOT NULL AND brand <> ''
+        )
         SELECT
-          manufacturer AS name,
+          name,
           COUNT(*)::int AS count
-        FROM medicines
-        WHERE is_active = TRUE
-          AND manufacturer IS NOT NULL
-          AND manufacturer <> ''
-        GROUP BY manufacturer
-        ORDER BY count DESC, manufacturer ASC
+        FROM combined_brands
+        GROUP BY name
+        ORDER BY count DESC, name ASC
         LIMIT 200
         `,
         { type: QueryTypes.SELECT }

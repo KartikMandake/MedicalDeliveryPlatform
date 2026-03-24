@@ -29,3 +29,4 @@ const requestWithRetry = async (requestFn, { retries = 6, initialDelay = 400, ma
 export const getProducts = (params) => requestWithRetry(() => api.get('/products', { params }));
 export const getProduct = (id) => api.get(`/products/${id}`);
 export const getProductFilters = () => requestWithRetry(() => api.get('/products/filters'));
+export const getProductSuggestions = (id, params) => requestWithRetry(() => api.get(`/products/${id}/suggestions`, { params }));

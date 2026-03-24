@@ -75,11 +75,11 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
       .finally(() => setLoading(false));
         }, [filters, page, userLocation?.lat, userLocation?.lng, locationStatus]);
 
-  const handleAdd = async (productId) => {
+  const handleAdd = async (product) => {
     if (!user) { window.location.href = '/login'; return; }
     try {
-      await addItem(productId, 1);
-      triggerPulse(productId);
+      await addItem(product.id, 1, product.isEcom);
+      triggerPulse(product.id);
       showToast({ message: 'Added to cart', type: 'success', title: 'Cart updated' });
     } catch (err) {
       showToast({ message: err.response?.data?.message || 'Could not add to cart', type: 'error', title: 'Add failed' });
@@ -233,7 +233,14 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
                 </div>
 
                 <h3 className="font-headline font-bold text-base lg:text-lg text-on-surface leading-tight mb-1 group-hover:text-primary transition-colors">{product.name}</h3>
-                <p className="text-xs lg:text-sm text-zinc-500 line-clamp-2 mb-3">{product.description || product.saltName || 'Quality-assured medicine for clinical use.'}</p>
+                {product.isEcom && product.description?.includes('<') ? (
+                  <div 
+                    className="text-xs lg:text-sm text-zinc-500 line-clamp-2 mb-3 [&>div>h3]:inline [&>div>p]:inline-block" 
+                    dangerouslySetInnerHTML={{ __html: product.description.replace(/<[^>]*$/, '...') }} 
+                  />
+                ) : (
+                  <p className="text-xs lg:text-sm text-zinc-500 line-clamp-2 mb-3">{product.description || product.saltName || 'Quality-assured medicine for clinical use.'}</p>
+                )}
 
                 <div className="mt-auto flex items-center justify-between">
                   <span className="text-lg lg:text-xl font-extrabold text-[#2E7D32]">₹{formatPrice(product.price)}</span>
@@ -289,7 +296,7 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
                       aria-label={Number(product.stock || 0) <= 0 ? 'Out of stock' : 'Add to cart'}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleAdd(product.id);
+                        handleAdd(product);
                       }}
                       className={`h-10 w-10 lg:h-11 lg:w-11 rounded-full flex items-center justify-center transition-all active:scale-90 ${Number(product.stock || 0) <= 0 || adding ? 'bg-zinc-100 text-zinc-300 cursor-not-allowed' : 'bg-surface-container-high text-primary hover:bg-primary hover:text-white'}`}
                     >

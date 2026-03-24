@@ -267,7 +267,7 @@ export default function DashboardPage() {
       return;
     }
     try {
-      await addItem(product.id, 1);
+      await addItem(product.id, 1, product.isEcom);
       showToast(`${product.name} added to cart.`, 'success');
     } catch (err) {
       showToast(err.response?.data?.message || 'Could not add product to cart.', 'error');

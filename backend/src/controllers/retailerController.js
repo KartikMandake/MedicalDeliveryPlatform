@@ -18,6 +18,16 @@ const normalizeStatusForUi = (status) => {
 let ensureAgentLocationColumnsPromise = null;
 let ensureOrderItemRetailerColumnPromise = null;
 let ensureRetailerLocationColumnsPromise = null;
+let ensureInventoryMedicineIdNullablePromise = null;
+
+async function ensureInventoryMedicineIdNullable() {
+  if (!ensureInventoryMedicineIdNullablePromise) {
+    ensureInventoryMedicineIdNullablePromise = sequelize.query(
+      'ALTER TABLE inventory ALTER COLUMN medicine_id DROP NOT NULL'
+    ).catch(e => console.error('Failed to make medicine_id nullable:', e.message));
+  }
+  return ensureInventoryMedicineIdNullablePromise;
+}
 
 async function ensureAgentLocationColumns() {
   if (!ensureAgentLocationColumnsPromise) {
@@ -680,17 +690,30 @@ exports.getInventory = async (req, res) => {
       `SELECT
         i.id, i.stock_quantity, i.reserved_quantity, i.reorder_level,
         i.max_capacity, i.last_restocked_at, i.last_updated,
-        m.id AS medicine_id, m.name, m.salt_name, m.manufacturer,
-        m.type, m.section, m.mrp::float, m.selling_price::float,
-        m.requires_rx, m.images, m.description, m.hsn_code,
-        NULLIF(array_to_string(m.images, ','), '') AS image,
-        m.is_active,
-        c.name AS category_name, c.icon_url AS category_icon
+        COALESCE(m.id, ep.id) AS medicine_id, 
+        COALESCE(m.name, ep.name) AS name, 
+        COALESCE(m.salt_name, NULL) AS salt_name, 
+        COALESCE(m.manufacturer, ep.brand) AS manufacturer,
+        COALESCE(m.type::text, 'E-Commerce') AS type, 
+        COALESCE(m.section::text, NULL) AS section,
+        COALESCE(m.mrp, ep.mrp)::float AS mrp, 
+        COALESCE(m.selling_price, ep.selling_price)::float AS selling_price,
+        COALESCE(m.requires_rx, FALSE) AS requires_rx, 
+        COALESCE(m.images, ep.images) AS images, 
+        COALESCE(m.description, ep.description) AS description, 
+        COALESCE(m.hsn_code, NULL) AS hsn_code,
+        NULLIF(array_to_string(COALESCE(m.images, ep.images), ','), '') AS image,
+        COALESCE(m.is_active, ep.is_active) AS is_active,
+        COALESCE(c.name, c2.name) AS category_name, 
+        COALESCE(c.icon_url, c2.icon_url) AS category_icon,
+        (i.ecommerce_product_id IS NOT NULL) AS "isEcom"
        FROM inventory i
-       JOIN medicines m ON m.id = i.medicine_id
+       LEFT JOIN medicines m ON m.id = i.medicine_id
+       LEFT JOIN ecommerce_products ep ON ep.id = i.ecommerce_product_id
        LEFT JOIN categories c ON c.id = m.category_id
+       LEFT JOIN categories c2 ON c2.id = ep.category_id
        WHERE i.retailer_id = :retailerId
-       ORDER BY m.name ASC`,
+       ORDER BY COALESCE(m.name, ep.name) ASC`,
       { type: QueryTypes.SELECT, replacements: { retailerId } }
     );
 
@@ -701,27 +724,31 @@ exports.getInventory = async (req, res) => {
 // POST /retailer/inventory — add a medicine to inventory
 exports.addToInventory = async (req, res) => {
   try {
+    await ensureInventoryMedicineIdNullable();
     const retailerId = await getRetailerId(req.user.id);
     if (!retailerId) return res.status(404).json({ message: 'Retailer profile not found' });
 
-    const { medicineId, stockQuantity, reorderLevel, maxCapacity } = req.body;
+    const { medicineId, stockQuantity, reorderLevel, maxCapacity, isEcom } = req.body;
 
-    // Validate medicine exists
-    const med = await sequelize.query(
-      `SELECT id, name FROM medicines WHERE id = :medicineId AND is_active = true`,
+    let targetTable = isEcom ? 'ecommerce_products' : 'medicines';
+    let targetColumn = isEcom ? 'ecommerce_product_id' : 'medicine_id';
+
+    // Validate product exists
+    const prod = await sequelize.query(
+      `SELECT id, name FROM ${targetTable} WHERE id = :medicineId AND is_active = true`,
       { type: QueryTypes.SELECT, replacements: { medicineId } }
     );
-    if (!med.length) return res.status(404).json({ message: 'Medicine not found on platform' });
+    if (!prod.length) return res.status(404).json({ message: 'Product not found on platform' });
 
     // Check if already in inventory
     const existing = await sequelize.query(
-      `SELECT id FROM inventory WHERE retailer_id = :retailerId AND medicine_id = :medicineId`,
+      `SELECT id FROM inventory WHERE retailer_id = :retailerId AND ${targetColumn} = :medicineId`,
       { type: QueryTypes.SELECT, replacements: { retailerId, medicineId } }
     );
-    if (existing.length) return res.status(400).json({ message: 'Medicine already in your inventory' });
+    if (existing.length) return res.status(400).json({ message: 'Product already in your inventory' });
 
     const result = await sequelize.query(
-      `INSERT INTO inventory (retailer_id, medicine_id, stock_quantity, reorder_level, max_capacity, last_restocked_at)
+      `INSERT INTO inventory (retailer_id, ${targetColumn}, stock_quantity, reorder_level, max_capacity, last_restocked_at)
        VALUES (:retailerId, :medicineId, :stockQuantity, :reorderLevel, :maxCapacity, CURRENT_TIMESTAMP)
        RETURNING id`,
       {
@@ -803,39 +830,70 @@ exports.searchMedicines = async (req, res) => {
     const limit = Math.min(100, parseInt(req.query.limit) || 50);
     const offset = parseInt(req.query.offset) || 0;
 
-    let whereClause = `WHERE m.is_active = true`;
     const replacements = { retailerId, limit, offset };
 
+    let medWhere = `WHERE m.is_active = true`;
+    let ecomWhere = `WHERE ep.is_active = true`;
+
     if (q.trim()) {
-      whereClause += ` AND (m.name ILIKE :search OR m.salt_name ILIKE :search OR m.manufacturer ILIKE :search)`;
+      medWhere += ` AND (m.name ILIKE :search OR m.salt_name ILIKE :search OR m.manufacturer ILIKE :search)`;
+      ecomWhere += ` AND (ep.name ILIKE :search OR ep.brand ILIKE :search)`;
       replacements.search = `%${q}%`;
     }
     if (categoryId) {
-      whereClause += ` AND m.category_id = :categoryId`;
+      medWhere += ` AND m.category_id = :categoryId`;
+      ecomWhere += ` AND ep.category_id = :categoryId`;
       replacements.categoryId = categoryId;
     }
 
     const medicines = await sequelize.query(
-      `SELECT
-        m.id, m.name, m.salt_name, m.manufacturer, m.type, m.section,
-        m.mrp::float, m.selling_price::float, m.requires_rx, m.images, m.description, m.hsn_code,
-        NULLIF(array_to_string(m.images, ','), '') AS image,
-        c.name AS category_name, c.icon_url AS category_icon,
-        CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS already_in_inventory,
-        i.stock_quantity AS current_stock,
-        i.reorder_level AS current_reorder_level,
-        i.id AS inventory_id
-       FROM medicines m
-       LEFT JOIN categories c ON c.id = m.category_id
-       LEFT JOIN inventory i ON i.medicine_id = m.id AND i.retailer_id = :retailerId
-       ${whereClause}
-       ORDER BY m.name ASC
-       LIMIT :limit OFFSET :offset`,
+      `
+      SELECT * FROM (
+        SELECT
+          m.id, m.name, m.salt_name, m.manufacturer, m.type::text, m.section::text,
+          m.mrp::float, m.selling_price::float, m.requires_rx, m.images, m.description, m.hsn_code,
+          NULLIF(array_to_string(m.images, ','), '') AS image,
+          c.name AS category_name, c.icon_url AS category_icon,
+          CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS already_in_inventory,
+          i.stock_quantity AS current_stock,
+          i.reorder_level AS current_reorder_level,
+          i.id AS inventory_id,
+          false AS "isEcom"
+        FROM medicines m
+        LEFT JOIN categories c ON c.id = m.category_id
+        LEFT JOIN inventory i ON i.medicine_id = m.id AND i.retailer_id = :retailerId
+        ${medWhere}
+        
+        UNION ALL
+        
+        SELECT
+          ep.id, ep.name, NULL AS salt_name, ep.brand AS manufacturer, 'E-Commerce'::text AS type, NULL::text AS section,
+          ep.mrp::float, ep.selling_price::float, false AS requires_rx, ep.images, ep.description, NULL AS hsn_code,
+          NULLIF(array_to_string(ep.images, ','), '') AS image,
+          c.name AS category_name, c.icon_url AS category_icon,
+          CASE WHEN i.id IS NOT NULL THEN true ELSE false END AS already_in_inventory,
+          i.stock_quantity AS current_stock,
+          i.reorder_level AS current_reorder_level,
+          i.id AS inventory_id,
+          true AS "isEcom"
+        FROM ecommerce_products ep
+        LEFT JOIN categories c ON c.id = ep.category_id
+        LEFT JOIN inventory i ON i.ecommerce_product_id = ep.id AND i.retailer_id = :retailerId
+        ${ecomWhere}
+      ) AS combined_results
+      ORDER BY name ASC
+      LIMIT :limit OFFSET :offset`,
       { type: QueryTypes.SELECT, replacements }
     );
 
     const countRows = await sequelize.query(
-      `SELECT COUNT(*)::int AS total FROM medicines m ${whereClause}`,
+      `
+      SELECT SUM(total)::int AS total FROM (
+        SELECT COUNT(*) AS total FROM medicines m ${medWhere}
+        UNION ALL
+        SELECT COUNT(*) AS total FROM ecommerce_products ep ${ecomWhere}
+      ) sub
+      `,
       { type: QueryTypes.SELECT, replacements }
     );
 

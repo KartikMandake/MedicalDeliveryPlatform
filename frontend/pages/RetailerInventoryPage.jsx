@@ -39,12 +39,25 @@ export default function RetailerInventoryPage() {
     else if (t.includes('drop')) { cls = 'bg-cyan-50 text-cyan-700 border-cyan-200'; icon = 'water_drop'; }
     else if (t.includes('cream') || t.includes('ointment')) { cls = 'bg-amber-50 text-amber-700 border-amber-200'; icon = 'spa'; }
     else if (t.includes('device')) { cls = 'bg-teal-50 text-teal-700 border-teal-200'; icon = 'medical_services'; }
+    else if (t.includes('e-commerce') || t.includes('ecom')) { cls = 'bg-indigo-50 text-indigo-700 border-indigo-200'; icon = 'shopping_bag'; }
 
     return <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border ${cls} uppercase tracking-wider`}><span className="material-symbols-outlined text-[13px]">{icon}</span> {type}</span>;
   };
 
   const renderDescription = (desc) => {
     if (!desc) return null;
+    if (desc.includes('<')) {
+      const cleanDesc = desc.replace(/<[^>]*$/, '...');
+      return (
+        <div className="space-y-3 mt-6 bg-[#f8f9fa] p-5 rounded-2xl border border-zinc-100">
+          <h5 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.15em] mb-4">Product Information</h5>
+          <div 
+            className="text-[13px] text-zinc-600 leading-relaxed [&>div>h3]:text-sm [&>div>h3]:font-bold [&>div>h3]:mb-1 [&>div>h3]:text-zinc-800 [&>div>p]:mb-1"
+            dangerouslySetInnerHTML={{ __html: cleanDesc }}
+          />
+        </div>
+      );
+    }
     const parts = desc.split('|').map(p => p.trim()).filter(Boolean);
     return (
       <div className="space-y-3 mt-6 bg-[#f8f9fa] p-5 rounded-2xl border border-zinc-100">
@@ -193,6 +206,7 @@ export default function RetailerInventoryPage() {
       if (modalMode === 'add') {
         await addToInventory({
           medicineId: stockModal.medicine_id || stockModal.id,
+          isEcom: stockModal.isEcom || false,
           stockQuantity: stockQty,
           reorderLevel: reorderLevel,
           maxCapacity: 500,
