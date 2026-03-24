@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { searchMedicines, addToInventory } from '../../api/retailer';
+import SaltComposition from '../ui/SaltComposition';
 
 export default function AddMedicineModal({ onClose, onAdded }) {
   const [query, setQuery] = useState('');
@@ -101,7 +102,11 @@ export default function AddMedicineModal({ onClose, onAdded }) {
                   )}
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-slate-900 truncate">{med.name}</p>
-                    <p className="text-xs text-slate-400 truncate">{med.salt_name} · {med.manufacturer}</p>
+                    <div className="text-xs text-slate-400 truncate flex items-center gap-1">
+                      {med.salt_name && <SaltComposition saltName={med.salt_name} format="text" />}
+                      {med.salt_name && med.manufacturer && <span>·</span>}
+                      <span>{med.manufacturer}</span>
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs font-semibold uppercase text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{med.type}</span>
                       <span className="text-xs text-slate-400">{med.category_name}</span>

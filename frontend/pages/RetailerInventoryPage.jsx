@@ -6,6 +6,7 @@ import { searchMedicines, getCategories, addToInventory, updateInventoryItem, ge
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
+import SaltComposition from '../components/ui/SaltComposition';
 
 export default function RetailerInventoryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -644,7 +645,12 @@ export default function RetailerInventoryPage() {
                     </span>
                     {getTypeBadge(stockModal.type)}
                   </div>
-                  <p className="text-sm text-zinc-500 font-medium mb-6">Salt: <span className="text-zinc-700">{stockModal.salt_name}</span></p>
+                  <div className="text-sm text-zinc-500 font-medium mb-6 flex gap-2">
+                    <span>Salt:</span> 
+                    <div className="text-zinc-700 flex-1">
+                      {stockModal.salt_name ? <SaltComposition saltName={stockModal.salt_name} format="text" className="text-sm mt-0" /> : 'N/A'}
+                    </div>
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-4 mb-6 p-4 bg-white rounded-2xl shadow-sm border border-zinc-100/50">

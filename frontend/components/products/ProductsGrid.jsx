@@ -4,6 +4,7 @@ import { getProducts } from '../../api/products';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import SaltComposition from '../ui/SaltComposition';
 
 export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onFiltersChange, userLocation, locationStatus }) {
   const [products, setProducts] = useState([]);
@@ -239,7 +240,10 @@ export default function ProductsGrid({ filters = {}, page = 1, onTotalPages, onF
                     dangerouslySetInnerHTML={{ __html: product.description.replace(/<[^>]*$/, '...') }} 
                   />
                 ) : (
-                  <p className="text-xs lg:text-sm text-zinc-500 line-clamp-2 mb-3">{product.description || product.saltName || 'Quality-assured medicine for clinical use.'}</p>
+                  <div className="mb-3">
+                    <p className="text-xs lg:text-sm text-zinc-500 line-clamp-2">{product.description || 'Quality-assured medicine for clinical use.'}</p>
+                    {product.saltName && <SaltComposition saltName={product.saltName} format="text" className="text-[11px] text-zinc-400 mt-1 line-clamp-1" />}
+                  </div>
                 )}
 
                 <div className="mt-auto flex items-center justify-between">
