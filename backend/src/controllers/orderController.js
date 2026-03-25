@@ -79,6 +79,7 @@ exports.createOrder = async (req, res) => {
           ci.quantity,
           COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, 0))::float AS unit_price,
           m.name,
+          m.requires_rx AS "requiresPrescription",
           COALESCE(inv.stock_quantity, 0)::int AS stock
         FROM cart_items ci
         LEFT JOIN medicines m ON m.id = ci.medicine_id
@@ -96,6 +97,11 @@ exports.createOrder = async (req, res) => {
       );
 
       if (!items.length) throw badRequestError('Cart is empty');
+
+      const rxItems = items.filter(item => item.requiresPrescription);
+      if (rxItems.length > 0 && !req.body.prescription) {
+        throw badRequestError(`Prescription is required for: ${rxItems.map(i => i.name).join(', ')}`);
+      }
 
       for (const item of items) {
         if (!item.medicine_id) {
@@ -239,6 +245,7 @@ exports.createOrder = async (req, res) => {
           total_amount,
           delivery_otp,
           payment_status,
+          prescription,
           placed_at
         )
         VALUES (
@@ -252,6 +259,7 @@ exports.createOrder = async (req, res) => {
           :totalAmount,
           :deliveryOtp,
           'pending',
+          :prescription,
           (CURRENT_TIMESTAMP AT TIME ZONE 'Asia/Kolkata')
         )
         RETURNING id, order_number
@@ -267,6 +275,7 @@ exports.createOrder = async (req, res) => {
             deliveryFee,
             totalAmount: total,
             deliveryOtp: generateOtp(),
+            prescription: req.body.prescription || null,
           },
           transaction,
         }

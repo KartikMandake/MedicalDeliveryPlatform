@@ -4,6 +4,13 @@ const { PDFParse } = require('pdf-parse');
 const axios = require('axios');
 const { QueryTypes } = require('sequelize');
 const sequelize = require('../db');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GROQ_MODELS = ['llama-3.2-90b-vision-preview', 'llama-3.2-11b-vision-preview'];
+
+// Helper for wait/sleep
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const SUPPORTED_MIME_TYPES = new Set([
   'application/pdf',
@@ -164,30 +171,14 @@ function buildVisionExtractionPrompt() {
     '  "genuinenessConfidence": number,',
     '  "genuinenessReasons": string[],',
     '  "medicines": [',
-    '    { "medicineName": string, "dosage": string, "quantity": number, "rawLine": string }',
+    '    { "medicineName": "...", "dosage": "...", "quantity": number, "rawLine": "..." }',
     '  ]',
     '}',
-    'Rules:',
-    '- isLikelyGenuinePrescription should be true only when the document looks like a real clinical prescription (doctor details/signature/stamp/header/format) and not just a plain handwritten medicine list on normal paper.',
-    '- genuinenessConfidence must be between 0 and 1.',
-    '- genuinenessReasons should include concise reasons for your decision.',
-    '- Include only medicine entries, not patient metadata.',
-    '- dosage should be compact when available (e.g., "500mg", "5ml").',
-    '- quantity must be a number from 1 to 90. Estimate from frequency and days when needed.',
-    '- If uncertain on medicine quantity, use 1.',
   ].join('\n');
 }
 
 function getGroqModelCandidates() {
-  const configured = String(process.env.GROQ_VISION_MODELS || '')
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean);
-
-  if (configured.length) return configured;
   return [
-    'meta-llama/llama-4-scout-17b-16e-instruct',
-    'meta-llama/llama-4-maverick-17b-128e-instruct',
     'llama-3.2-90b-vision-preview',
     'llama-3.2-11b-vision-preview',
   ];
@@ -204,12 +195,83 @@ function shouldRejectAsInvalidPrescription(validation, extractedItems) {
   return hasStrongConfidence && itemCount < 2;
 }
 
+async function extractWithGemini(fileBuffer, mimeType) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+    const prompt = buildVisionExtractionPrompt();
+
+    const result = await model.generateContent([
+      { text: prompt },
+      { inlineData: { data: fileBuffer.toString('base64'), mimeType } },
+    ]);
+
+    const response = await result.response;
+    return parseVisionJsonPayload(response.text());
+  } catch (err) {
+    const msg = String(err.message || '');
+    if (err.status === 429 || msg.includes('429') || msg.includes('Quota')) {
+      console.warn('Gemini Quota Exceeded. Skipping to fallback...');
+    } else {
+      console.error('Gemini Error:', msg);
+    }
+    return null;
+  }
+}
+
+async function extractWithGroq(fileBuffer, mimeType) {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) return null;
+
+  const prompt = buildVisionExtractionPrompt();
+  const dataUrl = `data:${mimeType};base64,${fileBuffer.toString('base64')}`;
+
+  for (const modelName of GROQ_MODELS) {
+    try {
+      const resp = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
+        model: modelName,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: dataUrl } }
+          ]
+        }]
+      }, {
+        headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        timeout: 25000
+      });
+
+      return parseVisionJsonPayload(resp.data.choices[0].message.content);
+    } catch (err) {
+      console.warn(`Groq ${modelName} attempt failed:`, err.message);
+    }
+  }
+  return null;
+}
+
+async function extractMedicinesComposite(fileBuffer, mimeType) {
+  // 1. Try Gemini
+  let result = await extractWithGemini(fileBuffer, mimeType);
+  if (result && result.items?.length) return { ...result, engine: 'gemini' };
+
+  // 2. Try Groq
+  result = await extractWithGroq(fileBuffer, mimeType);
+  if (result && result.items?.length) return { ...result, engine: 'groq' };
+
+  return { items: [], validation: null, engine: 'none' };
+}
+
 async function extractWithGroqVision(fileBuffer, mimeType) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
-    const err = new Error('GROQ_API_KEY is not configured.');
-    err.statusCode = 503;
-    throw err;
+    // Gracefully fallback to Gemini instead of throwing if Groq is missing
+    return extractWithGemini(fileBuffer, mimeType);
   }
 
   const prompt = buildVisionExtractionPrompt();
@@ -621,55 +683,25 @@ exports.extractPrescriptionMedicines = async (req, res) => {
     }
 
     if (!parsedMedicines.length) {
-      const normalizedMime = mimeType || MIME_BY_EXT[ext] || 'application/pdf';
-      try {
-        const groqResult = await extractWithGroqVision(fileBuffer, normalizedMime);
-        prescriptionValidation = groqResult.validation || null;
+      const composite = await extractMedicinesComposite(fileBuffer, mimeType);
+      parsedMedicines = composite.items;
+      prescriptionValidation = composite.validation;
+      extractionEngine = composite.engine;
+    }
 
-        if (shouldRejectAsInvalidPrescription(groqResult.validation, groqResult.items)) {
-          return res.status(422).json({
-            errorCode: 'PRESCRIPTION_INVALID',
-            message: 'Prescription is not valid. Please upload a genuine doctor-issued prescription.',
-            prescriptionValidation: {
-              source: 'groq',
-              ...groqResult.validation,
-            },
-          });
-        }
+    if (shouldRejectAsInvalidPrescription(prescriptionValidation, parsedMedicines)) {
+      return res.status(422).json({
+        errorCode: 'PRESCRIPTION_INVALID',
+        message: 'Prescription is not valid. Please upload a genuine doctor-issued prescription.',
+        prescriptionValidation,
+      });
+    }
 
-        if (Array.isArray(groqResult.items) && groqResult.items.length) {
-          parsedMedicines = groqResult.items;
-          extractionEngine = groqResult.engine;
-        }
-      } catch (groqErr) {
-        const statusCode = Number(groqErr?.statusCode || 0);
-        if (statusCode >= 500) {
-          return res.status(statusCode).json({
-            errorCode: 'OCR_SERVICE_UNAVAILABLE',
-            message: 'Prescription OCR is temporarily unavailable. Please try again shortly.',
-          });
-        }
-
-        return res.status(422).json({
-          errorCode: 'PRESCRIPTION_UNREADABLE',
-          message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
-        });
-      }
-
-      if (shouldRejectAsInvalidPrescription(prescriptionValidation, parsedMedicines)) {
-        return res.status(422).json({
-          errorCode: 'PRESCRIPTION_INVALID',
-          message: 'Prescription is not valid. Please upload a genuine doctor-issued prescription.',
-          prescriptionValidation,
-        });
-      }
-
-      if (!parsedMedicines.length) {
-        return res.status(422).json({
-          errorCode: 'PRESCRIPTION_UNREADABLE',
-          message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
-        });
-      }
+    if (!parsedMedicines.length) {
+      return res.status(422).json({
+        errorCode: 'PRESCRIPTION_UNREADABLE',
+        message: 'Could not read this prescription. Please upload a clearer image/PDF with visible medicine names.',
+      });
     }
 
     if (!parsedMedicines.length) {
@@ -687,13 +719,13 @@ exports.extractPrescriptionMedicines = async (req, res) => {
         ...parsed,
         matchedProduct: match
           ? {
-              id: match.id,
-              name: match.name,
-              saltName: match.saltName,
-              requiresPrescription: match.requiresPrescription,
-              price: Number(match.price || 0),
-              stock: Number(match.stock || 0),
-            }
+            id: match.id,
+            name: match.name,
+            saltName: match.saltName,
+            requiresPrescription: match.requiresPrescription,
+            price: Number(match.price || 0),
+            stock: Number(match.stock || 0),
+          }
           : null,
       });
     }
@@ -739,7 +771,116 @@ exports.extractPrescriptionMedicines = async (req, res) => {
     return res.status(500).json({ message: err.message || 'Failed to process prescription.' });
   } finally {
     if (localFilePath && fs.existsSync(localFilePath)) {
-      fs.unlink(localFilePath, () => {});
+      fs.unlink(localFilePath, () => { });
     }
+  }
+};
+
+exports.verifyPrescriptionForCart = async (req, res) => {
+  let localFilePath = '';
+  try {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    localFilePath = req.file.path;
+
+    // 1. Get current cart items that require prescription
+    const cartItems = await sequelize.query(
+      `
+      SELECT ci.medicine_id, m.name, m.salt_name, ci.quantity
+      FROM cart_items ci
+      JOIN medicines m ON m.id = ci.medicine_id
+      JOIN carts c ON c.id = ci.cart_id
+      WHERE c.user_id = :userId AND c.is_active = TRUE AND m.requires_rx = TRUE
+      `,
+      { type: QueryTypes.SELECT, replacements: { userId: req.user.id } }
+    );
+
+    if (cartItems.length === 0) {
+      return res.json({ verified: true, message: 'No items in cart require a prescription.' });
+    }
+
+    const mimeType = getMimeTypeFromUpload(req.file);
+    const fileBuffer = fs.readFileSync(localFilePath);
+
+    // 2. Extract medicines using AI
+    let parsedMedicines = [];
+    let prescriptionValidation = null;
+
+    if (mimeType === 'application/pdf') {
+      const text = await extractTextFromPdf(fileBuffer);
+      if (text) parsedMedicines = parsePrescriptionText(text);
+    }
+
+    if (!parsedMedicines.length) {
+      const composite = await extractMedicinesComposite(fileBuffer, mimeType);
+      parsedMedicines = composite.items;
+      prescriptionValidation = composite.validation;
+    }
+
+    if (shouldRejectAsInvalidPrescription(prescriptionValidation, parsedMedicines)) {
+      return res.status(422).json({
+        verified: false,
+        errorCode: 'PRESCRIPTION_INVALID',
+        message: 'Prescription is not valid. Please upload a genuine doctor-issued prescription.',
+      });
+    }
+
+    // 3. Match extracted medicines against cart items
+    const missingMedicines = [];
+    const matchedProducts = [];
+
+    for (const cartItem of cartItems) {
+      let foundMatch = false;
+      const normalizedCartName = normalizeText(cartItem.name);
+      const normalizedSaltName = normalizeText(cartItem.salt_name);
+
+      for (const extracted of parsedMedicines) {
+        const normalizedExtractedName = normalizeText(extracted.medicineName);
+        
+        const isBrandMatch = normalizedExtractedName.includes(normalizedCartName) || normalizedCartName.includes(normalizedExtractedName);
+        const isSaltMatch = normalizedSaltName && (normalizedExtractedName.includes(normalizedSaltName) || normalizedSaltName.includes(normalizedExtractedName));
+
+        if (isBrandMatch || isSaltMatch) {
+          foundMatch = true;
+          matchedProducts.push({
+            id: cartItem.medicine_id,
+            name: cartItem.name,
+            matchedAs: extracted.medicineName,
+            matchType: isBrandMatch ? 'brand' : 'generic'
+          });
+          break;
+        }
+      }
+
+      if (!foundMatch) {
+        missingMedicines.push(cartItem.name);
+      }
+    }
+
+    if (missingMedicines.length > 0) {
+      return res.json({
+        verified: false,
+        message: `Prescription verified but missing some required items: ${missingMedicines.join(', ')}`,
+        missingMedicines,
+        matchedProducts
+      });
+    }
+
+    // Return the prescription path to be used in Order creation
+    const prescriptionPath = `/uploads/${req.file.filename}`;
+
+    return res.json({
+      verified: true,
+      message: 'Prescription verified successfully for all required items.',
+      prescriptionPath,
+      matchedProducts
+    });
+
+  } catch (err) {
+    console.error('Prescription verification failed:', err);
+    return res.status(500).json({ message: err.message || 'Failed to verify prescription.' });
+  } finally {
+    // Note: We keep the file if it's verified so the order can reference it.
+    // However, if it's NOT verified, we should probably delete it or let the cleanup handle it.
+    // For now, let's keep it if we return a path.
   }
 };

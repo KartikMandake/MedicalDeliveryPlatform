@@ -83,12 +83,15 @@ sequelize.sync()
   .then(async () => {
     console.log('✅ PostgreSQL connected & tables synced');
 
-    // Safe migration: add address column to users table if it doesn't exist
+    // Safe migrations: add missing columns if they don't exist
     try {
       await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`);
       console.log('✅ users.address column ready');
+      
+      await sequelize.query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS prescription TEXT`);
+      console.log('✅ orders.prescription column ready');
     } catch (err) {
-      console.warn('⚠️  Could not add address column:', err.message);
+      console.warn('⚠️  Could not apply migrations:', err.message);
     }
 
     const PORT = process.env.PORT || 5000;

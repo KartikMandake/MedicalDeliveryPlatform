@@ -2,7 +2,7 @@ const router = require('express').Router();
 const upload = require('../middleware/upload');
 const { protect } = require('../middleware/auth');
 const fs = require('fs');
-const { uploadPrescription, extractPrescriptionMedicines } = require('../controllers/uploadController');
+const { uploadPrescription, extractPrescriptionMedicines, verifyPrescriptionForCart } = require('../controllers/uploadController');
 
 function singlePrescriptionUpload(req, res, next) {
 	upload.single('prescription')(req, res, (err) => {
@@ -24,5 +24,6 @@ if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
 router.post('/prescription', protect, singlePrescriptionUpload, uploadPrescription);
 router.post('/prescription/extract', protect, singlePrescriptionUpload, extractPrescriptionMedicines);
+router.post('/prescription/verify-cart', protect, singlePrescriptionUpload, verifyPrescriptionForCart);
 
 module.exports = router;
