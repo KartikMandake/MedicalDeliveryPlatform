@@ -12,6 +12,8 @@ const User = sequelize.define('User', {
   role: { type: DataTypes.ENUM('user', 'retailer', 'agent', 'admin'), defaultValue: 'user' },
   status: { type: DataTypes.ENUM('active', 'suspended', 'pending_kyc'), defaultValue: 'active' },
   fcmToken: { type: DataTypes.TEXT, field: 'fcm_token' },
+  googleId: { type: DataTypes.STRING, allowNull: true, unique: true, field: 'google_id' },
+  profilePic: { type: DataTypes.STRING, allowNull: true, field: 'profile_pic' },
   createdAt: { type: DataTypes.DATE, field: 'created_at' },
 }, { tableName: 'users', timestamps: false });
 

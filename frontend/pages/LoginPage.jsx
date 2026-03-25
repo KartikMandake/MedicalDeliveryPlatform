@@ -170,12 +170,30 @@ export default function LoginPage() {
                   {!loading && <span className="material-symbols-outlined">arrow_forward</span>}
                 </button>
                 <div className="text-center">
-                  <p className="text-sm text-[#3d4a3d]">
+                  <p className="text-sm text-[#3d4a3d] mb-4">
                     New to MediFlow?{' '}
                     <Link to="/register" className="font-bold text-[#006e2f] hover:underline underline-offset-4 decoration-2 decoration-[#006e2f]/30 transition-all">
                       Create an account
                     </Link>
                   </p>
+
+                  <div className="relative flex items-center justify-center my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-gray-300"></div>
+                    </div>
+                    <div className="relative bg-[#f8f9fa] px-4 text-sm text-gray-500 font-medium">Or continue with</div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      window.location.href = "http://localhost:5000/api/auth/google";
+                    }}
+                    className="w-full py-4 px-6 rounded-xl border border-gray-300 bg-white text-gray-700 font-['Manrope'] font-bold text-lg hover:bg-gray-50 active:scale-95 transition-all duration-200 flex items-center justify-center gap-3 shadow-sm"
+                  >
+                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-6 h-6" />
+                    Sign in with Google
+                  </button>
                 </div>
               </div>
             </form>
