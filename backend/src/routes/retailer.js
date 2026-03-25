@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const upload = require('../middleware/upload');
 const {
   getDashboard,
   getProfile,
@@ -12,6 +13,7 @@ const {
   deleteInventoryItem,
   searchMedicines,
   getCategories,
+  verifyDocument,
 } = require('../controllers/retailerController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -29,5 +31,6 @@ router.put('/inventory/:id', updateInventoryItem);
 router.delete('/inventory/:id', deleteInventoryItem);
 router.get('/medicines/search', searchMedicines);
 router.get('/categories', getCategories);
+router.post('/verify', upload.single('document'), verifyDocument);
 
 module.exports = router;

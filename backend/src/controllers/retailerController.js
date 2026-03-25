@@ -1,5 +1,7 @@
 const sequelize = require('../db');
 const { QueryTypes } = require('sequelize');
+const fs = require('fs');
+const Groq = require('groq-sdk');
 
 const mapUiStatusToDb = (status) => {
   if (status === 'preparing') return 'packing';
@@ -164,7 +166,7 @@ exports.getProfile = async (req, res) => {
 
     const rows = await sequelize.query(
       `
-      SELECT id, shop_name, lat, lng
+      SELECT id, shop_name, lat, lng, kyc_status
       FROM retailers
       WHERE id = :retailerId
       LIMIT 1
@@ -915,4 +917,88 @@ exports.getCategories = async (req, res) => {
     );
     res.json(categories);
   } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+// POST /retailer/verify
+exports.verifyDocument = async (req, res) => {
+  try {
+    const retailerId = await getRetailerId(req.user.id);
+    if (!retailerId) return res.status(404).json({ message: 'Retailer profile not found' });
+
+    if (!req.file) {
+      return res.status(400).json({ message: 'No document file provided' });
+    }
+
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey || apiKey === 'your_groq_api_key_here' || apiKey.includes('your_')) {
+      // Fallback to manual if API isn't configured
+      await sequelize.query(
+        `UPDATE retailers SET kyc_status = 'manual_review' WHERE id = :retailerId`,
+        { replacements: { retailerId } }
+      );
+      if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+      return res.json({ message: 'Document uploaded for manual review.', kyc_status: 'manual_review' });
+    }
+
+    const groq = new Groq({ apiKey });
+    const imageBase64 = fs.readFileSync(req.file.path).toString('base64');
+    const imageUrl = `data:${req.file.mimetype};base64,${imageBase64}`;
+
+    const prompt = `You are an expert Document Verification AI specializing in Indian Pharmaceutical Licenses (Form 20, 21, and MSPC Registration). Analyze the provided image and return a JSON object with the following fields. If a field is missing or unreadable, return 'null'. DO NOT return markdown, just the raw JSON fields.
+
+1. Document_Type: (e.g., Form 20, Form 21, Pharmacist Registration Certificate)
+2. License_Number: (Exact alphanumeric string, e.g., MH-MZ7-12345)
+3. Firm_Name: (Name of the pharmacy/individual)
+4. Validity: { "From": "DD/MM/YYYY", "To": "DD/MM/YYYY" }
+5. Pharmacist_Details: { "Name": "Full Name", "Reg_No": "Number" } (if applicable)
+6. Visual_Integrity: {
+   "Has_Government_Logo": boolean,
+   "Has_Digital_Signature_Seal": boolean,
+   "Has_QR_Code": boolean,
+   "TPAV_Code": "Alphanumeric string found near the e-signature"
+}
+7. Red_Flags: List any inconsistencies (e.g., date format errors, font mismatches, or blurred stamps) as an array of strings, or empty array if none.`;
+
+    const chatCompletion = await groq.chat.completions.create({
+      model: "llama-3.2-90b-vision-preview",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            { type: "image_url", image_url: { url: imageUrl } }
+          ]
+        }
+      ],
+      temperature: 0.1,
+    });
+
+    const responseText = chatCompletion.choices[0]?.message?.content || '{}';
+    // Clean up potential markdown wrapper from response (e.g., \`\`\`json\\n...\\n\`\`\`)
+    const cleanedJson = responseText.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    const data = JSON.parse(cleanedJson);
+    
+    // Clean up local upload
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+
+    // Logic to determine verification
+    let kycStatus = 'manual_review';
+    const checks = data.Visual_Integrity || {};
+    const redFlags = data.Red_Flags || [];
+    
+    if (checks.Has_Digital_Signature_Seal && (!redFlags || redFlags.length === 0)) {
+      kycStatus = 'verified';
+    }
+
+    await sequelize.query(
+      `UPDATE retailers SET kyc_status = :kycStatus WHERE id = :retailerId`,
+      { replacements: { kycStatus, retailerId } }
+    );
+
+    res.json({ message: 'Document analyzed successfully', kyc_status: kycStatus, analysis: data });
+  } catch (err) {
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    console.error('Groq Verification Error:', err);
+    res.status(500).json({ message: 'Verification failed. ' + err.message });
+  }
 };

@@ -9,6 +9,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 const CreateAccountPage = lazy(() => import('./pages/CreateAccountPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
 const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const LoginSuccessPage = lazy(() => import('./pages/LoginSuccess'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const ProductDetailsPage = lazy(() => import('./pages/ProductDetailsPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
@@ -135,6 +136,7 @@ function App() {
                 <Route path="/register" element={<ErrorBoundary><CreateAccountPage /></ErrorBoundary>} />
                 <Route path="/forgot-password" element={<ErrorBoundary><ForgotPasswordPage /></ErrorBoundary>} />
                 <Route path="/reset-password/:token" element={<ErrorBoundary><ResetPasswordPage /></ErrorBoundary>} />
+                <Route path="/login-success" element={<ErrorBoundary><LoginSuccessPage /></ErrorBoundary>} />
                 <Route path="/products" element={<ErrorBoundary><ProductsPage /></ErrorBoundary>} />
                 <Route path="/products/:id" element={<ErrorBoundary><ProductDetailsPage /></ErrorBoundary>} />
                 <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />
