@@ -33,10 +33,10 @@ export function CartProvider({ children }) {
     }
   }, [user]);
 
-  const addItem = async (productId, quantity = 1) => {
+  const addItem = async (productId, quantity = 1, isEcom = false) => {
     setAddingProductIds((prev) => ({ ...prev, [productId]: true }));
     try {
-      const res = await apiAdd(productId, quantity);
+      const res = await apiAdd(productId, quantity, isEcom);
       if (res?.data?.items) setCart(res.data);
       else fetchCart();
       return res;

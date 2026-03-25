@@ -6,7 +6,6 @@ export default function ProductsSidebar({ filters, onChange }) {
   const [brands, setBrands] = useState([]);
   const [filtersError, setFiltersError] = useState('');
   const [brandQuery, setBrandQuery] = useState('');
-  const [showPriceHint, setShowPriceHint] = useState(false);
 
   useEffect(() => {
     getProductFilters()
@@ -40,110 +39,151 @@ export default function ProductsSidebar({ filters, onChange }) {
   };
 
   const renderCategoryIcon = (iconValue, name) => {
-    if (!iconValue) {
-      return <span className="material-symbols-outlined text-sm text-zinc-500">category</span>;
-    }
-
-    if (/^(https?:\/\/|\/)/i.test(iconValue)) {
-      return <img src={iconValue} alt={name} className="w-3.5 h-3.5 object-contain" />;
-    }
-
-    return <span className="material-symbols-outlined text-sm text-zinc-500">{iconValue}</span>;
+    if (!iconValue) return <span className="material-symbols-outlined text-[16px] text-emerald-500">category</span>;
+    if (/^(https?:\/\/|\/)/i.test(iconValue)) return <img src={iconValue} alt={name} className="w-4 h-4 object-contain" />;
+    return <span className="material-symbols-outlined text-[16px] text-emerald-500">{iconValue}</span>;
   };
 
   return (
-    <aside className="hidden lg:block w-72 h-[calc(100vh-96px)] sticky top-20">
-      <div className="h-full rounded-2xl border border-zinc-200 bg-white/95 shadow-sm px-4 py-4 overflow-hidden flex flex-col">
-        <div className="mb-4 pb-3 border-b border-zinc-100">
-          <h2 className="font-headline font-black text-green-700 text-base mb-1">Clinical Filters</h2>
-          <p className="text-[11px] text-zinc-500 uppercase tracking-widest font-bold">Fast Selection Mode</p>
+    <aside className="hidden lg:block w-[300px] h-[calc(100vh-120px)] sticky top-28 shrink-0">
+      <div className="h-full rounded-[2rem] border border-slate-100 bg-white shadow-xl shadow-slate-200/20 px-5 py-6 overflow-hidden flex flex-col">
+        <div className="mb-6 pb-4 border-b border-slate-100">
+          <h2 className="font-headline font-extrabold text-slate-900 text-2xl tracking-tight mb-1">Filters</h2>
+          <p className="text-[10px] text-slate-400 uppercase tracking-widest font-black">Refine your catalog</p>
         </div>
 
-        {filtersError && <p className="text-xs text-amber-700 mb-3">{filtersError}</p>}
+        {/* Ecom vs Medicine Toggle */}
+        <div className="bg-slate-50 p-1.5 rounded-xl flex items-center mb-6 border border-slate-100/60 shadow-inner shrink-0">
+          <button 
+            type="button"
+            onClick={() => onChange({ ...filters, productType: 'all' })}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${filters.productType === 'all' || !filters.productType ? 'bg-white text-slate-800 shadow-sm border border-slate-200/60' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            All
+          </button>
+          <button 
+            type="button"
+            onClick={() => onChange({ ...filters, productType: 'medicine' })}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${filters.productType === 'medicine' ? 'bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-100' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <span className="material-symbols-outlined text-[14px]">prescriptions</span>
+            Meds
+          </button>
+          <button 
+            type="button"
+            onClick={() => onChange({ ...filters, productType: 'ecom' })}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg text-xs font-bold transition-all ${filters.productType === 'ecom' ? 'bg-indigo-50 text-indigo-700 shadow-sm border border-indigo-100' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <span className="material-symbols-outlined text-[14px]">local_mall</span>
+            E-Com
+          </button>
+        </div>
 
-        <div className="overflow-y-auto custom-scrollbar pr-1 space-y-6">
-          <section className="rounded-xl border border-zinc-100 p-3 bg-zinc-50/30">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-headline font-bold text-sm text-on-surface">Brand Filter</h3>
-              <span className="text-[11px] font-semibold text-zinc-400">{filteredBrands.length}</span>
+        {filtersError && (
+          <div className="mb-4 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700">
+            {filtersError}
+          </div>
+        )}
+
+        <div className="overflow-y-auto custom-scrollbar pr-2 space-y-8 flex-1">
+          {/* Categories Section */}
+          <section>
+            <h3 className="font-headline font-bold text-sm text-slate-900 mb-4 flex items-center justify-between">
+              Categories
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{categories.length}</span>
+            </h3>
+            <div className="max-h-56 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-1.5">
+              {categories.map((cat) => {
+                const isSelected = (filters.categories || []).includes(cat.name);
+                return (
+                  <label 
+                    key={cat.id || cat.name} 
+                    className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all duration-200 ${isSelected ? 'bg-emerald-50 border border-emerald-100/50' : 'hover:bg-slate-50 border border-transparent'}`}
+                  >
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        className="peer appearance-none w-4 h-4 border-2 border-slate-300 rounded cursor-pointer checked:border-emerald-500 checked:bg-emerald-500 transition-colors"
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleCategory(cat.name)}
+                      />
+                      <span className="material-symbols-outlined absolute text-white text-[12px] opacity-0 peer-checked:opacity-100 pointer-events-none" style={{ fontWeight: 900 }}>check</span>
+                    </div>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 ${isSelected ? 'bg-emerald-100' : 'bg-slate-100'}`}>
+                        {renderCategoryIcon(cat.iconUrl, cat.name)}
+                      </div>
+                      <span className={`text-sm truncate transition-colors ${isSelected ? 'font-bold text-emerald-800' : 'font-medium text-slate-600'}`}>
+                        {cat.name}
+                      </span>
+                    </div>
+                  </label>
+                );
+              })}
+              {!categories.length && !filtersError && <p className="text-xs text-slate-400 italic pl-1">No categories available</p>}
             </div>
-            <div className="relative mb-3">
-              <span className="material-symbols-outlined absolute left-2 top-1/2 -translate-y-1/2 text-zinc-400 text-base">search</span>
+          </section>
+
+          {/* Brands Section */}
+          <section>
+            <h3 className="font-headline font-bold text-sm text-slate-900 mb-3 flex items-center justify-between">
+              Brands
+              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">{filteredBrands.length}</span>
+            </h3>
+            <div className="relative mb-3 group">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] group-focus-within:text-emerald-500 transition-colors">search</span>
               <input
                 value={brandQuery}
                 onChange={(e) => setBrandQuery(e.target.value)}
-                placeholder="Search brand"
-                className="w-full h-9 rounded-lg border border-zinc-200 bg-white pl-8 pr-3 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                placeholder="Search brands..."
+                className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-400 focus:bg-white transition-all placeholder:text-slate-400"
               />
             </div>
-            <div className="space-y-2.5 max-h-52 overflow-y-auto custom-scrollbar pr-1">
-              {filteredBrands.map((brand) => (
-                <label key={brand} className="flex items-center gap-2.5 group cursor-pointer">
-                  <input
-                    className="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4"
-                    type="checkbox"
-                    checked={(filters.brands || []).includes(brand)}
-                    onChange={() => toggleBrand(brand)}
-                  />
-                  <span className="text-sm text-zinc-600 group-hover:text-primary transition-colors truncate">{brand}</span>
-                </label>
-              ))}
-              {!filteredBrands.length && <p className="text-xs text-zinc-400">No brands match</p>}
+            <div className="max-h-52 overflow-y-auto custom-scrollbar pr-2 flex flex-col gap-1.5">
+              {filteredBrands.map((brand) => {
+                const isSelected = (filters.brands || []).includes(brand);
+                return (
+                  <label key={brand} className={`flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all duration-200 ${isSelected ? 'bg-indigo-50 border border-indigo-100/50' : 'hover:bg-slate-50 border border-transparent'}`}>
+                    <div className="relative flex items-center justify-center">
+                      <input
+                        className="peer appearance-none w-4 h-4 border-2 border-slate-300 rounded cursor-pointer checked:border-indigo-500 checked:bg-indigo-500 transition-colors"
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleBrand(brand)}
+                      />
+                      <span className="material-symbols-outlined absolute text-white text-[12px] opacity-0 peer-checked:opacity-100 pointer-events-none" style={{ fontWeight: 900 }}>check</span>
+                    </div>
+                    <span className={`text-sm truncate transition-colors ${isSelected ? 'font-bold text-indigo-800' : 'font-medium text-slate-600'}`}>
+                      {brand}
+                    </span>
+                  </label>
+                );
+              })}
+              {!filteredBrands.length && <p className="text-xs text-slate-400 italic pl-1">No brands found</p>}
             </div>
           </section>
 
-          <section className="rounded-xl border border-zinc-100 p-3 bg-zinc-50/30">
-            <h3 className="font-headline font-bold text-sm text-on-surface mb-3">Categories</h3>
-            <div className="space-y-2.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-              {categories.map((cat) => (
-                <label key={cat.id || cat.name} className="flex items-center gap-2.5 group cursor-pointer">
-                  <input
-                    className="rounded border-outline-variant text-primary focus:ring-primary w-4 h-4"
-                    type="checkbox"
-                    checked={(filters.categories || []).includes(cat.name)}
-                    onChange={() => toggleCategory(cat.name)}
-                  />
-                  {renderCategoryIcon(cat.iconUrl, cat.name)}
-                  <span className="text-sm text-zinc-600 group-hover:text-primary transition-colors">
-                    {cat.name}
-                    <span className="ml-1 text-zinc-400">({cat.productCount || 0})</span>
-                  </span>
-                </label>
-              ))}
-              {!categories.length && <p className="text-xs text-zinc-400">No categories available</p>}
+          {/* Price Range Section */}
+          <section className="bg-slate-50 rounded-2xl p-5 border border-slate-100 mb-8">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-headline font-bold text-sm text-slate-900">Max Price</h3>
+              <div className="bg-white border border-slate-200 px-2 py-1 rounded-lg text-xs font-black text-slate-800 shadow-sm">
+                ₹{filters.maxPrice || 1000}
+              </div>
             </div>
-          </section>
-
-          <section className="rounded-xl border border-zinc-100 p-3 bg-zinc-50/30">
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="font-headline font-bold text-sm text-on-surface">Price Range</h3>
-              <span className="text-xs font-bold text-primary">Max ₹{filters.maxPrice || 1000}</span>
-            </div>
-            {showPriceHint && (
-              <p className="text-[11px] text-zinc-500 mb-2">Release to set max price at ₹{filters.maxPrice || 1000}</p>
-            )}
             <input
-              className="w-full h-1.5 bg-surface-container-high rounded-lg appearance-none cursor-pointer accent-primary"
+              className="w-full h-1.5 bg-slate-200 rounded-full appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-600 focus:outline-none focus:ring-4 focus:ring-emerald-500/20 transition-all"
               max="1000"
               min="0"
               type="range"
               value={filters.maxPrice || 1000}
-              title={`Set max price to ₹${filters.maxPrice || 1000}`}
-              onMouseEnter={() => setShowPriceHint(true)}
-              onMouseLeave={() => setShowPriceHint(false)}
-              onFocus={() => setShowPriceHint(true)}
-              onBlur={() => setShowPriceHint(false)}
               onChange={(e) => onChange({ ...filters, maxPrice: Number(e.target.value) })}
             />
-            <div className="flex justify-between mt-2 text-xs font-medium text-zinc-400">
+            <div className="flex justify-between mt-3 text-[10px] font-black tracking-widest text-slate-400 uppercase">
               <span>₹0</span>
-              <span>₹1000</span>
+              <span>₹1000+</span>
             </div>
           </section>
-
-          <button className="w-full py-3 bg-gradient-to-br from-primary to-primary-container text-white rounded-xl font-headline font-bold text-sm shadow-lg shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all">
-            Upload Prescription
-          </button>
         </div>
       </div>
     </aside>

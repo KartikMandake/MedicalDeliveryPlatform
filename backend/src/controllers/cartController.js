@@ -30,14 +30,15 @@ const getActiveCartId = async (userId, createIfMissing = false, transaction) => 
   return inserted[0].id;
 };
 
-const getMedicineStock = async (medicineId, transaction) => {
+const getMedicineStock = async (productId, transaction, isEcom = false) => {
+  const column = isEcom ? 'ecommerce_product_id' : 'medicine_id';
   const rows = await sequelize.query(
     `
     SELECT COALESCE(SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)), 0)::int AS stock
     FROM inventory
-    WHERE medicine_id = :medicineId
+    WHERE ${column} = :productId
     `,
-    { type: QueryTypes.SELECT, replacements: { medicineId }, transaction }
+    { type: QueryTypes.SELECT, replacements: { productId }, transaction }
   );
   return Number(rows[0]?.stock || 0);
 };
@@ -50,26 +51,30 @@ const buildCartResponse = async (userId, transaction) => {
     `
     SELECT
       ci.id,
-      ci.medicine_id AS "productId",
+      COALESCE(ci.medicine_id, ci.ecommerce_product_id) AS "productId",
       ci.quantity,
-      COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, 0))::float AS price,
-      (COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, 0)) * ci.quantity)::float AS "lineTotal",
-      m.name,
-      m.manufacturer AS brand,
-      c.name AS category,
-      m.requires_rx AS "requiresPrescription",
-      NULLIF(array_to_string(m.images, ','), '') AS image,
-      COALESCE(inv.stock_quantity, 0)::int AS stock
+      COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, ep.selling_price, ep.mrp, 0))::float AS price,
+      (COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, ep.selling_price, ep.mrp, 0)) * ci.quantity)::float AS "lineTotal",
+      COALESCE(m.name, ep.name) AS name,
+      COALESCE(m.manufacturer, ep.brand) AS brand,
+      COALESCE(c.name, c2.name) AS category,
+      COALESCE(m.requires_rx, FALSE) AS "requiresPrescription",
+      NULLIF(array_to_string(COALESCE(m.images, ep.images), ','), '') AS image,
+      COALESCE(inv.stock_quantity, 0)::int AS stock,
+      (ci.ecommerce_product_id IS NOT NULL) AS "isEcom"
     FROM cart_items ci
     LEFT JOIN medicines m ON m.id = ci.medicine_id
+    LEFT JOIN ecommerce_products ep ON ep.id = ci.ecommerce_product_id
     LEFT JOIN categories c ON c.id = m.category_id
+    LEFT JOIN categories c2 ON c2.id = ep.category_id
     LEFT JOIN (
       SELECT
         medicine_id,
+        ecommerce_product_id,
         SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
       FROM inventory
-      GROUP BY medicine_id
-    ) inv ON inv.medicine_id = ci.medicine_id
+      GROUP BY medicine_id, ecommerce_product_id
+    ) inv ON (inv.medicine_id = ci.medicine_id AND ci.medicine_id IS NOT NULL) OR (inv.ecommerce_product_id = ci.ecommerce_product_id AND ci.ecommerce_product_id IS NOT NULL)
     WHERE ci.cart_id = :cartId
     ORDER BY ci.created_at DESC
     `,
@@ -94,27 +99,44 @@ exports.getCart = async (req, res) => {
 
 exports.addToCart = async (req, res) => {
   try {
-    const { productId, quantity = 1 } = req.body;
+    const { productId, quantity = 1, isEcom = false } = req.body;
     const parsedQty = Number(quantity);
     if (!productId || !Number.isInteger(parsedQty) || parsedQty <= 0) {
       return res.status(400).json({ message: 'Invalid product or quantity' });
     }
 
     await sequelize.transaction(async (transaction) => {
-      const medicineRows = await sequelize.query(
-        `
-        SELECT
-          id,
-          COALESCE(selling_price, mrp, 0)::float AS price,
-          is_active AS "isActive"
-        FROM medicines
-        WHERE id = :productId
-        LIMIT 1
-        `,
-        { type: QueryTypes.SELECT, replacements: { productId }, transaction }
-      );
+      let medicine;
+      if (isEcom) {
+        const ecomRows = await sequelize.query(
+          `
+          SELECT
+            id,
+            COALESCE(selling_price, mrp, 0)::float AS price,
+            is_active AS "isActive"
+          FROM ecommerce_products
+          WHERE id = :productId
+          LIMIT 1
+          `,
+          { type: QueryTypes.SELECT, replacements: { productId }, transaction }
+        );
+        medicine = ecomRows[0];
+      } else {
+        const medicineRows = await sequelize.query(
+          `
+          SELECT
+            id,
+            COALESCE(selling_price, mrp, 0)::float AS price,
+            is_active AS "isActive"
+          FROM medicines
+          WHERE id = :productId
+          LIMIT 1
+          `,
+          { type: QueryTypes.SELECT, replacements: { productId }, transaction }
+        );
+        medicine = medicineRows[0];
+      }
 
-      const medicine = medicineRows[0];
       if (!medicine || !medicine.isActive) {
         return res.status(404).json({ message: 'Product not found' });
       }
@@ -126,41 +148,74 @@ exports.addToCart = async (req, res) => {
         SELECT quantity
         FROM cart_items
         WHERE cart_id = :cartId
-          AND medicine_id = :productId
+          AND ${isEcom ? 'ecommerce_product_id' : 'medicine_id'} = :productId
         LIMIT 1
         `,
         { type: QueryTypes.SELECT, replacements: { cartId, productId }, transaction }
       );
       const existingQty = Number(existingRows[0]?.quantity || 0);
       const requestedQty = existingQty + parsedQty;
-      const availableStock = await getMedicineStock(productId, transaction);
+      const availableStock = await getMedicineStock(productId, transaction, isEcom);
 
       if (availableStock < requestedQty) {
         return res.status(400).json({ message: 'Insufficient stock' });
       }
 
-      await sequelize.query(
-        `
-        INSERT INTO cart_items (cart_id, medicine_id, quantity, unit_price, total_price, created_at, updated_at)
-        VALUES (:cartId, :productId, :quantity, :unitPrice, :totalPrice, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-        ON CONFLICT (cart_id, medicine_id)
-        DO UPDATE SET
-          quantity = cart_items.quantity + EXCLUDED.quantity,
-          unit_price = EXCLUDED.unit_price,
-          total_price = (cart_items.quantity + EXCLUDED.quantity) * EXCLUDED.unit_price,
-          updated_at = CURRENT_TIMESTAMP
-        `,
-        {
-          replacements: {
-            cartId,
-            productId,
-            quantity: parsedQty,
-            unitPrice: Number(medicine.price || 0),
-            totalPrice: Number(medicine.price || 0) * parsedQty,
-          },
-          transaction,
-        }
+      // Geo-radius enforcement: ensure at least one retailer within 8km has stock
+      const userAddrRows = await sequelize.query(
+        `SELECT lat, lng FROM user_addresses WHERE user_id = :userId AND lat IS NOT NULL AND lng IS NOT NULL ORDER BY is_default DESC, updated_at DESC LIMIT 1`,
+        { type: QueryTypes.SELECT, replacements: { userId: req.user.id }, transaction }
       );
+      const uLat = Number(userAddrRows[0]?.lat);
+      const uLng = Number(userAddrRows[0]?.lng);
+      if (Number.isFinite(uLat) && Number.isFinite(uLng)) {
+        const col = isEcom ? 'i.ecommerce_product_id' : 'i.medicine_id';
+        const nearbyCheck = await sequelize.query(
+          `SELECT COALESCE(SUM(GREATEST(i.stock_quantity - COALESCE(i.reserved_quantity, 0), 0)), 0)::int AS nearby_stock
+           FROM inventory i JOIN retailers r ON r.id = i.retailer_id
+           WHERE ${col} = :productId AND r.lat IS NOT NULL AND r.lng IS NOT NULL
+             AND (6371 * ACOS(LEAST(1, GREATEST(-1, COS(RADIANS(:uLat)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lng) - RADIANS(:uLng)) + SIN(RADIANS(:uLat)) * SIN(RADIANS(r.lat)))))) <= 8`,
+          { type: QueryTypes.SELECT, replacements: { productId, uLat, uLng }, transaction }
+        );
+        if (Number(nearbyCheck[0]?.nearby_stock || 0) < requestedQty) {
+          return res.status(403).json({ message: 'This product is not available for delivery to your location (beyond 8km radius).' });
+        }
+      }
+
+      if (existingQty > 0) {
+        await sequelize.query(
+          `
+          UPDATE cart_items
+          SET
+            quantity = quantity + :quantity,
+            unit_price = :unitPrice,
+            total_price = (quantity + :quantity) * :unitPrice,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE cart_id = :cartId AND ${isEcom ? 'ecommerce_product_id' : 'medicine_id'} = :productId
+          `,
+          {
+            replacements: { cartId, productId, quantity: parsedQty, unitPrice: Number(medicine.price || 0) },
+            transaction
+          }
+        );
+      } else {
+        await sequelize.query(
+          `
+          INSERT INTO cart_items (cart_id, ${isEcom ? 'ecommerce_product_id' : 'medicine_id'}, quantity, unit_price, total_price, created_at, updated_at)
+          VALUES (:cartId, :productId, :quantity, :unitPrice, :totalPrice, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+          `,
+          {
+            replacements: {
+              cartId,
+              productId,
+              quantity: parsedQty,
+              unitPrice: Number(medicine.price || 0),
+              totalPrice: Number(medicine.price || 0) * parsedQty
+            },
+            transaction
+          }
+        );
+      }
 
       const cart = await buildCartResponse(req.user.id, transaction);
       res.json(cart);
@@ -181,7 +236,7 @@ exports.updateCartItem = async (req, res) => {
 
       const itemRows = await sequelize.query(
         `
-        SELECT id, medicine_id AS "productId"
+        SELECT id, COALESCE(medicine_id, ecommerce_product_id) AS "productId", (ecommerce_product_id IS NOT NULL) AS "isEcom"
         FROM cart_items
         WHERE id = :itemId
           AND cart_id = :cartId
@@ -198,7 +253,7 @@ exports.updateCartItem = async (req, res) => {
           { replacements: { itemId: req.params.itemId, cartId }, transaction }
         );
       } else {
-        const availableStock = await getMedicineStock(item.productId, transaction);
+        const availableStock = await getMedicineStock(item.productId, transaction, item.isEcom);
         if (availableStock < parsedQty) {
           return res.status(400).json({ message: 'Insufficient stock' });
         }

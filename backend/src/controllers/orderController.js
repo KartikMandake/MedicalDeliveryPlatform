@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const AgentLocation = require('../models/AgentLocation');
 const User = require('../models/User');
 const { generateOtp } = require('../utils/otp');
+const { sendNotification } = require('../utils/notifs');
 const sequelize = require('../db');
 const { QueryTypes } = require('sequelize');
 
@@ -76,19 +77,23 @@ exports.createOrder = async (req, res) => {
         SELECT
           ci.id,
           ci.medicine_id,
+          ci.ecommerce_product_id,
           ci.quantity,
-          COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, 0))::float AS unit_price,
-          m.name,
+          COALESCE(ci.unit_price, COALESCE(m.selling_price, m.mrp, ep.selling_price, ep.mrp, 0))::float AS unit_price,
+          COALESCE(m.name, ep.name) AS name,
           COALESCE(inv.stock_quantity, 0)::int AS stock
         FROM cart_items ci
         LEFT JOIN medicines m ON m.id = ci.medicine_id
+        LEFT JOIN ecommerce_products ep ON ep.id = ci.ecommerce_product_id
         LEFT JOIN (
           SELECT
             medicine_id,
+            ecommerce_product_id,
             SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0)) AS stock_quantity
           FROM inventory
-          GROUP BY medicine_id
-        ) inv ON inv.medicine_id = ci.medicine_id
+          GROUP BY medicine_id, ecommerce_product_id
+        ) inv ON (inv.medicine_id = ci.medicine_id AND ci.medicine_id IS NOT NULL) 
+              OR (inv.ecommerce_product_id = ci.ecommerce_product_id AND ci.ecommerce_product_id IS NOT NULL)
         WHERE ci.cart_id = :cartId
         ORDER BY ci.created_at ASC
         `,
@@ -98,80 +103,90 @@ exports.createOrder = async (req, res) => {
       if (!items.length) throw badRequestError('Cart is empty');
 
       for (const item of items) {
-        if (!item.medicine_id) {
+        if (!item.medicine_id && !item.ecommerce_product_id) {
           throw badRequestError('One of the cart items is invalid or no longer available. Please refresh your cart.');
         }
         if (Number(item.stock || 0) < Number(item.quantity || 0)) {
-          throw badRequestError(`Insufficient stock for ${item.name || 'selected medicine'}`);
+          throw badRequestError(`Insufficient stock for ${item.name || 'selected item'}`);
         }
       }
 
       const medicineIds = [...new Set(items.map((item) => item.medicine_id).filter(Boolean))];
-      const inventoryRows = medicineIds.length
-        ? await sequelize.query(
+      const ecomIds = [...new Set(items.map((item) => item.ecommerce_product_id).filter(Boolean))];
+
+      let inventoryRows = [];
+      if (medicineIds.length || ecomIds.length) {
+        const medCondition = medicineIds.length ? `medicine_id IN (:medicineIds)` : `false`;
+        const ecomCondition = ecomIds.length ? `ecommerce_product_id IN (:ecomIds)` : `false`;
+        
+        inventoryRows = await sequelize.query(
           `
           SELECT
             retailer_id,
             medicine_id,
+            ecommerce_product_id,
             SUM(GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0))::int AS available_qty
           FROM inventory
-          WHERE medicine_id IN (:medicineIds)
-          GROUP BY retailer_id, medicine_id
+          WHERE (${medCondition} OR ${ecomCondition})
+          GROUP BY retailer_id, medicine_id, ecommerce_product_id
           `,
           {
             type: QueryTypes.SELECT,
-            replacements: { medicineIds },
+            replacements: { medicineIds, ecomIds },
             transaction,
           }
-        )
-        : [];
-
-      const demandByMedicine = {};
-      const medicineNameById = {};
-      for (const item of items) {
-        demandByMedicine[item.medicine_id] = Number(demandByMedicine[item.medicine_id] || 0) + Number(item.quantity || 0);
-        medicineNameById[item.medicine_id] = item.name || 'selected medicine';
+        );
       }
 
-      const totalAvailableByMedicine = {};
+      const getItemKey = (medId, ecomId) => medId ? `med_${medId}` : `ecom_${ecomId}`;
+
+      const demandByKey = {};
+      const nameByKey = {};
+      for (const item of items) {
+        const key = getItemKey(item.medicine_id, item.ecommerce_product_id);
+        demandByKey[key] = Number(demandByKey[key] || 0) + Number(item.quantity || 0);
+        nameByKey[key] = item.name || 'selected item';
+      }
+
+      const totalAvailableByKey = {};
       const retailerContribution = {};
       for (const row of inventoryRows) {
         if (!row.retailer_id) continue;
-        const medicineId = row.medicine_id;
+        const key = getItemKey(row.medicine_id, row.ecommerce_product_id);
         const available = Number(row.available_qty || 0);
-        totalAvailableByMedicine[medicineId] = Number(totalAvailableByMedicine[medicineId] || 0) + available;
+        totalAvailableByKey[key] = Number(totalAvailableByKey[key] || 0) + available;
 
         if (!retailerContribution[row.retailer_id]) retailerContribution[row.retailer_id] = 0;
-        retailerContribution[row.retailer_id] += Math.min(available, Number(demandByMedicine[medicineId] || 0));
+        retailerContribution[row.retailer_id] += Math.min(available, Number(demandByKey[key] || 0));
       }
 
-      for (const medicineId of medicineIds) {
-        if (Number(totalAvailableByMedicine[medicineId] || 0) < Number(demandByMedicine[medicineId] || 0)) {
-          throw badRequestError(`Insufficient stock for ${medicineNameById[medicineId] || 'selected medicine'}`);
+      for (const key of Object.keys(demandByKey)) {
+        if (Number(totalAvailableByKey[key] || 0) < Number(demandByKey[key] || 0)) {
+          throw badRequestError(`Insufficient stock for ${nameByKey[key] || 'selected item'}`);
         }
       }
 
-      const inventoryByMedicine = {};
+      const inventoryByKey = {};
       for (const row of inventoryRows) {
-        const medicineId = row.medicine_id;
+        const key = getItemKey(row.medicine_id, row.ecommerce_product_id);
         const retailerId = row.retailer_id;
         const availableQty = Number(row.available_qty || 0);
-        if (!medicineId || !retailerId || availableQty <= 0) continue;
-        if (!inventoryByMedicine[medicineId]) inventoryByMedicine[medicineId] = [];
-        inventoryByMedicine[medicineId].push({ retailerId, availableQty });
+        if (!key || !retailerId || availableQty <= 0) continue;
+        if (!inventoryByKey[key]) inventoryByKey[key] = [];
+        inventoryByKey[key].push({ retailerId, availableQty });
       }
 
-      Object.keys(inventoryByMedicine).forEach((medicineId) => {
-        inventoryByMedicine[medicineId].sort((a, b) => b.availableQty - a.availableQty);
+      Object.keys(inventoryByKey).forEach((key) => {
+        inventoryByKey[key].sort((a, b) => b.availableQty - a.availableQty);
       });
 
       const allocations = [];
       const retailerContributionByAllocation = {};
       for (const item of items) {
-        const medicineId = item.medicine_id;
+        const key = getItemKey(item.medicine_id, item.ecommerce_product_id);
         const unitPrice = Number(item.unit_price || 0);
         let remaining = Number(item.quantity || 0);
-        const pools = inventoryByMedicine[medicineId] || [];
+        const pools = inventoryByKey[key] || [];
 
         for (const pool of pools) {
           if (remaining <= 0) break;
@@ -182,7 +197,8 @@ exports.createOrder = async (req, res) => {
           if (takeQty <= 0) continue;
 
           allocations.push({
-            medicineId,
+            medicineId: item.medicine_id,
+            ecommerceProductId: item.ecommerce_product_id,
             retailerId: pool.retailerId,
             quantity: takeQty,
             unitPrice,
@@ -194,7 +210,7 @@ exports.createOrder = async (req, res) => {
         }
 
         if (remaining > 0) {
-          throw badRequestError(`Insufficient stock for ${medicineNameById[medicineId] || 'selected medicine'}`);
+          throw badRequestError(`Insufficient stock for ${nameByKey[key] || 'selected item'}`);
         }
       }
 
@@ -277,16 +293,18 @@ exports.createOrder = async (req, res) => {
       for (const allocation of allocations) {
         const unitPrice = Number(allocation.unitPrice || 0);
         const qty = Number(allocation.quantity || 0);
+        const colId = allocation.medicineId ? 'medicine_id' : 'ecommerce_product_id';
+        const valId = allocation.medicineId || allocation.ecommerceProductId;
 
         await sequelize.query(
           `
-          INSERT INTO order_items (order_id, medicine_id, retailer_id, quantity, unit_price, total_price)
-          VALUES (:orderId, :medicineId, :retailerId, :quantity, :unitPrice, :totalPrice)
+          INSERT INTO order_items (order_id, ${colId}, retailer_id, quantity, unit_price, total_price)
+          VALUES (:orderId, :productId, :retailerId, :quantity, :unitPrice, :totalPrice)
           `,
           {
             replacements: {
               orderId: created.id,
-              medicineId: allocation.medicineId,
+              productId: valId,
               retailerId: allocation.retailerId,
               quantity: qty,
               unitPrice,
@@ -307,6 +325,8 @@ exports.createOrder = async (req, res) => {
         status: 'placed',
       };
     });
+
+    await sendNotification(req, req.user.id, 'Order Placed', `Order #${order.orderId} placed successfully.`, 'order_update');
 
     res.status(201).json(order);
   } catch (err) {
@@ -355,12 +375,13 @@ exports.getMyOrders = async (req, res) => {
           oi.quantity,
           oi.unit_price::float,
           oi.total_price::float,
-          m.id AS medicine_id,
-          m.name AS medicine_name,
-          m.type AS medicine_type,
-          NULLIF(array_to_string(m.images, ','), '') AS image
+          COALESCE(m.id, ep.id) AS medicine_id,
+          COALESCE(m.name, ep.name) AS medicine_name,
+          COALESCE(m.type::text, 'E-Commerce') AS medicine_type,
+          NULLIF(array_to_string(COALESCE(m.images, ep.images), ','), '') AS image
         FROM order_items oi
         LEFT JOIN medicines m ON m.id = oi.medicine_id
+        LEFT JOIN ecommerce_products ep ON ep.id = oi.ecommerce_product_id
         WHERE oi.order_id IN (:orderIds)
         ORDER BY oi.id ASC
         `,
@@ -490,6 +511,7 @@ exports.updateOrderStatus = async (req, res) => {
     const order = await Order.findByPk(req.params.id);
     const io = req.app.get('io');
     io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status });
+    await sendNotification(req, order.userId || order.user_id, 'Order Update', `Your order is now ${status.replace(/_/g, ' ')}.`, 'order_update');
     res.json(order);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -508,7 +530,78 @@ exports.assignAgent = async (req, res) => {
     const io = req.app.get('io');
     io.to(`agent_${agentLoc.agentId}`).emit('new_delivery', order);
     io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status: 'confirmed' });
+    await sendNotification(req, order.userId || order.user_id, 'Agent Assigned', 'A delivery agent is now heading to pick up your order.', 'order_update');
 
     res.json(order);
   } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
+exports.cancelOrder = async (req, res) => {
+  try {
+    const order = await Order.findByPk(req.params.id);
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    
+    if (req.user.role === 'user' && order.user_id !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized to cancel this order' });
+    }
+
+    const uncancelable = ['ready_for_pickup', 'in_transit', 'delivered', 'cancelled'];
+    if (uncancelable.includes(order.status)) {
+      return res.status(400).json({ message: `Cannot cancel an order that is already ${order.status.replace(/_/g, ' ')}` });
+    }
+
+    await sequelize.transaction(async (transaction) => {
+      // 1. Restore inventory
+      const items = await sequelize.query(
+        `SELECT medicine_id, ecommerce_product_id, retailer_id, quantity FROM order_items WHERE order_id = :orderId`,
+        { type: QueryTypes.SELECT, replacements: { orderId: order.id }, transaction }
+      );
+
+      for (const item of items) {
+        if (!item.retailer_id) continue;
+        const qty = Number(item.quantity || 0);
+        if (qty <= 0) continue;
+        
+        const colId = item.medicine_id ? 'medicine_id' : 'ecommerce_product_id';
+        const valId = item.medicine_id || item.ecommerce_product_id;
+        
+        await sequelize.query(
+          `UPDATE inventory 
+           SET stock_quantity = stock_quantity + :qty 
+           WHERE retailer_id = :retailerId AND ${colId} = :valId`,
+          {
+            replacements: { qty, retailerId: item.retailer_id, valId },
+            transaction
+          }
+        );
+      }
+
+      // 2. Clear agent location if assigned
+      if (order.agent_id) {
+        await AgentLocation.update(
+          { currentOrderId: null },
+          { where: { agentId: order.agent_id, currentOrderId: order.id }, transaction }
+        );
+      }
+
+      // 3. Update order status
+      await order.update({ status: 'cancelled' }, { transaction });
+    });
+
+    // 4. Handle refund stub
+    if (order.payment_status === 'paid') {
+      await order.update({ payment_status: 'refunded' });
+      // In real life, trigger Razorpay refund API here.
+    }
+
+    // 5. Emit socket events
+    const io = req.app.get('io');
+    io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status: 'cancelled' });
+    if (order.agent_id) io.to(`agent_${order.agent_id}`).emit('order_cancelled', { orderId: order.id });
+    await sendNotification(req, order.userId || order.user_id, 'Order Cancelled', `Your order #${order.order_number || order.id} has been cancelled.`, 'system');
+
+    res.json({ message: 'Order cancelled successfully', status: 'cancelled' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 };

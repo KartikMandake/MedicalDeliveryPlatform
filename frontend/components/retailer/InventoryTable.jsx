@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getInventory, updateInventoryItem, deleteInventoryItem } from '../../api/retailer';
+import SaltComposition from '../ui/SaltComposition';
 
 export default function InventoryTable({ onAddClick, refreshKey }) {
   const [inventory, setInventory] = useState([]);
@@ -102,7 +103,9 @@ export default function InventoryTable({ onAddClick, refreshKey }) {
                       )}
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-slate-900 truncate max-w-[200px]">{item.name}</p>
-                        <p className="text-xs text-slate-400 truncate max-w-[200px]">{item.salt_name || item.manufacturer}</p>
+                        <div className="text-xs text-slate-400 truncate max-w-[200px]">
+                          {item.salt_name ? <SaltComposition saltName={item.salt_name} format="text" /> : item.manufacturer}
+                        </div>
                       </div>
                     </div>
                   </td>

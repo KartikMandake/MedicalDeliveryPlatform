@@ -19,6 +19,7 @@ const agentRoutes = require('./routes/agent');
 const uploadRoutes = require('./routes/upload');
 const retailerRoutes = require('./routes/retailer');
 const addressRoutes = require('./routes/addresses');
+const notificationRoutes = require('./routes/notifications');
 
 const { socketHandler } = require('./utils/socket');
 
@@ -77,6 +78,7 @@ app.use('/api/agent', agentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/retailer', retailerRoutes);
 app.use('/api/addresses', addressRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }));
 
@@ -90,6 +92,9 @@ sequelize.sync()
     // Safe migration: add address column to users table if it doesn't exist
     try {
       await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`);
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255)`);
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_password_expire TIMESTAMP WITH TIME ZONE`);
+      console.log('✅ users columns (address, reset logic) ready');
       await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE`);
       await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic TEXT`);
       console.log('✅ users columns (address, google_id, profile_pic) ready');

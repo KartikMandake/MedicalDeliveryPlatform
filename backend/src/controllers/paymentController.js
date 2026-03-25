@@ -92,7 +92,7 @@ exports.verifyPayment = async (req, res) => {
       if (existingOrder.payment_status !== 'paid') {
         const items = await sequelize.query(
           `
-          SELECT medicine_id, quantity
+          SELECT medicine_id, ecommerce_product_id, quantity
           FROM order_items
           WHERE order_id = :orderId
           `,
@@ -107,18 +107,21 @@ exports.verifyPayment = async (req, res) => {
           let remaining = Number(item.quantity || 0);
           if (remaining <= 0) continue;
 
+          const colId = item.medicine_id ? 'medicine_id' : 'ecommerce_product_id';
+          const valId = item.medicine_id || item.ecommerce_product_id;
+
           const inventoryRows = await sequelize.query(
             `
             SELECT id, stock_quantity, COALESCE(reserved_quantity, 0) AS reserved_quantity
             FROM inventory
-            WHERE medicine_id = :medicineId
+            WHERE ${colId} = :valId
               AND GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0) > 0
             ORDER BY GREATEST(stock_quantity - COALESCE(reserved_quantity, 0), 0) DESC, last_updated ASC
             FOR UPDATE
             `,
             {
               type: QueryTypes.SELECT,
-              replacements: { medicineId: item.medicine_id },
+              replacements: { valId },
               transaction,
             }
           );
