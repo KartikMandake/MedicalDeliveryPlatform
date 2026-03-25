@@ -113,7 +113,7 @@ export default function CheckoutPage() {
   const handlePinChange = (lat, lng) => setAddress((prev) => ({ ...prev, lat: Number(lat).toFixed(6), lng: Number(lng).toFixed(6) }));
 
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) { showToast({ type: 'error', message: 'Geolocation is not supported.' }); return; }
+    if (!navigator.geolocation) { showToast('Geolocation is not supported.', 'error'); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -127,12 +127,12 @@ export default function CheckoutPage() {
               ...prev, city: res.data.city || prev.city, state: res.data.state || prev.state,
               pincode: res.data.pincode || prev.pincode, line2: res.data.address || prev.line2,
             }));
-            showToast({ type: 'success', message: 'Location detected & fields updated.' });
+            showToast('Location detected & fields updated.', 'success');
           }
         } catch (err) { console.error(err); } 
         finally { setLocating(false); }
       },
-      () => { showToast({ type: 'error', message: 'Unable to detect location. Map pin manually required.' }); setLocating(false); },
+      () => { showToast('Unable to detect location. Map pin manually required.', 'error'); setLocating(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -160,7 +160,7 @@ export default function CheckoutPage() {
     const payloadAddress = sanitizeAddress(address);
     const validationError = validateAddress(payloadAddress);
     if (validationError) {
-      showToast({ type: 'error', message: validationError });
+      showToast(validationError, 'error');
       return;
     }
     setActiveStep(2);
@@ -168,12 +168,12 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     if (!user) { navigate('/login'); return; }
-    if (!cart.items?.length) { showToast({ type: 'error', message: 'Your cart is empty.' }); navigate('/cart'); return; }
+    if (!cart.items?.length) { showToast('Your cart is empty.', 'error'); navigate('/cart'); return; }
 
     const payloadAddress = sanitizeAddress(address);
     payloadAddress.label = addressType === 'home' ? 'Home' : addressType === 'work' ? 'Work' : 'Other';
     const validationError = validateAddress(payloadAddress);
-    if (validationError) { showToast({ type: 'error', message: validationError }); setActiveStep(1); return; }
+    if (validationError) { showToast(validationError, 'error'); setActiveStep(1); return; }
 
     setPlacingOrder(true);
     try {
@@ -186,7 +186,7 @@ export default function CheckoutPage() {
         }
       }
 
-      showToast({ type: 'success', message: 'Initializing secure transaction...' });
+      showToast('Initializing secure transaction...', 'info');
       const orderRes = await createOrder({ deliveryAddress: payloadAddress });
       const order = orderRes.data;
 
@@ -201,10 +201,10 @@ export default function CheckoutPage() {
 
       await verifyPayment({ ...paymentResponse, orderId: order.id });
       await fetchCart();
-      showToast({ type: 'success', title: 'Payment Verified', message: 'Your prescription order has been successfully placed.' });
+      showToast('Your prescription order has been successfully placed.', 'success');
       navigate(`/tracking?orderId=${order.id}`);
     } catch (err) {
-      showToast({ type: 'error', message: err.message || 'Checkout failed.' });
+      showToast(err.message || 'Checkout failed.', 'error');
     } finally {
       setPlacingOrder(false);
     }
