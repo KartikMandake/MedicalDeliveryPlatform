@@ -17,6 +17,7 @@ const agentRoutes = require('./routes/agent');
 const uploadRoutes = require('./routes/upload');
 const retailerRoutes = require('./routes/retailer');
 const addressRoutes = require('./routes/addresses');
+const predictionRoutes = require('./routes/predictionRoutes');
 
 const { socketHandler } = require('./utils/socket');
 
@@ -39,6 +40,7 @@ const allowVercelPreviews = String(process.env.ALLOW_VERCEL_PREVIEWS || '').toLo
 const isAllowedOrigin = (origin) => {
   if (!origin) return true;
   if (allowedOrigins.includes(origin)) return true;
+  if (/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) return true;
   if (allowVercelPreviews && /\.vercel\.app$/i.test(origin)) return true;
   return false;
 };
@@ -73,6 +75,7 @@ app.use('/api/agent', agentRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/retailer', retailerRoutes);
 app.use('/api/addresses', addressRoutes);
+app.use('/api/predictions', predictionRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }));
 
@@ -92,7 +95,11 @@ sequelize.sync()
     }
 
     const PORT = process.env.PORT || 5000;
-    server.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+      // Start weather cron job
+      require('./models/weatherCron');
+    });
   })
   .catch((err) => {
     console.error('❌ PostgreSQL connection error:', err.message);

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import axios from 'axios';
 import RetailerSidebar from '../components/retailer/RetailerSidebar';
 import RetailerTopNav from '../components/retailer/RetailerTopNav';
 import RetailerFooter from '../components/retailer/RetailerFooter';
-import { searchMedicines, getCategories, addToInventory, updateInventoryItem, getInventory, deleteInventoryItem } from '../api/retailer';
+import { searchMedicines, getCategories, addToInventory, updateInventoryItem, getInventory, deleteInventoryItem, getPredictions } from '../api/retailer';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
@@ -23,6 +24,8 @@ export default function RetailerInventoryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [stockModal, setStockModal] = useState(null);
+  const [predictions, setPredictions] = useState([]);
+  const [predictionsLoading, setPredictionsLoading] = useState(false);
   const [modalMode, setModalMode] = useState('add');
   const [stockQty, setStockQty] = useState(50);
   const [reorderLevel, setReorderLevel] = useState(10);
@@ -52,7 +55,7 @@ export default function RetailerInventoryPage() {
       return (
         <div className="space-y-3 mt-6 bg-[#f8f9fa] p-5 rounded-2xl border border-zinc-100">
           <h5 className="text-[11px] font-bold text-zinc-400 uppercase tracking-[0.15em] mb-4">Product Information</h5>
-          <div 
+          <div
             className="text-[13px] text-zinc-600 leading-relaxed [&>div>h3]:text-sm [&>div>h3]:font-bold [&>div>h3]:mb-1 [&>div>h3]:text-zinc-800 [&>div>p]:mb-1"
             dangerouslySetInnerHTML={{ __html: cleanDesc }}
           />
@@ -176,6 +179,42 @@ export default function RetailerInventoryPage() {
   }, []);
 
   useEffect(() => { fetchInventory(); }, [fetchInventory]);
+
+  // Fetch predictions
+  const fetchPredictions = useCallback(() => {
+    setPredictionsLoading(true);
+    getPredictions()
+      .then(res => setPredictions(Array.isArray(res.data) ? res.data : []))
+      .catch(err => {
+        console.error('Prediction fetch error:', err);
+        showToast({ type: 'error', message: 'Failed to load stock predictions' });
+      })
+      .finally(() => setPredictionsLoading(false));
+  }, [showToast]);
+
+  useEffect(() => {
+    fetchPredictions();
+  }, [fetchPredictions]);
+
+  const simulateWeather = async (type) => {
+    try {
+      let temp = 25;
+      if (type === 'Rain') temp = 18;
+      if (type === 'Heatwave') temp = 38;
+
+      await axios.post(`${apiBase}/predictions/simulate`, {
+        condition: type === 'Heatwave' ? 'Clear' : type,
+        temp: temp
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      showToast({ type: 'success', title: 'Simulation Active', message: `Weather changed to ${type}. Recalculating...` });
+      fetchPredictions();
+    } catch (err) {
+      showToast({ type: 'error', message: 'Failed to simulate weather' });
+    }
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -309,6 +348,112 @@ export default function RetailerInventoryPage() {
             </div>
           </div>
         </header>
+
+        {/* Smart Predictions Section */}
+        {predictions.length > 0 && (
+          <div className="mb-8 animate-in slide-in-from-top-4 fade-in duration-500">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-extrabold font-headline text-[#191c1d] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#006e2f]">insights</span>
+                Smart Stock Predictions
+              </h2>
+              <div className="flex items-center gap-3">
+                <select
+                  onChange={(e) => simulateWeather(e.target.value)}
+                  className="text-[11px] font-bold bg-white border border-zinc-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#006e2f]/20 transition-all opacity-80 hover:opacity-100 cursor-pointer shadow-sm"
+                >
+                  <option value="Clear">☀️ Simulate Clear</option>
+                  <option value="Rain">🌧️ Simulate Rain</option>
+                  <option value="Heatwave">🔥 Simulate Heatwave</option>
+                </select>
+                <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest bg-zinc-100 px-2 py-1 rounded-md">AI Insights</span>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {predictions.map((pred, i) => {
+                const isCritical = pred.status === 'CRITICAL';
+                const isLow = pred.status === 'LOW';
+
+                let cardCls = 'bg-emerald-50/50 border-emerald-100 text-emerald-800';
+                let iconCls = 'text-emerald-500';
+                let btnCls = 'bg-emerald-600 hover:bg-emerald-700';
+                let statusText = 'Stock sufficient';
+
+                if (isCritical) {
+                  cardCls = 'bg-red-50/80 border-red-100 text-red-900';
+                  iconCls = 'text-red-600';
+                  btnCls = 'bg-red-600 hover:bg-red-700';
+                  statusText = 'Restock immediately';
+                } else if (isLow) {
+                  cardCls = 'bg-orange-50/80 border-orange-100 text-orange-900';
+                  iconCls = 'text-orange-600';
+                  btnCls = 'bg-orange-600 hover:bg-orange-700';
+                  statusText = 'Running low';
+                }
+
+                return (
+                  <div key={i} className={`p-4 rounded-2xl border ${cardCls} flex items-center justify-between gap-4 shadow-sm backdrop-blur-sm transition-all hover:shadow-md`}>
+                    <div className="flex gap-3 items-center min-w-0">
+                      <div className={`w-10 h-10 rounded-xl bg-white/50 flex items-center justify-center shrink-0`}>
+                        <span className={`material-symbols-outlined ${iconCls}`}>
+                          {isCritical ? 'warning' : isLow ? 'trending_down' : 'verified_user'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-sm truncate">{pred.medicine_name || 'Medicine'}</h4>
+                        <div className="flex flex-col gap-1.5 mt-2">
+                          <div className="flex items-center gap-3">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Baseline</span>
+                              <span className="text-xs font-bold text-zinc-500 line-through opacity-50">{pred.base_days} days</span>
+                            </div>
+                            <div className="w-px h-6 bg-zinc-200" />
+                            <div className="flex flex-col">
+                              <span className="text-[9px] font-bold text-[#006e2f] uppercase tracking-wider">Forecast</span>
+                              <span className="text-xs font-extrabold">{pred.smart_days} days left</span>
+                            </div>
+                          </div>
+
+                          {pred.reason && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-bold bg-blue-500 text-white px-2.5 py-1 rounded-lg w-fit shadow-sm animate-pulse">
+                              <span className="material-symbols-outlined text-[12px]">wb_sunny</span>
+                              Forecast: {pred.reason} (+{(pred.multiplier * 100 - 100).toFixed(0)}%)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-widest opacity-60 mb-0.5">Avail: {pred.available_stock}</span>
+                      {(isCritical || isLow) && (
+                        <button
+                          onClick={() => {
+                            const med = inventory.find(inv => inv.medicine_id === pred.medicine_id);
+                            if (med) {
+                              if (activeTab === 'all') {
+                                handleOpenModal({
+                                  ...med,
+                                  current_stock: med.stock_quantity,
+                                  current_reorder_level: med.reorder_level,
+                                  inventory_id: med.id
+                                }, 'update');
+                              } else {
+                                handleOpenModal(med, 'update');
+                              }
+                            }
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-white font-bold text-[11px] transition-all shadow-sm ${btnCls}`}
+                        >
+                          Restock
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Tab Switcher */}
         <div className="flex gap-2 mb-6">
@@ -467,100 +612,100 @@ export default function RetailerInventoryPage() {
               const catIcon = (catName && categoryIconByName[String(catName).toLowerCase()]) || med.category_icon || '';
 
               return (
-                  <div key={med.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group relative flex flex-col border border-zinc-100">
-                    {/* Medicine Image */}
-                    <div onClick={() => handleOpenModal(med, inInventory ? 'view' : 'add')} className="relative h-48 bg-zinc-50 overflow-hidden flex-shrink-0 cursor-pointer">
-                      {medImage ? (
-                        <img src={medImage} alt={medName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 mix-blend-multiply" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-zinc-100/50">
-                          <span className="material-symbols-outlined text-6xl text-zinc-300">medication</span>
-                        </div>
-                      )}
-                      <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
-                      
-                      {badge && (
-                        <span className={`absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-md ${badge.cls}`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {badge.label}
+                <div key={med.id} className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group relative flex flex-col border border-zinc-100">
+                  {/* Medicine Image */}
+                  <div onClick={() => handleOpenModal(med, inInventory ? 'view' : 'add')} className="relative h-48 bg-zinc-50 overflow-hidden flex-shrink-0 cursor-pointer">
+                    {medImage ? (
+                      <img src={medImage} alt={medName} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 mix-blend-multiply" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-zinc-100/50">
+                        <span className="material-symbols-outlined text-6xl text-zinc-300">medication</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/60 to-transparent pointer-events-none" />
+
+                    {badge && (
+                      <span className={`absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold border backdrop-blur-md ${badge.cls}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        {badge.label}
+                      </span>
+                    )}
+
+                    <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
+                      {med.requires_rx && (
+                        <span className="px-2 py-1 bg-red-500/90 text-white backdrop-blur-md text-[10px] font-bold rounded-lg shadow-sm flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[12px]">prescriptions</span> Rx
                         </span>
                       )}
-
-                      <div className="absolute top-3 right-3 flex flex-col gap-2 items-end">
-                        {med.requires_rx && (
-                          <span className="px-2 py-1 bg-red-500/90 text-white backdrop-blur-md text-[10px] font-bold rounded-lg shadow-sm flex items-center gap-1">
-                            <span className="material-symbols-outlined text-[12px]">prescriptions</span> Rx
-                          </span>
-                        )}
-                        {med.type && (
-                           <span className="px-2.5 py-1 bg-white/90 text-zinc-700 backdrop-blur-md text-[10px] font-bold rounded-lg shadow-sm capitalize border border-white/20">
-                             {med.type}
-                           </span>
-                        )}
-                      </div>
-
-                      {catName && (
-                        <span className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-black/40 backdrop-blur-md border border-white/20 rounded-xl text-[10px] text-white font-bold shadow-sm">
-                          {catIcon && renderCategoryIcon(catIcon, 'w-3 h-3 object-contain')}
-                          {catName}
+                      {med.type && (
+                        <span className="px-2.5 py-1 bg-white/90 text-zinc-700 backdrop-blur-md text-[10px] font-bold rounded-lg shadow-sm capitalize border border-white/20">
+                          {med.type}
                         </span>
                       )}
                     </div>
 
-                    {/* Content */}
-                    <div className="p-4 flex flex-col flex-1 bg-white">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <h3 onClick={() => handleOpenModal(med, inInventory ? 'view' : 'add')} className="font-bold text-[15px] text-zinc-900 leading-tight line-clamp-2 cursor-pointer hover:text-[#006e2f] transition-colors">{medName}</h3>
-                      </div>
-                      
-                      <p className="text-xs text-zinc-500 mb-3 line-clamp-1 flex items-center gap-1 font-medium">
-                        <span className="material-symbols-outlined text-[14px]">factory</span>
-                        {med.manufacturer}
-                      </p>
+                    {catName && (
+                      <span className="absolute bottom-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-black/40 backdrop-blur-md border border-white/20 rounded-xl text-[10px] text-white font-bold shadow-sm">
+                        {catIcon && renderCategoryIcon(catIcon, 'w-3 h-3 object-contain')}
+                        {catName}
+                      </span>
+                    )}
+                  </div>
 
-                      <div className="mt-auto">
-                        <div className="flex items-baseline gap-2 mb-4">
-                          <span className="text-xl font-extrabold font-headline text-zinc-900 tracking-tight">₹{(med.selling_price || med.mrp || 0).toFixed(2)}</span>
-                          {med.mrp && med.selling_price && med.mrp !== med.selling_price && (
-                            <span className="text-[11px] font-bold text-zinc-400 line-through">₹{med.mrp.toFixed(2)}</span>
-                          )}
-                        </div>
+                  {/* Content */}
+                  <div className="p-4 flex flex-col flex-1 bg-white">
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <h3 onClick={() => handleOpenModal(med, inInventory ? 'view' : 'add')} className="font-bold text-[15px] text-zinc-900 leading-tight line-clamp-2 cursor-pointer hover:text-[#006e2f] transition-colors">{medName}</h3>
+                    </div>
 
-                        {inInventory ? (
-                          <div className="space-y-3">
-                            <div className="flex items-center justify-between text-xs bg-zinc-50 border border-zinc-100 rounded-xl p-2.5">
-                              <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Available Stock</span>
-                              <strong className="text-zinc-900 text-sm font-bold">{stock} units</strong>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleOpenModal(med, 'update')}
-                                className="flex-1 py-2.5 bg-[#006e2f]/10 text-[#006e2f] hover:bg-[#006e2f] hover:text-white text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
-                              >
-                                <span className="material-symbols-outlined text-[16px]">edit</span>
-                                Update
-                              </button>
-                              <button
-                                onClick={() => handleRemoveFromStock(invId, medName)}
-                                className="w-10 flex items-center justify-center border border-zinc-200 text-zinc-400 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all font-bold"
-                                title="Remove from inventory"
-                              >
-                                <span className="material-symbols-outlined text-[18px]">delete</span>
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => handleOpenModal(med, 'add')}
-                            className="w-full py-2.5 bg-[#006e2f] hover:bg-[#005c27] text-white text-[13px] font-bold rounded-xl shadow-md shadow-[#006e2f]/20 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                            Add to Inventory
-                          </button>
+                    <p className="text-xs text-zinc-500 mb-3 line-clamp-1 flex items-center gap-1 font-medium">
+                      <span className="material-symbols-outlined text-[14px]">factory</span>
+                      {med.manufacturer}
+                    </p>
+
+                    <div className="mt-auto">
+                      <div className="flex items-baseline gap-2 mb-4">
+                        <span className="text-xl font-extrabold font-headline text-zinc-900 tracking-tight">₹{(med.selling_price || med.mrp || 0).toFixed(2)}</span>
+                        {med.mrp && med.selling_price && med.mrp !== med.selling_price && (
+                          <span className="text-[11px] font-bold text-zinc-400 line-through">₹{med.mrp.toFixed(2)}</span>
                         )}
                       </div>
+
+                      {inInventory ? (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-xs bg-zinc-50 border border-zinc-100 rounded-xl p-2.5">
+                            <span className="text-zinc-500 font-bold uppercase tracking-wider text-[10px]">Available Stock</span>
+                            <strong className="text-zinc-900 text-sm font-bold">{stock} units</strong>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleOpenModal(med, 'update')}
+                              className="flex-1 py-2.5 bg-[#006e2f]/10 text-[#006e2f] hover:bg-[#006e2f] hover:text-white text-[13px] font-bold rounded-xl transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <span className="material-symbols-outlined text-[16px]">edit</span>
+                              Update
+                            </button>
+                            <button
+                              onClick={() => handleRemoveFromStock(invId, medName)}
+                              className="w-10 flex items-center justify-center border border-zinc-200 text-zinc-400 rounded-xl hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-all font-bold"
+                              title="Remove from inventory"
+                            >
+                              <span className="material-symbols-outlined text-[18px]">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => handleOpenModal(med, 'add')}
+                          className="w-full py-2.5 bg-[#006e2f] hover:bg-[#005c27] text-white text-[13px] font-bold rounded-xl shadow-md shadow-[#006e2f]/20 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                          Add to Inventory
+                        </button>
+                      )}
                     </div>
                   </div>
+                </div>
               );
             })}
           </div>
@@ -646,13 +791,13 @@ export default function RetailerInventoryPage() {
                     {getTypeBadge(stockModal.type)}
                   </div>
                   <div className="text-sm text-zinc-500 font-medium mb-6 flex gap-2">
-                    <span>Salt:</span> 
+                    <span>Salt:</span>
                     <div className="text-zinc-700 flex-1">
                       {stockModal.salt_name ? <SaltComposition saltName={stockModal.salt_name} format="text" className="text-sm mt-0" /> : 'N/A'}
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-4 mb-6 p-4 bg-white rounded-2xl shadow-sm border border-zinc-100/50">
                   <div className="flex-1 border-r border-zinc-100 pr-4">
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">Selling Price</p>
@@ -663,12 +808,12 @@ export default function RetailerInventoryPage() {
                   <div className="flex-1 pl-2">
                     <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">MRP</p>
                     <div className="flex items-center gap-2">
-                       <span className={`text-sm font-bold ${ stockModal.mrp !== stockModal.selling_price ? 'text-zinc-400 line-through' : 'text-zinc-900' }`}>₹{stockModal.mrp?.toFixed(2) || '0.00'}</span>
-                       {stockModal.mrp > stockModal.selling_price && (
-                         <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded flex items-center text-[10px] font-bold">
-                           {Math.round(((stockModal.mrp - stockModal.selling_price)/stockModal.mrp)*100)}% OFF
-                         </span>
-                       )}
+                      <span className={`text-sm font-bold ${stockModal.mrp !== stockModal.selling_price ? 'text-zinc-400 line-through' : 'text-zinc-900'}`}>₹{stockModal.mrp?.toFixed(2) || '0.00'}</span>
+                      {stockModal.mrp > stockModal.selling_price && (
+                        <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded flex items-center text-[10px] font-bold">
+                          {Math.round(((stockModal.mrp - stockModal.selling_price) / stockModal.mrp) * 100)}% OFF
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -685,9 +830,9 @@ export default function RetailerInventoryPage() {
                   {modalMode === 'add' ? 'Add to Inventory' : modalMode === 'update' ? 'Update Stock Levels' : 'Inventory Details'}
                 </h4>
                 <p className="text-sm text-zinc-500 mb-8 leading-relaxed max-w-sm">
-                  {modalMode === 'add' ? 'Set your initial stock quantity and a reorder threshold to get alerts when stock runs low.' : 
-                   modalMode === 'update' ? 'Adjust current stock manually and modify your reorder points.' :
-                   'Review this product\'s details. To adjust stock, switch to my inventory.'}
+                  {modalMode === 'add' ? 'Set your initial stock quantity and a reorder threshold to get alerts when stock runs low.' :
+                    modalMode === 'update' ? 'Adjust current stock manually and modify your reorder points.' :
+                      'Review this product\'s details. To adjust stock, switch to my inventory.'}
                 </p>
 
                 {(modalMode === 'add' || modalMode === 'update') && (
@@ -712,7 +857,7 @@ export default function RetailerInventoryPage() {
                         </button>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
                         <span className="material-symbols-outlined text-[16px]">warning</span> Reorder Alert

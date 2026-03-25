@@ -19,26 +19,54 @@ const products = [
 ];
 
 async function seed() {
-  await sequelize.sync({ force: true });
-  console.log('Tables created');
+  console.log('--- STARTING SAFE RESTORATION ---');
+  // SYNC WITHOUT FORCE: TRUE
+  await sequelize.sync(); 
+  console.log('Database synced (safely)');
 
-  const admin = await User.create({ name: 'Admin', email: 'admin@meddelivery.com', password: 'admin123', role: 'admin' });
-  console.log('Admin: admin@meddelivery.com / admin123');
+  // Only create admin if not exists
+  const [admin] = await User.findOrCreate({
+    where: { email: 'admin@meddelivery.com' },
+    defaults: { name: 'Admin', password: 'admin123', role: 'admin' }
+  });
+  console.log('Admin account checked');
 
-  const retailer = await User.create({ name: 'MedStore Retailer', email: 'retailer@meddelivery.com', password: 'retailer123', role: 'retailer' });
-  console.log('Retailer: retailer@meddelivery.com / retailer123');
+  const [retailerUser] = await User.findOrCreate({
+    where: { email: 'retailer@meddelivery.com' },
+    defaults: { name: 'MedStore Retailer', password: 'retailer123', role: 'retailer' }
+  });
+  console.log('Retailer user checked');
 
-  await User.create({ name: 'Delivery Agent', email: 'agent@meddelivery.com', password: 'agent123', role: 'agent', phone: '+919999999999' });
-  console.log('Agent: agent@meddelivery.com / agent123');
+  // Ensure Retailer record exists
+  const [retailers] = await sequelize.query(`SELECT id FROM retailers WHERE user_id = '${retailerUser.id}'`);
+  let DEMO_RETAILER_ID;
+  if (retailers.length === 0) {
+    const [rows] = await sequelize.query(`
+      INSERT INTO retailers (user_id, shop_name, drug_license, gstin, kyc_status)
+      VALUES ('${retailerUser.id}', 'MedStore Pune', 'DL-12345', 'GST-999', 'approved')
+      RETURNING id
+    `);
+    DEMO_RETAILER_ID = rows[0].id;
+    console.log('Retailer record created');
+  } else {
+    DEMO_RETAILER_ID = retailers[0].id;
+    console.log('Retailer record already exists');
+  }
 
-  await User.create({ name: 'Test User', email: 'user@meddelivery.com', password: 'user123', role: 'user' });
-  console.log('User: user@meddelivery.com / user123');
-
-  await Product.bulkCreate(products.map((p) => ({ ...p, retailerId: retailer.id })));
-  console.log(`${products.length} products seeded`);
+  // Restore baseline products
+  console.log('Checking baseline products...');
+  for (const p of products) {
+    const [existing] = await sequelize.query(`SELECT id FROM products WHERE name = :name LIMIT 1`, {
+      replacements: { name: p.name }
+    });
+    if (existing.length === 0) {
+      await Product.create({ ...p, retailerId: DEMO_RETAILER_ID });
+      console.log(`Restored: ${p.name}`);
+    }
+  }
 
   await sequelize.close();
-  console.log('✅ Seed complete');
+  console.log('✅ Restoration complete');
 }
 
 seed().catch((err) => { console.error(err); process.exit(1); });

@@ -12,6 +12,7 @@ export const addToInventory = (data) => api.post('/retailer/inventory', data);
 export const updateInventoryItem = (id, data) => api.put(`/retailer/inventory/${id}`, data);
 export const deleteInventoryItem = (id) => api.delete(`/retailer/inventory/${id}`);
 export const searchMedicines = (params) => api.get('/retailer/medicines/search', { params });
+export const getPredictions = () => api.get('/predictions');
 export const getCategories = async () => {
 	const res = await api.get('/products/filters');
 	return { data: res.data?.categories || [] };
