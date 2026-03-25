@@ -11,17 +11,7 @@ import { getAddresses, createAddress, updateAddress } from '../api/addresses';
 import AddressPinMap from '../components/checkout/AddressPinMap';
 
 const EMPTY_ADDRESS = {
-  label: 'Home',
-  fullName: '',
-  phone: '',
-  line1: '',
-  line2: '',
-  city: '',
-  state: '',
-  pincode: '',
-  landmark: '',
-  lat: '',
-  lng: '',
+  label: 'Home', fullName: '', phone: '', line1: '', line2: '', city: '', state: '', pincode: '', landmark: '', lat: '', lng: '',
 };
 
 function toNullableNumber(value) {
@@ -49,47 +39,25 @@ function sanitizeAddress(address) {
 
 function validateAddress(address) {
   const required = ['fullName', 'phone', 'line1', 'city', 'state', 'pincode'];
-  for (const field of required) {
-    if (!address[field]) return `Please provide ${field}.`;
-  }
-  if (!/^[0-9]{6}$/.test(address.pincode)) {
-    return 'Please enter a valid 6-digit pincode.';
-  }
-  if (!/^[0-9]{10}$/.test(address.phone.replace(/\D/g, ''))) {
-    return 'Please enter a valid 10-digit phone number.';
-  }
-  if (!Number.isFinite(address.lat) || address.lat < -90 || address.lat > 90) {
-    return 'Please pin your exact location on the map.';
-  }
-  if (!Number.isFinite(address.lng) || address.lng < -180 || address.lng > 180) {
-    return 'Please pin your exact location on the map.';
-  }
+  for (const field of required) { if (!address[field]) return `Please provide ${field}.`; }
+  if (!/^[0-9]{6}$/.test(address.pincode)) return 'Please enter a valid 6-digit pincode.';
+  if (!/^[0-9]{10}$/.test(address.phone.replace(/\D/g, ''))) return 'Please enter a valid 10-digit phone number.';
+  if (!Number.isFinite(address.lat) || address.lat < -90 || address.lat > 90) return 'Please pin your exact location on the map.';
+  if (!Number.isFinite(address.lng) || address.lng < -180 || address.lng > 180) return 'Please pin your exact location on the map.';
   return null;
 }
 
-function formatMoney(value) {
-  return `Rs. ${Number(value || 0).toFixed(2)}`;
-}
+function formatMoney(value) { return `Rs. ${Number(value || 0).toFixed(2)}`; }
 
 function openRazorpayCheckout(options) {
   return new Promise((resolve, reject) => {
-    if (!window.Razorpay) {
-      reject(new Error('Razorpay is not loaded. Please refresh and try again.'));
-      return;
-    }
-
+    if (!window.Razorpay) { reject(new Error('Razorpay is not loaded. Please refresh and try again.')); return; }
     const rzp = new window.Razorpay({
       ...options,
       handler: (response) => resolve(response),
-      modal: {
-        ondismiss: () => reject(new Error('Payment cancelled by user.')),
-      },
+      modal: { ondismiss: () => reject(new Error('Payment cancelled by user.')) },
     });
-
-    rzp.on('payment.failed', () => {
-      reject(new Error('Payment failed. Please try again.'));
-    });
-
+    rzp.on('payment.failed', () => reject(new Error('Payment failed. Please try again.')));
     rzp.open();
   });
 }
@@ -108,93 +76,63 @@ export default function CheckoutPage() {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [locating, setLocating] = useState(false);
   const [addressType, setAddressType] = useState('home');
+  const [isNewAddressFormOpen, setIsNewAddressFormOpen] = useState(false);
 
-  const itemCount = useMemo(
-    () => (cart.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-    [cart.items]
-  );
+  // Accordion State
+  const [activeStep, setActiveStep] = useState(1);
+
+  const itemCount = useMemo(() => (cart.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0), [cart.items]);
 
   useEffect(() => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-
+    if (!user) { navigate('/login'); return; }
     let cancelled = false;
-
-    getAddresses()
-      .then((res) => {
-        if (cancelled) return;
-        const list = Array.isArray(res.data) ? res.data : [];
-        setAddresses(list);
-
-        if (list.length) {
-          const chosen = list.find((a) => a.isDefault) || list[0];
-          setSelectedAddressId(chosen.id);
-          setAddress((prev) => ({ ...prev, ...sanitizeAddress(chosen) }));
-        } else {
-          setSelectedAddressId(null);
-          setAddress(EMPTY_ADDRESS);
-        }
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setLoadingAddress(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    getAddresses().then((res) => {
+      if (cancelled) return;
+      const list = Array.isArray(res.data) ? res.data : [];
+      setAddresses(list);
+      if (list.length) {
+        const chosen = list.find((a) => a.isDefault) || list[0];
+        setSelectedAddressId(chosen.id);
+        setAddress((prev) => ({ ...prev, ...sanitizeAddress(chosen) }));
+      } else {
+        setSelectedAddressId(null);
+        setAddress(EMPTY_ADDRESS);
+        setIsNewAddressFormOpen(true);
+      }
+    }).catch(() => {}).finally(() => { if (!cancelled) setLoadingAddress(false); });
+    return () => { cancelled = true; };
   }, [navigate, user]);
 
-  const handleAddressChange = (field, value) => {
-    setAddress((prev) => ({ ...prev, [field]: value }));
-  };
+  useEffect(() => {
+    if (!loadingAddress && cart.items?.length === 0 && activeStep > 1) {
+      navigate('/cart');
+    }
+  }, [cart.items, loadingAddress, activeStep, navigate]);
 
-  const handlePinChange = (lat, lng) => {
-    setAddress((prev) => ({
-      ...prev,
-      lat: Number(lat).toFixed(6),
-      lng: Number(lng).toFixed(6),
-    }));
-  };
+  const handleAddressChange = (field, value) => setAddress((prev) => ({ ...prev, [field]: value }));
+  const handlePinChange = (lat, lng) => setAddress((prev) => ({ ...prev, lat: Number(lat).toFixed(6), lng: Number(lng).toFixed(6) }));
 
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      showToast('Geolocation is not supported in this browser.', 'error');
-      return;
-    }
-
+    if (!navigator.geolocation) { showToast({ type: 'error', message: 'Geolocation is not supported.' }); return; }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
         handlePinChange(latitude, longitude);
-        
         try {
           const { reverseGeocode } = await import('../api/auth');
           const res = await reverseGeocode(latitude.toFixed(6), longitude.toFixed(6));
           if (res.data) {
             setAddress((prev) => ({
-              ...prev,
-              city: res.data.city || prev.city,
-              state: res.data.state || prev.state,
-              pincode: res.data.pincode || prev.pincode,
-              line2: res.data.address || prev.line2, // Use full address as secondary hint if needed
+              ...prev, city: res.data.city || prev.city, state: res.data.state || prev.state,
+              pincode: res.data.pincode || prev.pincode, line2: res.data.address || prev.line2,
             }));
-            showToast('Location detected. City, state and pincode updated.', 'success');
+            showToast({ type: 'success', message: 'Location detected & fields updated.' });
           }
-        } catch (err) {
-          console.error('Reverse Geocoding failed:', err);
-          // Fallback handled, coords already updated
-        } finally {
-          setLocating(false);
-        }
+        } catch (err) { console.error(err); } 
+        finally { setLocating(false); }
       },
-      () => {
-        showToast('Unable to detect your location. Please pin manually on the map.', 'error');
-        setLocating(false);
-      },
+      () => { showToast({ type: 'error', message: 'Unable to detect location. Map pin manually required.' }); setLocating(false); },
       { enableHighAccuracy: true, timeout: 10000 }
     );
   };
@@ -203,6 +141,7 @@ export default function CheckoutPage() {
     setSelectedAddressId(saved.id);
     const normalized = { ...EMPTY_ADDRESS, ...sanitizeAddress(saved) };
     setAddress(normalized);
+    setIsNewAddressFormOpen(false);
     const label = String(normalized.label || '').toLowerCase();
     if (label.includes('work')) setAddressType('work');
     else if (label.includes('other')) setAddressType('other');
@@ -212,46 +151,42 @@ export default function CheckoutPage() {
   const handleUseNewAddress = () => {
     setSelectedAddressId(null);
     setAddress(EMPTY_ADDRESS);
+    setIsNewAddressFormOpen(true);
     setAddressType('home');
   };
 
+  const confirmAddressStep = () => {
+    // Basic validation before moving to step 2 visually
+    const payloadAddress = sanitizeAddress(address);
+    const validationError = validateAddress(payloadAddress);
+    if (validationError) {
+      showToast({ type: 'error', message: validationError });
+      return;
+    }
+    setActiveStep(2);
+  };
+
   const handlePlaceOrder = async () => {
-    if (!user) {
-      navigate('/login');
-      return;
-    }
-    if (!cart.items?.length) {
-      showToast('Your cart is empty.', 'error');
-      navigate('/cart');
-      return;
-    }
+    if (!user) { navigate('/login'); return; }
+    if (!cart.items?.length) { showToast({ type: 'error', message: 'Your cart is empty.' }); navigate('/cart'); return; }
 
     const payloadAddress = sanitizeAddress(address);
     payloadAddress.label = addressType === 'home' ? 'Home' : addressType === 'work' ? 'Work' : 'Other';
     const validationError = validateAddress(payloadAddress);
-    if (validationError) {
-      showToast(validationError, 'error');
-      return;
-    }
+    if (validationError) { showToast({ type: 'error', message: validationError }); setActiveStep(1); return; }
 
     setPlacingOrder(true);
     try {
-      if (saveAddress) {
+      if (saveAddress && isNewAddressFormOpen) {
         if (selectedAddressId) {
-          await updateAddress(selectedAddressId, {
-            ...payloadAddress,
-            isDefault: true,
-          });
+          await updateAddress(selectedAddressId, { ...payloadAddress, isDefault: true });
         } else {
-          const created = await createAddress({
-            ...payloadAddress,
-            label: payloadAddress.label || 'Home',
-            isDefault: true,
-          });
+          const created = await createAddress({ ...payloadAddress, label: payloadAddress.label || 'Home', isDefault: true });
           setSelectedAddressId(created.data?.id || null);
         }
       }
 
+      showToast({ type: 'success', message: 'Initializing secure transaction...' });
       const orderRes = await createOrder({ deliveryAddress: payloadAddress });
       const order = orderRes.data;
 
@@ -259,363 +194,290 @@ export default function CheckoutPage() {
       const { razorpayOrderId, amount, currency, key } = rzpRes.data;
 
       const paymentResponse = await openRazorpayCheckout({
-        key,
-        amount,
-        currency,
-        name: 'MediFlow',
-        description: `Order ${order.orderId}`,
-        order_id: razorpayOrderId,
-        prefill: {
-          name: payloadAddress.fullName || user.name || '',
-          email: user.email || '',
-          contact: payloadAddress.phone,
-        },
-        theme: { color: '#0d631b' },
+        key, amount, currency, name: 'MediFlow', description: `Order ${order.orderId}`, order_id: razorpayOrderId,
+        prefill: { name: payloadAddress.fullName || user.name || '', email: user.email || '', contact: payloadAddress.phone },
+        theme: { color: '#059669' },
       });
 
       await verifyPayment({ ...paymentResponse, orderId: order.id });
       await fetchCart();
-      showToast('Payment verified and order placed successfully.', 'success');
+      showToast({ type: 'success', title: 'Payment Verified', message: 'Your prescription order has been successfully placed.' });
       navigate(`/tracking?orderId=${order.id}`);
     } catch (err) {
-      showToast(err.response?.data?.message || err.message || 'Checkout failed.', 'error');
+      showToast({ type: 'error', message: err.message || 'Checkout failed.' });
     } finally {
       setPlacingOrder(false);
     }
   };
 
   return (
-    <div className="bg-surface fixed inset-0 overflow-y-auto overflow-x-hidden text-on-surface font-body">
+    <div className="bg-[#f8f9fa] font-body text-slate-900 fixed inset-0 overflow-y-auto overflow-x-hidden flex flex-col pt-20">
       <ProductsNavBar />
+      
+      <main className="flex-grow max-w-[1000px] mx-auto w-full px-6 py-12">
+        <header className="mb-10 text-center">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-600 mb-3">Secure Checkout</p>
+          <h1 className="text-4xl font-extrabold font-headline tracking-tight text-slate-900 mb-3">Finalize Procurement</h1>
+          <p className="text-slate-500 font-medium max-w-lg mx-auto leading-relaxed text-sm">
+            Complete your clinical order in three simple steps.
+          </p>
+        </header>
 
-      <main className="max-w-7xl mx-auto pt-24 pb-16 px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <div className="lg:col-span-8 space-y-12">
-            <section className="flex items-center justify-between max-w-2xl mx-auto">
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined text-sm">check</span>
+        <div className="space-y-6">
+          
+          {/* STEP 1: Delivery Profile */}
+          <div className={`bg-white rounded-[1.5rem] shadow-sm border overflow-hidden transition-all duration-500 ${activeStep === 1 ? 'border-emerald-500/50 shadow-emerald-500/5 ring-4 ring-emerald-50' : 'border-slate-200/60'}`}>
+            <button 
+              onClick={() => setActiveStep(1)} 
+              className="w-full px-8 py-6 flex items-center justify-between bg-white hover:bg-slate-50 transition-colors text-left"
+              disabled={activeStep === 1}
+            >
+              <div className="flex items-center gap-4">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${activeStep === 1 ? 'bg-emerald-600 text-white' : activeStep > 1 ? 'bg-[#15803d] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                  {activeStep > 1 ? <span className="material-symbols-outlined text-[16px]">check</span> : '1'}
                 </div>
-                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant">Cart</span>
+                <div>
+                  <h2 className="text-xl font-extrabold font-headline text-slate-900">Delivery Profile</h2>
+                  {activeStep > 1 && <p className="text-sm font-medium text-slate-500">{address.fullName} • {address.city}, {address.pincode}</p>}
+                </div>
               </div>
-              <div className="flex-1 h-px bg-outline-variant/30 mx-4 mt-[-20px]" />
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-primary text-white flex items-center justify-center font-bold ring-4 ring-primary/10">2</div>
-                <span className="text-xs font-label uppercase tracking-widest text-primary font-bold">Address</span>
-              </div>
-              <div className="flex-1 h-px bg-outline-variant/30 mx-4 mt-[-20px]" />
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center font-bold">3</div>
-                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant/50">Payment</span>
-              </div>
-            </section>
+              {activeStep > 1 && <span className="text-emerald-600 text-sm font-bold uppercase tracking-wider">Edit</span>}
+            </button>
 
-            <section>
-              <div className="flex items-center justify-between mb-6 gap-3">
-                <h2 className="text-2xl font-headline font-extrabold tracking-tight">Saved Addresses</h2>
-                <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant/70">Step 2 of 3</span>
-              </div>
+            {activeStep === 1 && (
+              <div className="px-8 pb-8 animate-in slide-in-from-top-4 duration-300">
+                <div className="bg-slate-50 h-px w-full mb-8"></div>
+                
+                {loadingAddress && <div className="text-center py-8"><span className="w-6 h-6 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin inline-block"></span></div>}
 
-              {loadingAddress && <p className="text-xs text-zinc-500 mb-4">Checking saved addresses...</p>}
-
-              {!!addresses.length && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {addresses.map((saved) => {
-                    const selected = selectedAddressId === saved.id;
-                    const savedLabel = String(saved.label || 'Home').toLowerCase();
-                    const chipIcon = savedLabel.includes('work') ? 'work' : savedLabel.includes('other') ? 'location_on' : 'home';
-                    const chipText = savedLabel.includes('work') ? 'Work' : savedLabel.includes('other') ? 'Other' : 'Home';
-
-                    return (
-                      <button
-                        key={saved.id}
-                        type="button"
-                        onClick={() => handleSelectSavedAddress(saved)}
-                        className={`relative text-left p-6 rounded-xl border transition-all ${selected ? 'bg-surface-container-lowest border-2 border-primary shadow-[0_16px_32px_rgba(0,110,47,0.08)]' : 'bg-surface-container-lowest shadow-[0_8px_24px_rgba(25,28,29,0.04)] hover:bg-surface-container-low border-transparent'}`}
-                      >
-                        <div className="flex justify-between items-start mb-4">
-                          <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${selected ? 'bg-secondary-container/30' : 'bg-surface-container-high'}`}>
-                            <span className={`material-symbols-outlined text-sm ${selected ? 'text-secondary' : 'text-on-surface-variant'}`}>{chipIcon}</span>
-                            <span className={`text-xs font-bold uppercase tracking-tight ${selected ? 'text-secondary' : 'text-on-surface-variant'}`}>{chipText}</span>
+                {!loadingAddress && addresses.length > 0 && !isNewAddressFormOpen && (
+                  <div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                      {addresses.map((saved) => {
+                        const selected = selectedAddressId === saved.id;
+                        const savedLabel = String(saved.label || 'Home').toLowerCase();
+                        const chipIcon = savedLabel.includes('work') ? 'work' : savedLabel.includes('other') ? 'location_on' : 'home';
+                        
+                        return (
+                          <div
+                            key={saved.id}
+                            onClick={() => handleSelectSavedAddress(saved)}
+                            className={`relative text-left p-5 rounded-2xl border transition-all cursor-pointer ${selected ? 'bg-white border-emerald-500 ring-4 ring-emerald-50 shadow-md' : 'bg-slate-50 hover:bg-slate-100 border-slate-200/60'}`}
+                          >
+                            <div className="flex justify-between items-start mb-3">
+                              <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${selected ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-slate-100 border-slate-200 text-slate-500'}`}>
+                                <span className="material-symbols-outlined text-[12px]">{chipIcon}</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest">{saved.label || 'Home'}</span>
+                              </div>
+                              {selected && <span className="material-symbols-outlined text-emerald-600" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
+                            </div>
+                            <p className="font-extrabold text-slate-900 mb-1">{saved.fullName}</p>
+                            <p className="text-xs font-medium text-slate-500 leading-relaxed mb-3 line-clamp-2">
+                              {saved.line1}{saved.line2 ? `, ${saved.line2}` : ''}<br />
+                              {saved.city}, {saved.state} {saved.pincode}
+                            </p>
+                            <p className="text-xs font-bold text-slate-700">{saved.phone}</p>
                           </div>
-                          {selected && (
-                            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-                          )}
-                        </div>
-                        <p className={`font-bold text-lg mb-1 ${selected ? 'text-on-surface' : 'text-on-surface-variant/80'}`}>{saved.fullName || 'Recipient'}</p>
-                        <p className={`text-sm leading-relaxed mb-4 ${selected ? 'text-on-surface-variant' : 'text-on-surface-variant/60'}`}>
-                          {saved.line1 || '--'}{saved.line2 ? `, ${saved.line2}` : ''}<br />
-                          {saved.city || '--'}, {saved.state || '--'} {saved.pincode || ''}
-                        </p>
-                        <p className={`text-sm font-medium ${selected ? 'text-on-surface-variant' : 'text-on-surface-variant/60'}`}>{saved.phone || '--'}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleUseNewAddress}
-                className="mt-4 text-xs font-semibold text-primary hover:underline"
-              >
-                + Use a new address
-              </button>
-
-              {!loadingAddress && !address.line1 && (
-                <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-xs text-amber-900">
-                  No saved address found. Please add your address to continue.
-                </div>
-              )}
-            </section>
-
-            <section className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-outline-variant/10">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                <h2 className="text-xl font-headline font-bold">Add New Delivery Address</h2>
-                <button
-                  type="button"
-                  onClick={handleUseCurrentLocation}
-                  disabled={locating}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-full bg-primary/5 text-primary font-bold text-sm hover:bg-primary/10 transition-all border border-primary/20 disabled:opacity-60"
-                >
-                  <span className="material-symbols-outlined text-lg">my_location</span>
-                  {locating ? 'Detecting...' : 'Use Current Location'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Full Name</span>
-                  <input
-                    type="text"
-                    value={address.fullName}
-                    onChange={(e) => handleAddressChange('fullName', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="Enter recipient name"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Phone Number</span>
-                  <input
-                    type="tel"
-                    value={address.phone}
-                    onChange={(e) => handleAddressChange('phone', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="Enter phone number"
-                  />
-                </label>
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">House No / Building</span>
-                  <input
-                    type="text"
-                    value={address.line1}
-                    onChange={(e) => handleAddressChange('line1', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="e.g., Flat 402, Sunshine Residency"
-                  />
-                </label>
-                <label className="space-y-2 md:col-span-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Street / Area</span>
-                  <input
-                    type="text"
-                    value={address.line2}
-                    onChange={(e) => handleAddressChange('line2', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="e.g., Landmark St, Sector 12"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">City</span>
-                  <input
-                    type="text"
-                    value={address.city}
-                    onChange={(e) => handleAddressChange('city', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="Seattle"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">State</span>
-                  <input
-                    type="text"
-                    value={address.state}
-                    onChange={(e) => handleAddressChange('state', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="Washington"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Pincode</span>
-                  <input
-                    type="text"
-                    value={address.pincode}
-                    onChange={(e) => handleAddressChange('pincode', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="98101"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Landmark (Optional)</span>
-                  <input
-                    type="text"
-                    value={address.landmark}
-                    onChange={(e) => handleAddressChange('landmark', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="e.g., Near City Hospital"
-                  />
-                </label>
-
-                <div className="md:col-span-2">
-                  <div className="flex items-center justify-between mb-2 gap-3">
-                    <p className="text-xs font-semibold text-zinc-600">Pin Exact Location On Map *</p>
+                        );
+                      })}
+                    </div>
+                    
+                    <button onClick={handleUseNewAddress} className="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[18px]">add</span> Add a new address
+                    </button>
                   </div>
-                  <AddressPinMap
-                    latitude={toNullableNumber(address.lat)}
-                    longitude={toNullableNumber(address.lng)}
-                    onPinChange={handlePinChange}
-                  />
-                  <p className="mt-2 text-[11px] text-zinc-500">
-                    Tap on the map to drop a pin for route optimization and faster delivery assignment.
-                  </p>
+                )}
+
+                {isNewAddressFormOpen && (
+                  <div className="bg-white rounded-2xl p-6 border border-slate-200/60 shadow-sm relative">
+                    {addresses.length > 0 && (
+                      <button onClick={() => { setIsNewAddressFormOpen(false); handleSelectSavedAddress(addresses[0]); }} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-full transition-colors cursor-pointer">
+                        <span className="material-symbols-outlined text-[16px] font-black">close</span>
+                      </button>
+                    )}
+                    
+                    <div className="flex items-center justify-between mb-6 pr-10">
+                      <h3 className="font-extrabold text-lg text-slate-900">New Protocol Address</h3>
+                      <button type="button" onClick={handleUseCurrentLocation} disabled={locating} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 font-bold text-[10px] uppercase tracking-wider hover:bg-emerald-100 transition-colors disabled:opacity-50">
+                        <span className="material-symbols-outlined text-[14px]">my_location</span> {locating ? 'Detecting...' : 'Auto-Locate'}
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+                       <label className="space-y-1.5">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Recipient Name</span>
+                         <input type="text" value={address.fullName} onChange={(e) => handleAddressChange('fullName', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="First & Last Name" />
+                       </label>
+                       <label className="space-y-1.5">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Contact Phone</span>
+                         <input type="tel" value={address.phone} onChange={(e) => handleAddressChange('phone', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="10-digit mobile" />
+                       </label>
+                       <label className="space-y-1.5 sm:col-span-2">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Building & Street</span>
+                         <input type="text" value={address.line1} onChange={(e) => handleAddressChange('line1', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="Flat / House No. / Building Name" />
+                       </label>
+                       <label className="space-y-1.5 sm:col-span-2">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Area / Sector</span>
+                         <input type="text" value={address.line2} onChange={(e) => handleAddressChange('line2', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="Locality or Area" />
+                       </label>
+                       <label className="space-y-1.5">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">City</span>
+                         <input type="text" value={address.city} onChange={(e) => handleAddressChange('city', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="City" />
+                       </label>
+                       <label className="space-y-1.5">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">State</span>
+                         <input type="text" value={address.state} onChange={(e) => handleAddressChange('state', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="State" />
+                       </label>
+                       <label className="space-y-1.5">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pincode</span>
+                         <input type="text" value={address.pincode} onChange={(e) => handleAddressChange('pincode', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="6-digit PIN" />
+                       </label>
+                       <label className="space-y-1.5">
+                         <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Landmark</span>
+                         <input type="text" value={address.landmark} onChange={(e) => handleAddressChange('landmark', e.target.value)} className="w-full bg-[#f8f9fa] border border-slate-200 rounded-xl p-3 text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-500 focus:ring-2 focus:ring-emerald-50 transition-all outline-none" placeholder="Nearby famous spot (Optional)" />
+                       </label>
+
+                       <div className="sm:col-span-2 space-y-2 mt-2">
+                         <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Pin Location on Map</span>
+                         </div>
+                         <AddressPinMap latitude={toNullableNumber(address.lat)} longitude={toNullableNumber(address.lng)} onPinChange={handlePinChange} />
+                         <p className="text-[10px] font-bold text-slate-400 bg-slate-50 p-2 rounded-lg mt-2 inline-block">Map pinning heavily accelerates drone routing and last-mile allocation.</p>
+                       </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6 border-t border-slate-100">
+                      <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200/60">
+                        {['home', 'work', 'other'].map((type) => (
+                           <button 
+                             key={type} type="button" onClick={() => setAddressType(type)}
+                             className={`px-4 py-2 rounded-md text-[11px] font-black uppercase tracking-widest transition-colors ${addressType === type ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' : 'text-slate-400 hover:text-slate-600'}`}
+                           >
+                             {type}
+                           </button>
+                        ))}
+                      </div>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500 border-slate-300 border-2" />
+                        <span className="text-xs font-bold text-slate-600">Save for future orders</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end mt-8">
+                  <button 
+                    onClick={confirmAddressStep}
+                    className="px-8 py-3.5 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl shadow-lg shadow-slate-900/10 active:scale-95 transition-transform flex items-center gap-2 cursor-pointer"
+                  >
+                    Confirm Address <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
+                  </button>
                 </div>
 
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Latitude</span>
-                  <input
-                    type="number"
-                    step="any"
-                    value={address.lat}
-                    onChange={(e) => handleAddressChange('lat', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="e.g., 47.606200"
-                  />
-                </label>
-                <label className="space-y-2">
-                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">Longitude</span>
-                  <input
-                    type="number"
-                    step="any"
-                    value={address.lng}
-                    onChange={(e) => handleAddressChange('lng', e.target.value)}
-                    className="w-full bg-surface-container-low border-0 rounded-lg p-3 focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-                    placeholder="e.g., -122.332100"
-                  />
-                </label>
               </div>
-
-              <div className="pt-4 mt-2 border-t border-outline-variant/10">
-                <label className="text-xs font-label uppercase tracking-widest text-on-surface-variant block mb-4">Address Type</label>
-                <div className="flex flex-wrap gap-4">
-                  {[
-                    { key: 'home', label: 'Home' },
-                    { key: 'work', label: 'Work' },
-                    { key: 'other', label: 'Other' },
-                  ].map((type) => (
-                    <label key={type.key} className="flex items-center gap-3 px-6 py-3 rounded-full bg-surface-container-low cursor-pointer hover:bg-surface-container-high transition-all">
-                      <input
-                        className="w-4 h-4 text-primary focus:ring-primary"
-                        name="address_type"
-                        type="radio"
-                        value={type.key}
-                        checked={addressType === type.key}
-                        onChange={(e) => setAddressType(e.target.value)}
-                      />
-                      <span className="text-sm font-bold">{type.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3 mt-4">
-                <input
-                  className="w-5 h-5 rounded text-primary focus:ring-primary border-outline-variant"
-                  id="save_address"
-                  type="checkbox"
-                  checked={saveAddress}
-                  onChange={(e) => setSaveAddress(e.target.checked)}
-                />
-                <label className="text-sm text-on-surface-variant font-medium" htmlFor="save_address">Save this address for future use</label>
-              </div>
-            </section>
+            )}
           </div>
 
-          <div className="lg:col-span-4">
-            <div className="sticky top-24 space-y-6">
-              <div className="bg-surface-container-lowest p-6 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-outline-variant/5">
-                <h3 className="text-lg font-headline font-extrabold mb-6 tracking-tight">Order Summary</h3>
+          {/* STEP 2: Order Validation */}
+          <div className={`bg-white rounded-[1.5rem] shadow-sm border overflow-hidden transition-all duration-500 ${activeStep === 2 ? 'border-emerald-500/50 shadow-emerald-500/5 ring-4 ring-emerald-50' : 'border-slate-200/60 opacity-50'}`}>
+            <div className="w-full px-8 py-6 flex items-center gap-4">
+               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${activeStep === 2 ? 'bg-emerald-600 text-white' : activeStep > 2 ? 'bg-[#15803d] text-white' : 'bg-slate-100 text-slate-400'}`}>
+                 {activeStep > 2 ? <span className="material-symbols-outlined text-[16px]">check</span> : '2'}
+               </div>
+               <div>
+                  <h2 className="text-xl font-extrabold font-headline text-slate-900">Order Validation & Payment</h2>
+                  {activeStep === 1 && <p className="text-sm font-medium text-slate-400">Complete Address Selection First</p>}
+               </div>
+            </div>
 
-                <div className="space-y-4 mb-8">
-                  {(cart.items || []).slice(0, 4).map((item) => (
-                    <div key={item.id} className="flex items-center justify-between group">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center text-primary">
-                          <span className="material-symbols-outlined text-xl">medication</span>
+            {activeStep === 2 && (
+              <div className="px-8 pb-8 animate-in slide-in-from-top-4 duration-300">
+                <div className="bg-slate-50 h-px w-full mb-8"></div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                   
+                   {/* Cart Preview side */}
+                   <div>
+                     <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Cart Inventory ({itemCount} units)</h3>
+                     <div className="space-y-4 pr-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                       {(cart.items || []).map((item) => (
+                          <div key={item.id} className="flex items-center gap-4 bg-[#f8f9fa] p-3 rounded-xl border border-slate-200/60">
+                             <div className="w-12 h-12 bg-white rounded-lg flex items-center justify-center border border-slate-100 p-1 shrink-0 overflow-hidden">
+                                {item.image ? <img src={item.image} alt={item.name} className="w-full h-full object-contain mix-blend-multiply" /> : <span className="material-symbols-outlined text-slate-300">medication</span>}
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                <p className="font-extrabold text-sm text-slate-900 truncate">{item.name}</p>
+                                <p className="text-[10px] font-bold text-slate-500 mt-0.5 uppercase tracking-wider">Qty: {String(item.quantity).padStart(2,'0')}</p>
+                             </div>
+                             <div className="text-right">
+                                <p className="font-black text-sm text-[#15803d]">₹{((item.price || 0) * item.quantity).toFixed(2)}</p>
+                             </div>
+                          </div>
+                       ))}
+                     </div>
+                   </div>
+
+                   {/* Payment Trigger Side */}
+                   <div className="bg-slate-900 rounded-[1.5rem] p-6 text-white relative overflow-hidden shadow-2xl flex flex-col justify-between">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/20 blur-[40px] rounded-full pointer-events-none" />
+                      
+                      <div>
+                        <div className="flex justify-between items-center text-sm mb-3">
+                          <span className="text-slate-400 font-medium">Subtotal</span>
+                          <span className="font-bold">₹{cart.subtotal?.toFixed(2) || '0.00'}</span>
                         </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold truncate">{item.name || 'Medicine'}</p>
-                          <p className="text-xs text-on-surface-variant">Qty {item.quantity}{item.brand ? ` • ${item.brand}` : ''}</p>
+                        <div className="flex justify-between items-center text-sm mb-3">
+                          <span className="text-slate-400 font-medium">Estimated Tax</span>
+                          <span className="font-bold">₹{cart.taxes?.toFixed(2) || '0.00'}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-emerald-400 font-bold">Delivery Fee</span>
+                          <span className="font-black uppercase tracking-widest text-[10px] text-emerald-300 bg-emerald-400/10 px-2 py-0.5 rounded">Free</span>
                         </div>
                       </div>
-                      <span className="text-sm font-bold whitespace-nowrap">{formatMoney(item.lineTotal)}</span>
-                    </div>
-                  ))}
-                </div>
 
-                <div className="space-y-3 pt-6 border-t border-dashed border-outline-variant/50">
-                  <div className="flex justify-between text-sm text-on-surface-variant">
-                    <span>Items</span>
-                    <span className="font-medium">{itemCount}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-on-surface-variant">
-                    <span>Subtotal</span>
-                    <span className="font-medium">{formatMoney(cart.subtotal)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-on-surface-variant">
-                    <span>Tax</span>
-                    <span className="font-medium">{formatMoney(cart.taxes)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-on-surface-variant">
-                    <span>Delivery Charges</span>
-                    <span className="font-medium text-primary">FREE</span>
-                  </div>
-                  <div className="flex justify-between items-center pt-2">
-                    <span className="text-lg font-headline font-bold">Total Price</span>
-                    <span className="text-2xl font-headline font-black text-primary">{formatMoney(cart.total)}</span>
-                  </div>
-                </div>
+                      <div className="w-full h-px bg-slate-800 my-6"></div>
 
-                <div className="mt-8 p-4 bg-primary/5 rounded-xl flex items-start gap-3">
-                  <span className="material-symbols-outlined text-primary text-xl">local_shipping</span>
-                  <div>
-                    <p className="text-sm font-bold text-primary">Deliver to {address.city || 'your city'}</p>
-                    <p className="text-xs text-on-secondary-container mt-0.5">Estimated arrival: Today, before 8:00 PM</p>
-                  </div>
-                </div>
+                      <div>
+                        <div className="flex justify-between items-end mb-8 relative z-10">
+                          <div>
+                            <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest block mb-1">Total Payable</span>
+                            <span className="text-3xl font-black font-headline text-white tracking-tight leading-none drop-shadow-sm">₹{cart.total?.toFixed(2) || '0.00'}</span>
+                          </div>
+                        </div>
 
-                <div className="mt-8 space-y-4">
-                  <button
-                    type="button"
-                    onClick={handlePlaceOrder}
-                    disabled={placingOrder || loadingAddress || !cart.items?.length}
-                    className="w-full py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-white font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-[0_8px_24px_rgba(25,28,29,0.04)] disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {placingOrder ? 'Processing payment...' : 'Proceed to Payment'}
-                  </button>
-                  <Link to="/cart" className="block w-full text-center text-sm font-bold text-on-surface-variant hover:text-primary transition-colors py-2">
-                    Back to Cart
-                  </Link>
+                        <button
+                          onClick={handlePlaceOrder}
+                          disabled={placingOrder || !cart.items?.length}
+                          className="w-full py-4 px-6 rounded-xl bg-emerald-500 text-slate-900 font-extrabold flex items-center justify-center gap-3 transition-all hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-500/20 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed group relative z-10"
+                        >
+                          {placingOrder ? (
+                            <>
+                              <span className="material-symbols-outlined animate-spin">refresh</span> Process Secure Transaction
+                            </>
+                          ) : (
+                            <>
+                              <span className="material-symbols-outlined text-[20px]">lock</span> Pay Securely via Razorpay
+                            </>
+                          )}
+                        </button>
+                      </div>
+                   </div>
+
                 </div>
               </div>
-
-              <div className="bg-surface-container-low p-4 rounded-xl flex items-center gap-3">
-                <span className="material-symbols-outlined text-on-surface-variant/40" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-on-surface-variant/60 leading-tight">
-                  HIPAA Compliant and Secure Checkout Environment
-                </p>
-              </div>
-            </div>
+            )}
           </div>
+
         </div>
+
+        <div className="mt-8 flex items-start justify-center gap-2 text-center text-slate-400 max-w-lg mx-auto">
+          <span className="material-symbols-outlined text-[16px] text-emerald-600/70" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+          <p className="text-[10px] font-bold uppercase tracking-widest leading-relaxed">
+            HIPAA Compliant Environment • 256-bit Encryption • Satisfaction Guaranteed
+          </p>
+        </div>
+
       </main>
 
       <ProductsFooter />

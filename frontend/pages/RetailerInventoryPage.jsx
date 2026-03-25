@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import RetailerSidebar from '../components/retailer/RetailerSidebar';
 import RetailerTopNav from '../components/retailer/RetailerTopNav';
 import RetailerFooter from '../components/retailer/RetailerFooter';
@@ -20,8 +20,19 @@ export default function RetailerInventoryPage() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [productType, setProductType] = useState('all'); // 'all' | 'medicine' | 'ecom'
   const [total, setTotal] = useState(0);
-  const [activeTab, setActiveTab] = useState('my-stock'); // Changed default to 'my-stock'
+  const [activeTab, setActiveTab] = useState('my-stock');
+  
+  // Pagination & Infinite Scroll logic
   const [currentPage, setCurrentPage] = useState(1);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const pageSize = 12;
+  const loaderRef = useRef(null);
+
+  // Bulk Edit Logic
+  const [pendingStockUpdates, setPendingStockUpdates] = useState({});
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
+
+  // UI state
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
   const [stockModal, setStockModal] = useState(null);
   const [modalMode, setModalMode] = useState('add');
@@ -29,12 +40,11 @@ export default function RetailerInventoryPage() {
   const [reorderLevel, setReorderLevel] = useState(10);
   const [submitting, setSubmitting] = useState(false);
   const [updatingRow, setUpdatingRow] = useState(null);
-  const pageSize = 12;
 
   const getTypeBadge = (type) => {
     if (!type) return null;
     const t = type.toLowerCase();
-    let cls = 'bg-zinc-100 text-zinc-600 border-zinc-200';
+    let cls = 'bg-slate-100 text-slate-600 border-slate-200';
     let icon = 'medication';
     if (t.includes('tablet') || t.includes('pill')) { cls = 'bg-blue-50 text-blue-700 border-blue-200'; icon = 'pill'; }
     else if (t.includes('syrup') || t.includes('liquid')) { cls = 'bg-pink-50 text-pink-700 border-pink-200'; icon = 'vaccines'; }
@@ -129,32 +139,82 @@ export default function RetailerInventoryPage() {
     getCategories().then(res => setCategories(res.data || [])).catch(console.error);
   }, []);
 
-  const fetchMedicines = useCallback(() => {
-    setLoading(true);
-    const params = { limit: pageSize, offset: (currentPage - 1) * pageSize };
-    if (search.trim()) params.q = search.trim();
-    if (selectedCategory) params.category = selectedCategory;
-    if (productType !== 'all') params.productType = productType;
-    searchMedicines(params)
-      .then(res => {
-        setMedicines(res.data.medicines || []);
-        setTotal(res.data.total || 0);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, [search, selectedCategory, productType, currentPage]);
+  const fetchMedicines = useCallback(async (page = 1, append = false) => {
+    if (page === 1) setLoading(true);
+    else setIsFetchingMore(true);
 
-  useEffect(() => { fetchMedicines(); }, [fetchMedicines]);
+    try {
+      const params = { limit: pageSize, offset: (page - 1) * pageSize };
+      if (search.trim()) params.q = search.trim();
+      if (selectedCategory) params.category = selectedCategory;
+      if (productType !== 'all') params.productType = productType;
+      
+      const res = await searchMedicines(params);
+      
+      if (append) {
+        setMedicines(prev => [...prev, ...(res.data.medicines || [])]);
+      } else {
+        setMedicines(res.data.medicines || []);
+      }
+      setTotal(res.data.total || 0);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+      setIsFetchingMore(false);
+    }
+  }, [search, selectedCategory, productType, pageSize]);
+
+  // Initial Fetch & Filter changes resetting page
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchMedicines(1, false);
+  }, [search, selectedCategory, productType, fetchMedicines, activeTab]);
+
+  // Infinite Scroll Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && !isFetchingMore) {
+          const isServerTab = activeTab === 'all';
+          
+          if (isServerTab) {
+            const currentTotalPages = Math.ceil(total / pageSize);
+            if (currentPage < currentTotalPages) {
+              setCurrentPage(prev => {
+                const next = prev + 1;
+                fetchMedicines(next, true);
+                return next;
+              });
+            }
+          } else {
+            // Local Inventory infinite scroll (slice increase)
+            const currentTotalFiltered = inventory.filter(item => {
+              const matchSearch = search ? (item.name?.toLowerCase().includes(search.toLowerCase()) || item.manufacturer?.toLowerCase().includes(search.toLowerCase())) : true;
+              const matchCat = selectedCategory ? String(item.category_id) === String(selectedCategory) : true;
+              const matchType = productType === 'all' || (productType === 'ecom' ? item.isEcom : !item.isEcom);
+              return matchSearch && matchCat && matchType;
+            }).length;
+            
+            if (currentPage < Math.ceil(currentTotalFiltered / pageSize)) {
+              setCurrentPage(prev => prev + 1);
+            }
+          }
+        }
+      },
+      { threshold: 0.1, rootMargin: '100px' }
+    );
+
+    const currentLoader = loaderRef.current;
+    if (currentLoader) observer.observe(currentLoader);
+    return () => { if (currentLoader) observer.unobserve(currentLoader); };
+  }, [loading, isFetchingMore, currentPage, total, pageSize, fetchMedicines, activeTab, inventory, search, selectedCategory, productType]);
 
   const fetchInventory = useCallback(() => {
     getInventory().then(res => setInventory(res.data || [])).catch(console.error);
   }, []);
 
   useEffect(() => { fetchInventory(); }, [fetchInventory]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [activeTab, search, selectedCategory]);
 
   if (authLoading) return null;
   if (!user || user.role !== 'retailer') return <Navigate to="/login" replace />;
@@ -193,7 +253,7 @@ export default function RetailerInventoryPage() {
         showToast({ type: 'success', title: 'Stock Updated', message: `${medName} → ${stockQty} units` });
       }
       setStockModal(null);
-      fetchMedicines();
+      fetchMedicines(1, false);
       fetchInventory();
     } catch (err) {
       showToast({ type: 'error', title: 'Failed', message: err.response?.data?.message || `Could not ${modalMode} inventory` });
@@ -227,12 +287,71 @@ export default function RetailerInventoryPage() {
     }
   };
 
+  const handleManualBulkStockEdit = (id, value) => {
+    const val = parseInt(value, 10);
+    if (isNaN(val) || val < 0) return;
+    
+    const originalItem = inventory.find(i => i.id === id);
+    if (!originalItem) return;
+
+    if (val === originalItem.stock_quantity) {
+      setPendingStockUpdates(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    } else {
+      setPendingStockUpdates(prev => ({ ...prev, [id]: val }));
+    }
+  };
+
+  const saveBulkChanges = async () => {
+    const updateKeys = Object.keys(pendingStockUpdates);
+    if (updateKeys.length === 0) return;
+
+    setIsBulkSaving(true);
+    let successCount = 0;
+    
+    // Optimistic Update
+    const originalInventory = [...inventory];
+    setInventory(prev => prev.map(item => 
+      pendingStockUpdates[item.id] !== undefined ? { ...item, stock_quantity: pendingStockUpdates[item.id] } : item
+    ));
+
+    try {
+      // Execute saves concurrently
+      await Promise.all(updateKeys.map(async id => {
+        const item = originalInventory.find(i => i.id === id);
+        if (item) {
+           await updateInventoryItem(id, { stockQuantity: pendingStockUpdates[id], reorderLevel: item.reorder_level });
+           successCount++;
+        }
+      }));
+      
+      showToast({ type: 'success', title: 'Bulk Update Secured', message: `Updated stock levels for ${successCount} products.` });
+      setPendingStockUpdates({});
+    } catch (err) {
+      // Partially revert if some failed. Better to just refetch entirely to resync truth.
+      fetchInventory();
+      showToast({ type: 'error', message: 'Some updates failed to save. Synchronizing with server.' });
+    } finally {
+      setIsBulkSaving(false);
+    }
+  };
+
   const handleRemoveFromStock = async (invId, name) => {
     if (!confirm(`Remove "${name}" from your inventory?`)) return;
     try {
       await deleteInventoryItem(invId);
       showToast({ type: 'success', title: 'Removed', message: `${name} removed from inventory` });
-      fetchMedicines();
+      
+      setPendingStockUpdates(prev => {
+        const next = { ...prev };
+        delete next[invId];
+        return next;
+      });
+
+      fetchMedicines(1, false);
       fetchInventory();
     } catch (err) {
       showToast({ type: 'error', message: 'Failed to remove' });
@@ -253,7 +372,6 @@ export default function RetailerInventoryPage() {
     return map;
   }, [categories]);
 
-  // Inventory Filtering based on Search/Category/Type locally
   const filteredInventory = useMemo(() => {
     return inventory.filter(item => {
       const matchSearch = search ? (item.name?.toLowerCase().includes(search.toLowerCase()) || item.manufacturer?.toLowerCase().includes(search.toLowerCase())) : true;
@@ -264,25 +382,30 @@ export default function RetailerInventoryPage() {
   }, [inventory, search, selectedCategory, productType]);
 
   const pagedInventory = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredInventory.slice(start, start + pageSize);
-  }, [filteredInventory, currentPage]);
+    const currentLimit = currentPage * pageSize;
+    return filteredInventory.slice(0, currentLimit);
+  }, [filteredInventory, currentPage, pageSize]);
 
   const displayList = activeTab === 'all' ? medicines : pagedInventory;
-  const totalItems = activeTab === 'all' ? Number(total || 0) : filteredInventory.length;
-  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  
+  // Need to track server pagination visibility for the Catalog view
+  const serverTotalPages = Math.ceil(total / pageSize);
+  const showLoader = activeTab === 'all' 
+    ? currentPage < serverTotalPages 
+    : pagedInventory.length < filteredInventory.length;
 
-  // Analytics KPIs
   const totalSkus = inventory.length;
   const outOfStockCount = inventory.filter(item => item.stock_quantity === 0).length;
   const lowStockCount = inventory.filter(item => item.stock_quantity > 0 && item.stock_quantity <= (item.reorder_level || 10)).length;
+  
+  const pendingUpdateCount = Object.keys(pendingStockUpdates).length;
 
   return (
     <div className="bg-[#f8f9fa] font-body text-slate-900 antialiased fixed inset-0 overflow-y-auto overflow-x-hidden">
       <RetailerTopNav />
       <RetailerSidebar />
 
-      <main className="lg:ml-56 pt-24 pb-24 md:pb-12 px-6 max-w-[1600px] mx-auto">
+      <main className="lg:ml-56 pt-24 pb-32 md:pb-24 px-6 max-w-[1600px] mx-auto relative">
         {/* KPI Header Dashboard */}
         <header className="mb-8 flex flex-col xl:flex-row xl:items-end justify-between gap-6">
           <div>
@@ -422,15 +545,8 @@ export default function RetailerInventoryPage() {
           </div>
         </div>
 
-        {/* Results Info */}
-        {!loading && (
-          <p className="text-[10px] text-slate-400 mb-4 font-black uppercase tracking-widest pl-2">
-            Showing Page {currentPage} of {totalPages}
-          </p>
-        )}
-
-        {/* Loading State */}
-        {loading ? (
+        {/* Loading State Base */}
+        {loading && currentPage === 1 ? (
           <div className="grid grid-cols-1 gap-4 animate-pulse">
              <div className="h-12 bg-slate-200 rounded-xl" />
              <div className="h-16 bg-white rounded-xl" />
@@ -448,15 +564,16 @@ export default function RetailerInventoryPage() {
             </p>
           </div>
         ) : (
-          <>
+          <div className="pb-16">
             {/* View Switching based on Tab */}
             {activeTab === 'my-stock' ? (
               /* --- B2B INVENTORY DATA TABLE --- */
-              <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-200/60 overflow-hidden">
+              <div className="bg-white rounded-[1.5rem] shadow-sm border border-slate-200/60 overflow-hidden relative">
+                
                 <div className="overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[800px]">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
+                      <tr className="bg-slate-50 border-b border-slate-200 sticky top-0 z-10">
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Product Identity</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Brand / Category</th>
                         <th className="px-6 py-4 text-[10px] font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Pricing</th>
@@ -473,6 +590,9 @@ export default function RetailerInventoryPage() {
                         const catName = med.category_name;
                         const catIcon = (catName && categoryIconByName[String(catName).toLowerCase()]) || med.category_icon || '';
                         const isUpdating = updatingRow === med.id;
+                        
+                        const currentInputVal = pendingStockUpdates[med.id] !== undefined ? pendingStockUpdates[med.id] : med.stock_quantity;
+                        const isModified = pendingStockUpdates[med.id] !== undefined;
 
                         return (
                           <tr key={med.id} className="hover:bg-slate-50/50 transition-colors group">
@@ -510,23 +630,29 @@ export default function RetailerInventoryPage() {
                               <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">Alert at: {med.reorder_level || 10}</p>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-1 w-fit">
+                              <div className={`flex items-center transition-all bg-white border rounded-lg p-0.5 w-[110px] ${isModified ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-200'}`}>
                                 <button
                                   type="button"
-                                  disabled={isUpdating || med.stock_quantity === 0}
-                                  onClick={() => handleQuickStockUpdate(med, -1)}
-                                  className="w-6 h-6 rounded flex items-center justify-center text-slate-500 hover:bg-white hover:text-slate-800 hover:shadow-sm disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed"
+                                  disabled={isUpdating || currentInputVal === 0}
+                                  onClick={() => handleManualBulkStockEdit(med.id, currentInputVal - 1)}
+                                  className="w-7 h-7 rounded flex items-center justify-center text-slate-500 hover:bg-slate-100 hover:text-slate-800 disabled:opacity-40 transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">remove</span>
                                 </button>
-                                <div className="w-10 text-center flex items-center justify-center">
-                                  {isUpdating ? <span className="w-3 h-3 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></span> : <span className="text-sm font-black text-slate-800 font-mono">{med.stock_quantity}</span>}
-                                </div>
+                                
+                                <input 
+                                  type="number" 
+                                  min="0"
+                                  value={currentInputVal}
+                                  onChange={(e) => handleManualBulkStockEdit(med.id, e.target.value)}
+                                  className={`w-full min-w-0 text-center font-mono text-sm font-black focus:outline-none bg-transparent ${isModified ? 'text-amber-700' : 'text-slate-800'}`}
+                                />
+                                
                                 <button
                                   type="button"
                                   disabled={isUpdating}
-                                  onClick={() => handleQuickStockUpdate(med, 1)}
-                                  className="w-6 h-6 rounded flex items-center justify-center text-emerald-600 hover:bg-white hover:text-emerald-700 hover:shadow-sm disabled:opacity-40 transition-all cursor-pointer disabled:cursor-not-allowed"
+                                  onClick={() => handleManualBulkStockEdit(med.id, currentInputVal + 1)}
+                                  className="w-7 h-7 rounded flex items-center justify-center text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40 transition-colors cursor-pointer disabled:cursor-not-allowed shrink-0"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">add</span>
                                 </button>
@@ -556,6 +682,36 @@ export default function RetailerInventoryPage() {
                     </tbody>
                   </table>
                 </div>
+
+                {/* Sticky Bulk Save Action Bar */}
+                {pendingUpdateCount > 0 && (
+                  <div className="sticky bottom-0 left-0 w-full bg-slate-900 border-t border-slate-800 p-4 flex items-center justify-between z-20 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-black">{pendingUpdateCount}</div>
+                      <p className="text-white font-bold text-sm tracking-wide">Unsaved Stock Changes</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button 
+                        onClick={() => setPendingStockUpdates({})}
+                        className="px-4 py-2 text-sm font-bold text-slate-400 hover:text-white transition-colors"
+                      >
+                        Discard
+                      </button>
+                      <button 
+                        onClick={saveBulkChanges}
+                        disabled={isBulkSaving}
+                        className="px-6 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-900 font-extrabold text-sm rounded-lg shadow-lg shadow-emerald-500/20 active:translate-y-px transition-all flex items-center gap-2"
+                      >
+                        {isBulkSaving ? (
+                          <span className="material-symbols-outlined animate-spin text-[18px]">refresh</span>
+                        ) : (
+                           <span className="material-symbols-outlined text-[18px]">save</span>
+                        )}
+                        Save All Changes
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               /* --- DISCOVERY GRID (Platform Catalog) --- */
@@ -628,31 +784,19 @@ export default function RetailerInventoryPage() {
                 })}
               </div>
             )}
-          </>
-        )}
-
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className="mt-12 flex items-center justify-center gap-2">
-            <button
-              onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined">chevron_left</span>
-            </button>
-            <span className="px-4 text-sm font-bold text-slate-700">
-              {currentPage} <span className="text-slate-400">/</span> {totalPages}
-            </span>
-            <button
-              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="w-10 h-10 flex items-center justify-center rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined">chevron_right</span>
-            </button>
           </div>
         )}
+
+        {/* Infinite Scroll Loader */}
+        {showLoader && (
+          <div ref={loaderRef} className="py-12 flex justify-center w-full">
+            <div className="flex items-center gap-3 px-6 py-3 bg-white rounded-full shadow-sm border border-slate-200">
+               <span className="w-5 h-5 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin"></span>
+               <span className="text-sm font-bold text-slate-500">Loading more...</span>
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* Modern Modal */}
