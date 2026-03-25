@@ -201,6 +201,11 @@ export default function ProductDetailsPage() {
                     Out of Stock
                   </div>
                 )}
+                {product.outOfRange && Number(product.stock || 0) > 0 && (
+                  <div className="absolute top-4 right-4 bg-amber-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-[0.15em] shadow-lg">
+                    Beyond Delivery Range
+                  </div>
+                )}
                 {product.image ? (
                   <img
                     alt={product.name}
@@ -290,10 +295,18 @@ export default function ProductDetailsPage() {
                         </div>
                       </div>
                     ) : (
-                      <button type="button" onClick={handleAdd} disabled={Number(product.stock || 0) <= 0 || isAdding(id)} className="bg-emerald-600 hover:bg-emerald-700 py-3.5 px-8 rounded-xl text-white font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 min-w-[180px]">
-                        <span className="material-symbols-outlined text-[20px]">shopping_cart</span>
-                        {isAdding(id) ? 'ADDING...' : 'ADD TO CART'}
-                      </button>
+                      <>
+                        {product.outOfRange && (
+                          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 mb-2">
+                            <span className="material-symbols-outlined text-[18px]">location_off</span>
+                            <span className="text-xs font-bold">This product is not available within your 8km delivery radius.</span>
+                          </div>
+                        )}
+                        <button type="button" onClick={handleAdd} disabled={Number(product.stock || 0) <= 0 || isAdding(id) || product.outOfRange} className="bg-emerald-600 hover:bg-emerald-700 py-3.5 px-8 rounded-xl text-white font-black text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20 disabled:opacity-50 min-w-[180px]">
+                          <span className="material-symbols-outlined text-[20px]">shopping_cart</span>
+                          {isAdding(id) ? 'ADDING...' : product.outOfRange ? 'NOT AVAILABLE' : 'ADD TO CART'}
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>

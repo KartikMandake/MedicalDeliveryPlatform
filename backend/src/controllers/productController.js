@@ -358,6 +358,39 @@ exports.getProduct = async (req, res) => {
     );
     const product = rows[0];
     if (!product) return res.status(404).json({ message: 'Product not found' });
+
+    // Geo-radius stock check: only count stock from retailers within 8km
+    const resolvedLocation = await resolveUserLocation(req);
+    const userLat = Number(resolvedLocation?.lat);
+    const userLng = Number(resolvedLocation?.lng);
+
+    if (Number.isFinite(userLat) && Number.isFinite(userLng)) {
+      const col = product.isEcom ? 'i.ecommerce_product_id' : 'i.medicine_id';
+      const nearbyRows = await sequelize.query(
+        `
+        SELECT COALESCE(SUM(GREATEST(i.stock_quantity - COALESCE(i.reserved_quantity, 0), 0)), 0)::int AS nearby_stock
+        FROM inventory i
+        JOIN retailers r ON r.id = i.retailer_id
+        WHERE ${col} = :productId
+          AND r.lat IS NOT NULL AND r.lng IS NOT NULL
+          AND (
+            6371 * ACOS(
+              LEAST(1, GREATEST(-1,
+                COS(RADIANS(:userLat)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lng) - RADIANS(:userLng))
+                + SIN(RADIANS(:userLat)) * SIN(RADIANS(r.lat))
+              ))
+            )
+          ) <= 8
+        `,
+        { type: QueryTypes.SELECT, replacements: { productId: product.id, userLat, userLng } }
+      );
+      product.nearbyStock = Number(nearbyRows[0]?.nearby_stock || 0);
+      product.outOfRange = product.nearbyStock <= 0;
+    } else {
+      product.nearbyStock = product.stock;
+      product.outOfRange = false;
+    }
+
     res.json(product);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
