@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import NotificationDropdown from './ui/NotificationDropdown';
 
 export default function TopNavBar() {
   const { user, logout } = useAuth();
@@ -48,6 +49,7 @@ export default function TopNavBar() {
                   <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#0d631b] text-white text-[10px] font-bold rounded-full flex items-center justify-center">{itemCount}</span>
                 )}
               </Link>
+              <NotificationDropdown />
               <div className="relative group">
                 <button className="flex items-center gap-2 p-2 rounded-full hover:bg-emerald-50/50 transition-all">
                   <span className="material-symbols-outlined text-emerald-800">account_circle</span>

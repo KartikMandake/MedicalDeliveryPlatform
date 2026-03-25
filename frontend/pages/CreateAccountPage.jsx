@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { register as apiRegister } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +18,13 @@ export default function CreateAccountPage() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    if (searchParams.get('error') === 'google_not_found') {
+      setError('Please create an account first before signing in with Google.');
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

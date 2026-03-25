@@ -161,6 +161,27 @@ exports.addToCart = async (req, res) => {
         return res.status(400).json({ message: 'Insufficient stock' });
       }
 
+      // Geo-radius enforcement: ensure at least one retailer within 8km has stock
+      const userAddrRows = await sequelize.query(
+        `SELECT lat, lng FROM user_addresses WHERE user_id = :userId AND lat IS NOT NULL AND lng IS NOT NULL ORDER BY is_default DESC, updated_at DESC LIMIT 1`,
+        { type: QueryTypes.SELECT, replacements: { userId: req.user.id }, transaction }
+      );
+      const uLat = Number(userAddrRows[0]?.lat);
+      const uLng = Number(userAddrRows[0]?.lng);
+      if (Number.isFinite(uLat) && Number.isFinite(uLng)) {
+        const col = isEcom ? 'i.ecommerce_product_id' : 'i.medicine_id';
+        const nearbyCheck = await sequelize.query(
+          `SELECT COALESCE(SUM(GREATEST(i.stock_quantity - COALESCE(i.reserved_quantity, 0), 0)), 0)::int AS nearby_stock
+           FROM inventory i JOIN retailers r ON r.id = i.retailer_id
+           WHERE ${col} = :productId AND r.lat IS NOT NULL AND r.lng IS NOT NULL
+             AND (6371 * ACOS(LEAST(1, GREATEST(-1, COS(RADIANS(:uLat)) * COS(RADIANS(r.lat)) * COS(RADIANS(r.lng) - RADIANS(:uLng)) + SIN(RADIANS(:uLat)) * SIN(RADIANS(r.lat)))))) <= 8`,
+          { type: QueryTypes.SELECT, replacements: { productId, uLat, uLng }, transaction }
+        );
+        if (Number(nearbyCheck[0]?.nearby_stock || 0) < requestedQty) {
+          return res.status(403).json({ message: 'This product is not available for delivery to your location (beyond 8km radius).' });
+        }
+      }
+
       if (existingQty > 0) {
         await sequelize.query(
           `

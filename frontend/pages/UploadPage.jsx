@@ -7,7 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { extractPrescriptionFromFile } from '../api/upload';
 
 function formatMoney(value) {
-  return `Rs.${Number(value || 0).toFixed(2)}`;
+  return `₹${Number(value || 0).toFixed(2)}`;
 }
 
 function isSupportedPrescriptionFile(file) {

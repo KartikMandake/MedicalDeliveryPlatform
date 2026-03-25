@@ -12,7 +12,7 @@ const { protect, authorize, optionalProtect } = require('../middleware/auth');
 
 router.get('/', optionalProtect, getProducts);
 router.get('/filters', getProductFilters);
-router.get('/:id', getProduct);
+router.get('/:id', optionalProtect, getProduct);
 router.get('/:id/suggestions', optionalProtect, getProductSuggestions);
 router.post('/', protect, authorize('retailer', 'admin'), createProduct);
 router.put('/:id', protect, authorize('retailer', 'admin'), updateProduct);

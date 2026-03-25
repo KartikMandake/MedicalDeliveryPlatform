@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ProductsNavBar from '../components/products/ProductsNavBar';
-import { getMyOrders } from '../api/orders';
+import { getMyOrders, cancelOrder } from '../api/orders';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
@@ -9,7 +9,7 @@ import { useToast } from '../context/ToastContext';
 const ACTIVE_STATUSES = new Set(['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'in_transit']);
 
 function formatMoney(value) {
-  return `Rs. ${Number(value || 0).toFixed(2)}`;
+  return `₹${Number(value || 0).toFixed(2)}`;
 }
 
 function formatDate(value) {
@@ -56,6 +56,7 @@ export default function OrdersPage() {
   const [expandedOrderId, setExpandedOrderId] = useState(null);
   const [visibleCount, setVisibleCount] = useState(6);
   const [reorderingId, setReorderingId] = useState('');
+  const [cancellingId, setCancellingId] = useState('');
 
   useEffect(() => {
     if (!user) {
@@ -102,6 +103,20 @@ export default function OrdersPage() {
       showToast(err?.response?.data?.message || 'Unable to reorder items.', 'error');
     } finally {
       setReorderingId('');
+    }
+  };
+
+  const handleCancel = async (orderId) => {
+    if (!window.confirm("Are you sure you want to cancel this order? This action cannot be undone.")) return;
+    setCancellingId(orderId);
+    try {
+      await cancelOrder(orderId);
+      showToast('Order cancelled successfully.', 'success');
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'cancelled' } : o));
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Unable to cancel order.', 'error');
+    } finally {
+      setCancellingId('');
     }
   };
 
@@ -238,6 +253,16 @@ export default function OrdersPage() {
                               className="bg-gradient-to-br from-primary to-primary-container text-white px-5 py-2 rounded-full text-xs font-bold hover:scale-105 transition-transform active:scale-95 shadow-md disabled:opacity-60"
                             >
                               {reorderingId === order.id ? 'Reordering...' : 'Reorder'}
+                            </button>
+                          )}
+                          {['placed', 'confirmed', 'preparing'].includes(order.status) && (
+                            <button
+                              type="button"
+                              disabled={cancellingId === order.id}
+                              onClick={() => handleCancel(order.id)}
+                              className="border border-error text-error hover:bg-error-container/20 px-5 py-2 rounded-full text-xs font-bold hover:scale-105 transition-all active:scale-95 disabled:opacity-60"
+                            >
+                              {cancellingId === order.id ? 'Cancelling...' : 'Cancel'}
                             </button>
                           )}
                         </div>

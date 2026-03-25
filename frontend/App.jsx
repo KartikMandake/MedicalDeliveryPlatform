@@ -7,6 +7,9 @@ import { ToastProvider } from './context/ToastContext';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const CreateAccountPage = lazy(() => import('./pages/CreateAccountPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'));
+const LoginSuccessPage = lazy(() => import('./pages/LoginSuccess'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const ProductDetailsPage = lazy(() => import('./pages/ProductDetailsPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
@@ -35,14 +38,27 @@ class ErrorBoundary extends Component {
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 40, fontFamily: 'monospace' }}>
-          <h2 style={{ color: 'red' }}>Page Error:</h2>
-          <pre style={{ background: '#fee', padding: 16, borderRadius: 8, whiteSpace: 'pre-wrap', fontSize: 13 }}>
-            {this.state.error.toString()}
-          </pre>
-          <button onClick={() => this.setState({ error: null })} style={{ marginTop: 16, padding: '8px 16px', cursor: 'pointer' }}>
-            Try Again
-          </button>
+        <div className="fixed inset-0 bg-[#f8f9fa] flex items-center justify-center p-6 font-body">
+          <div className="max-w-lg w-full bg-white rounded-2xl shadow-xl border border-slate-200/60 overflow-hidden">
+            <div className="bg-slate-900 px-8 py-6 text-white">
+              <div className="flex items-center gap-3">
+                <span className="material-symbols-outlined text-rose-400 text-2xl">error</span>
+                <div>
+                  <h2 className="text-lg font-extrabold font-headline">Something went wrong</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">An unexpected error occurred on this page.</p>
+                </div>
+              </div>
+            </div>
+            <div className="p-8">
+              <pre className="bg-rose-50 border border-rose-200 text-rose-800 text-xs p-4 rounded-xl overflow-auto max-h-40 whitespace-pre-wrap font-mono">
+                {this.state.error.toString()}
+              </pre>
+              <button onClick={() => this.setState({ error: null })}
+                className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-extrabold hover:bg-emerald-600 transition-colors cursor-pointer">
+                Try Again
+              </button>
+            </div>
+          </div>
         </div>
       );
     }
@@ -51,8 +67,14 @@ class ErrorBoundary extends Component {
 }
 
 const Loader = () => (
-  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', fontFamily: 'Inter, sans-serif', color: '#0d631b' }}>
-    Loading...
+  <div className="fixed inset-0 bg-[#f8f9fa] flex flex-col items-center justify-center gap-4">
+    <div className="relative">
+      <div className="w-12 h-12 border-[3px] border-slate-200 border-t-emerald-600 rounded-full animate-spin" />
+    </div>
+    <div className="text-center">
+      <p className="text-sm font-extrabold text-slate-900 font-headline">MediFlow</p>
+      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">Loading</p>
+    </div>
   </div>
 );
 
@@ -113,6 +135,9 @@ function App() {
                 <Route path="/home" element={<ErrorBoundary><HomePage /></ErrorBoundary>} />
                 <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
                 <Route path="/register" element={<ErrorBoundary><CreateAccountPage /></ErrorBoundary>} />
+                <Route path="/forgot-password" element={<ErrorBoundary><ForgotPasswordPage /></ErrorBoundary>} />
+                <Route path="/reset-password/:token" element={<ErrorBoundary><ResetPasswordPage /></ErrorBoundary>} />
+                <Route path="/login-success" element={<ErrorBoundary><LoginSuccessPage /></ErrorBoundary>} />
                 <Route path="/products" element={<ErrorBoundary><ProductsPage /></ErrorBoundary>} />
                 <Route path="/products/:id" element={<ErrorBoundary><ProductDetailsPage /></ErrorBoundary>} />
                 <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />

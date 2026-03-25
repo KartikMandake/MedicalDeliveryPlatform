@@ -55,7 +55,7 @@ function resolveImage(itemImage) {
 }
 
 function formatMoney(value) {
-  return `Rs.${Number(value || 0).toFixed(2)}`;
+  return `₹${Number(value || 0).toFixed(2)}`;
 }
 
 function formatDate(value) {
@@ -460,8 +460,8 @@ export default function DashboardPage() {
               <h4 className="text-sm font-bold uppercase tracking-widest text-zinc-400 font-label mb-6">Price Range</h4>
               <input className="w-full accent-primary h-1.5 bg-zinc-200 rounded-lg appearance-none cursor-pointer" type="range" />
               <div className="flex justify-between text-xs font-bold text-zinc-500 mt-2">
-                <span>Rs.0</span>
-                <span>Rs.5000+</span>
+                <span>₹0</span>
+                <span>₹5000+</span>
               </div>
             </div>
             <div>

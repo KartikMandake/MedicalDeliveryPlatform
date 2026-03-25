@@ -2,10 +2,12 @@ require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const cors = require('cors');
+const passport = require('passport');
 const sequelize = require('./db');
 const { Server } = require('socket.io');
 
 const authRoutes = require('./routes/auth');
+const googleAuthRoutes = require('./routes/googleAuth');
 const productRoutes = require('./routes/products');
 const cartRoutes = require('./routes/cart');
 const orderRoutes = require('./routes/orders');
@@ -18,6 +20,7 @@ const uploadRoutes = require('./routes/upload');
 const retailerRoutes = require('./routes/retailer');
 const addressRoutes = require('./routes/addresses');
 const predictionRoutes = require('./routes/predictionRoutes');
+const notificationRoutes = require('./routes/notifications');
 
 const { socketHandler } = require('./utils/socket');
 
@@ -61,8 +64,10 @@ const io = new Server(server, {
 app.set('io', io);
 app.use(cors({ origin: corsOriginHandler, credentials: true }));
 app.use(express.json());
+app.use(passport.initialize());
 app.use('/uploads', express.static('uploads'));
 
+app.use('/api/auth/google', googleAuthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
@@ -76,6 +81,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/retailer', retailerRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/predictions', predictionRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }));
 
@@ -89,9 +95,14 @@ sequelize.sync()
     // Safe migration: add address column to users table if it doesn't exist
     try {
       await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS address TEXT DEFAULT ''`);
-      console.log('✅ users.address column ready');
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_password_token VARCHAR(255)`);
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_password_expire TIMESTAMP WITH TIME ZONE`);
+      console.log('✅ users columns (address, reset logic) ready');
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE`);
+      await sequelize.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_pic TEXT`);
+      console.log('✅ users columns (address, google_id, profile_pic) ready');
     } catch (err) {
-      console.warn('⚠️  Could not add address column:', err.message);
+      console.warn('⚠️  Could not add columns:', err.message);
     }
 
     const PORT = process.env.PORT || 5000;
