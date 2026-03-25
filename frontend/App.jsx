@@ -7,6 +7,7 @@ import { ToastProvider } from './context/ToastContext';
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
 const CreateAccountPage = lazy(() => import('./pages/CreateAccountPage'));
+const LoginSuccessPage = lazy(() => import('./pages/LoginSuccess'));
 const ProductsPage = lazy(() => import('./pages/ProductsPage'));
 const ProductDetailsPage = lazy(() => import('./pages/ProductDetailsPage'));
 const CartPage = lazy(() => import('./pages/CartPage'));
@@ -112,6 +113,7 @@ function App() {
                 <Route path="/home" element={<ErrorBoundary><HomePage /></ErrorBoundary>} />
                 <Route path="/login" element={<ErrorBoundary><LoginPage /></ErrorBoundary>} />
                 <Route path="/register" element={<ErrorBoundary><CreateAccountPage /></ErrorBoundary>} />
+                <Route path="/login-success" element={<ErrorBoundary><LoginSuccessPage /></ErrorBoundary>} />
                 <Route path="/products" element={<ErrorBoundary><ProductsPage /></ErrorBoundary>} />
                 <Route path="/products/:id" element={<ErrorBoundary><ProductDetailsPage /></ErrorBoundary>} />
                 <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />
