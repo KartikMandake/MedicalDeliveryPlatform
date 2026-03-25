@@ -2,6 +2,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useAuth } from '../../context/AuthContext';
+import NotificationDropdown from '../ui/NotificationDropdown';
 
 export default function ProductsNavBar() {
   const { itemCount } = useCart();
@@ -84,9 +85,7 @@ export default function ProductsNavBar() {
                 </span>
               )}
             </Link>
-            <button className="p-2 text-zinc-500 hover:bg-zinc-100 rounded-lg transition-all active:scale-95" type="button">
-              <span className="material-symbols-outlined">notifications</span>
-            </button>
+            {user && <NotificationDropdown />}
             <div className="relative ml-2" ref={profileRef}>
               <button
                 type="button"

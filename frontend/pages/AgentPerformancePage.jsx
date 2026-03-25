@@ -1,22 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Navigate, NavLink } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAgentPerformance, setAgentOnlineStatus } from '../api/agent';
+import { AgentShell } from './AgentDashboardPage';
 
-function formatMoney(value) {
-  return `Rs.${Number(value || 0).toFixed(2)}`;
-}
-
-function formatDuration(minutes) {
-  const mins = Number(minutes);
-  if (!Number.isFinite(mins) || mins < 0) return '--';
-  const wholeMins = Math.round(mins);
-  if (wholeMins < 60) return `${wholeMins}m`;
-  const h = Math.floor(wholeMins / 60);
-  const m = wholeMins % 60;
-  return `${h}h ${m}m`;
-}
+function formatMoney(v) { return `₹${Number(v || 0).toFixed(2)}`; }
+function formatDuration(m) { const mins = Math.round(Number(m)); if (!Number.isFinite(mins) || mins < 0) return '--'; if (mins < 60) return `${mins}m`; return `${Math.floor(mins / 60)}h ${mins % 60}m`; }
 
 export default function AgentPerformancePage() {
   const { user, loading } = useAuth();
@@ -29,125 +19,128 @@ export default function AgentPerformancePage() {
     if (!user || user.role !== 'agent') return;
     setLoadingStats(true);
     getAgentPerformance()
-      .then((res) => {
-        setStats(res.data || {});
-        setOnline(Boolean(res.data?.liveLocation?.isOnline));
-      })
-      .catch((err) => showToast(err.response?.data?.message || 'Unable to load performance metrics.', 'error'))
+      .then((res) => { setStats(res.data || {}); setOnline(Boolean(res.data?.liveLocation?.isOnline)); })
+      .catch((err) => showToast(err.response?.data?.message || 'Unable to load metrics.', 'error'))
       .finally(() => setLoadingStats(false));
   }, [showToast, user]);
 
-  const trendMax = useMemo(() => {
-    const counts = (stats?.trendLast7Days || []).map((d) => Number(d.count || 0));
-    return Math.max(1, ...counts);
-  }, [stats]);
+  const trendMax = useMemo(() => Math.max(1, ...(stats?.trendLast7Days || []).map((d) => Number(d.count || 0))), [stats]);
 
   const handleOnlineToggle = async () => {
     const next = !online;
-    try {
-      await setAgentOnlineStatus(next);
-      setOnline(next);
-      showToast(next ? 'You are now online for assignments.' : 'You are now offline.', 'success');
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Unable to change online status.', 'error');
-    }
+    try { await setAgentOnlineStatus(next); setOnline(next); showToast(next ? 'Online.' : 'Offline.', 'success'); }
+    catch (err) { showToast(err.response?.data?.message || 'Failed.', 'error'); }
   };
 
   if (loading) return null;
   if (!user || user.role !== 'agent') return <Navigate to="/login" replace />;
 
   return (
-    <div className="bg-[#f8f9fa] text-[#191c1d] fixed inset-0 overflow-y-auto overflow-x-hidden">
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-sm shadow-zinc-200/50">
-        <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tight text-zinc-900 font-['Manrope']">MediFlow</span>
-          <div className="hidden md:flex items-center gap-6">
-            <span className="text-green-600 font-semibold border-b-2 border-green-600 font-['Manrope'] text-sm h-16 flex items-center">Performance Insights</span>
-          </div>
+    <AgentShell user={user} online={online} onToggleOnline={handleOnlineToggle}>
+      <main className="lg:ml-64 pt-20 pb-24 px-6 min-h-screen">
+        <div className="mb-8">
+          <h1 className="text-2xl font-extrabold font-headline text-slate-900 flex items-center gap-2">
+            <span className="material-symbols-outlined text-emerald-600">monitoring</span> Performance Insights
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">Your delivery efficiency and operational metrics at a glance.</p>
         </div>
-        <NavLink to="/agent/profile" className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-900">{user.name || 'Agent'}</p>
-            <p className="text-[10px] text-slate-500">Delivery Partner</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white text-xs font-bold ring-2 ring-zinc-900/10">
-            {user.name?.[0]?.toUpperCase() || 'A'}
-          </div>
-        </NavLink>
-      </nav>
 
-      <aside className="fixed left-0 top-0 h-full w-64 z-40 bg-zinc-50 pt-20 pb-6 px-4 hidden lg:flex flex-col">
-        <div className="flex flex-col gap-1 mb-8">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 px-4">Command Center</h3>
-        </div>
-        <nav className="flex-1 space-y-2">
-          <NavLink to="/agent" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
-            <span className="material-symbols-outlined">local_shipping</span> Order Tracking
-          </NavLink>
-          <NavLink to="/agent/performance" className="flex items-center gap-3 px-4 py-3 bg-white text-green-600 rounded-xl shadow-sm text-sm font-medium">
-            <span className="material-symbols-outlined">monitoring</span> Performance
-          </NavLink>
-          <NavLink to="/agent/history" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
-            <span className="material-symbols-outlined">history</span> Transit History
-          </NavLink>
-          <NavLink to="/agent/profile" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
-            <span className="material-symbols-outlined">person</span> My Profile
-          </NavLink>
-        </nav>
-      </aside>
-
-      <main className="lg:ml-64 pt-20 pb-8 px-6 min-h-screen">
         {loadingStats ? (
-          <div className="bg-white rounded-xl border border-zinc-200/60 p-6 text-sm text-slate-500">Loading performance insights...</div>
+          <div className="flex items-center justify-center h-64"><span className="w-8 h-8 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin" /></div>
         ) : (
           <>
-            <div className="mb-8 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              <div className="bg-white rounded-xl border border-zinc-200/60 p-4"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Success Rate</p><p className="mt-2 text-2xl font-bold text-slate-900">{stats?.successRate || 0}%</p></div>
-              <div className="bg-white rounded-xl border border-zinc-200/60 p-4"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Delivered Today</p><p className="mt-2 text-2xl font-bold text-slate-900">{stats?.deliveredToday || 0}</p></div>
-              <div className="bg-white rounded-xl border border-zinc-200/60 p-4"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Average Delivery Time</p><p className="mt-2 text-2xl font-bold text-slate-900">{formatDuration(stats?.avgDeliveryMinutes)}</p></div>
-              <div className="bg-white rounded-xl border border-zinc-200/60 p-4"><p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Average Delivered Value</p><p className="mt-2 text-xl font-bold text-slate-900">{formatMoney(stats?.avgDeliveredValue)}</p></div>
+            {/* Hero KPIs */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+              {[
+                { label: 'Success Rate', value: `${stats?.successRate || 0}%`, icon: 'check_circle', iconColor: 'text-emerald-500 bg-emerald-50', big: true },
+                { label: 'Delivered Today', value: stats?.deliveredToday || 0, icon: 'today', iconColor: 'text-sky-500 bg-sky-50' },
+                { label: 'Avg Delivery', value: formatDuration(stats?.avgDeliveryMinutes), icon: 'timer', iconColor: 'text-amber-500 bg-amber-50' },
+                { label: 'Avg Value', value: formatMoney(stats?.avgDeliveredValue), icon: 'payments', iconColor: 'text-indigo-500 bg-indigo-50' },
+              ].map((kpi) => (
+                <div key={kpi.label} className="bg-white rounded-2xl p-5 border border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className={`material-symbols-outlined ${kpi.iconColor} p-2 rounded-xl text-[18px]`} style={{ fontVariationSettings: "'FILL' 1" }}>{kpi.icon}</span>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{kpi.label}</p>
+                  </div>
+                  <p className={`font-black font-headline text-slate-900 ${kpi.big ? 'text-3xl' : 'text-2xl'}`}>{kpi.value}</p>
+                </div>
+              ))}
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-              <section className="xl:col-span-5 bg-white rounded-xl border border-zinc-200/60 p-5">
-                <h2 className="text-lg font-['Manrope'] font-extrabold text-slate-900 mb-4">Operational Breakdown</h2>
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between"><span className="text-slate-500">Total Orders Handled</span><span className="font-bold text-slate-900">{stats?.total || 0}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-slate-500">In Transit</span><span className="font-bold text-slate-900">{stats?.inTransit || 0}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-slate-500">Ready For Pickup</span><span className="font-bold text-slate-900">{stats?.readyForPickup || 0}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-slate-500">Cancelled</span><span className="font-bold text-slate-900">{stats?.cancelled || 0}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-slate-500">Multi-shop Orders</span><span className="font-bold text-slate-900">{stats?.multiShopOrders || 0}</span></div>
-                  <div className="flex items-center justify-between"><span className="text-slate-500">Gross Handled Value</span><span className="font-bold text-slate-900">{formatMoney(stats?.grossValue)}</span></div>
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
+              {/* Operational Breakdown */}
+              <section className="xl:col-span-5 bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+                <h2 className="text-lg font-extrabold font-headline text-slate-900 mb-5 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-slate-500 text-[20px]">analytics</span> Breakdown
+                </h2>
+                <div className="space-y-3">
+                  {[
+                    { label: 'Total Handled', value: stats?.total || 0, icon: 'package_2', color: 'text-slate-500' },
+                    { label: 'Completed', value: stats?.delivered || 0, icon: 'task_alt', color: 'text-emerald-600' },
+                    { label: 'In Transit', value: stats?.inTransit || 0, icon: 'local_shipping', color: 'text-sky-500' },
+                    { label: 'Ready For Pickup', value: stats?.readyForPickup || 0, icon: 'inventory_2', color: 'text-amber-500' },
+                    { label: 'Cancelled', value: stats?.cancelled || 0, icon: 'cancel', color: 'text-rose-500' },
+                    { label: 'Multi-shop Orders', value: stats?.multiShopOrders || 0, icon: 'store', color: 'text-violet-500' },
+                    { label: 'Gross Value', value: formatMoney(stats?.grossValue), icon: 'account_balance_wallet', color: 'text-indigo-500' },
+                  ].map((row) => (
+                    <div key={row.label} className="flex items-center justify-between bg-[#f8f9fa] p-3.5 rounded-xl hover:bg-slate-50 transition-colors">
+                      <span className="flex items-center gap-2.5 text-sm text-slate-600">
+                        <span className={`material-symbols-outlined text-[16px] ${row.color}`}>{row.icon}</span> {row.label}
+                      </span>
+                      <span className="font-extrabold text-slate-900 text-sm">{row.value}</span>
+                    </div>
+                  ))}
                 </div>
               </section>
 
-              <section className="xl:col-span-7 bg-white rounded-xl border border-zinc-200/60 p-5">
-                <h2 className="text-lg font-['Manrope'] font-extrabold text-slate-900 mb-4">7-Day Delivery Trend</h2>
-                <div className="space-y-3">
+              {/* 7-Day Trend */}
+              <section className="xl:col-span-7 bg-white rounded-2xl border border-slate-200/60 p-6 shadow-sm">
+                <h2 className="text-lg font-extrabold font-headline text-slate-900 mb-6 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-emerald-600 text-[20px]">trending_up</span> 7-Day Delivery Trend
+                </h2>
+                <div className="space-y-4">
                   {(stats?.trendLast7Days || []).map((day) => {
-                    const width = `${Math.max(6, Math.round((Number(day.count || 0) / trendMax) * 100))}%`;
+                    const pct = Math.max(8, Math.round((Number(day.count || 0) / trendMax) * 100));
                     return (
-                      <div key={`${day.date}-${day.label}`} className="flex items-center gap-2">
-                        <span className="w-8 text-[11px] text-slate-500 font-semibold">{day.label}</span>
-                        <div className="flex-1 h-2.5 rounded-full bg-zinc-100 overflow-hidden">
-                          <div className="h-full rounded-full bg-[#006e2f]" style={{ width }} />
+                      <div key={`${day.date}-${day.label}`} className="flex items-center gap-4">
+                        <span className="w-10 text-xs text-slate-500 font-extrabold text-right">{day.label}</span>
+                        <div className="flex-1 h-8 rounded-xl bg-slate-50 overflow-hidden relative flex items-center">
+                          <div className="h-full rounded-xl bg-emerald-500 transition-all duration-700 ease-out flex items-center justify-end pr-3" style={{ width: `${pct}%` }}>
+                            {pct > 30 && <span className="text-[11px] font-black text-white">{day.count}</span>}
+                          </div>
+                          {pct <= 30 && <span className="text-[11px] font-black text-slate-500 ml-2">{day.count}</span>}
                         </div>
-                        <span className="w-6 text-right text-[11px] font-bold text-slate-700">{day.count}</span>
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Summary Row */}
+                <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Weekly Total</p>
+                    <p className="text-2xl font-black font-headline text-slate-900">
+                      {(stats?.trendLast7Days || []).reduce((sum, d) => sum + Number(d.count || 0), 0)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Daily Avg</p>
+                    <p className="text-2xl font-black font-headline text-slate-900">
+                      {((stats?.trendLast7Days || []).reduce((sum, d) => sum + Number(d.count || 0), 0) / 7).toFixed(1)}
+                    </p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Best Day</p>
+                    <p className="text-2xl font-black font-headline text-slate-900">
+                      {Math.max(0, ...(stats?.trendLast7Days || []).map((d) => Number(d.count || 0)))}
+                    </p>
+                  </div>
                 </div>
               </section>
             </div>
           </>
         )}
       </main>
-
-      <nav className="md:hidden fixed bottom-0 w-full bg-white/80 backdrop-blur h-14 flex justify-around items-center border-t border-slate-200 z-40">
-        <NavLink to="/agent" className={({ isActive }) => `text-[10px] font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>Orders</NavLink>
-        <NavLink to="/agent/performance" className={({ isActive }) => `text-[10px] font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>Stats</NavLink>
-        <NavLink to="/agent/history" className={({ isActive }) => `text-[10px] font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>History</NavLink>
-      </nav>
-    </div>
+    </AgentShell>
   );
 }

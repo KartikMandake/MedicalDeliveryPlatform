@@ -1,41 +1,28 @@
 import { useEffect, useState } from 'react';
-import { Navigate, NavLink } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { getAgentHistory, setAgentOnlineStatus } from '../api/agent';
+import { AgentShell } from './AgentDashboardPage';
 
-function formatDateTime(value) {
-  if (!value) return '--';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '--';
-  return parsed.toLocaleString('en-IN', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+function formatDateTime(v) { if (!v) return '--'; const d = new Date(v); return Number.isNaN(d.getTime()) ? '--' : d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+function formatDuration(m) { const mins = Math.round(Number(m)); if (!Number.isFinite(mins) || mins < 0) return '--'; if (mins < 60) return `${mins}m`; return `${Math.floor(mins / 60)}h ${mins % 60}m`; }
+function formatMoney(v) { return `₹${Number(v || 0).toFixed(2)}`; }
+function formatFullAddress(addr) { if (!addr) return '--'; return [addr.line1, addr.line2, addr.city, addr.pincode].filter(Boolean).join(', ') || '--'; }
 
-function formatDuration(minutes) {
-  const mins = Number(minutes);
-  if (!Number.isFinite(mins) || mins < 0) return '--';
-  const wholeMins = Math.round(mins);
-  if (wholeMins < 60) return `${wholeMins}m`;
-  const h = Math.floor(wholeMins / 60);
-  const m = wholeMins % 60;
-  return `${h}h ${m}m`;
-}
-
-function formatStatus(status) {
-  return String(status || '').replace(/_/g, ' ');
-}
-
-function formatMoney(value) {
-  return `Rs.${Number(value || 0).toFixed(2)}`;
+function getStatusConfig(status) {
+  const map = {
+    confirmed: { color: 'text-amber-700 bg-amber-50 border-amber-200', label: 'Confirmed' },
+    ready_for_pickup: { color: 'text-sky-700 bg-sky-50 border-sky-200', label: 'Ready' },
+    in_transit: { color: 'text-emerald-700 bg-emerald-50 border-emerald-200', label: 'In Transit' },
+    delivered: { color: 'text-slate-700 bg-slate-50 border-slate-200', label: 'Delivered' },
+    cancelled: { color: 'text-rose-700 bg-rose-50 border-rose-200', label: 'Cancelled' },
+  };
+  return map[status] || { color: 'text-slate-600 bg-slate-50 border-slate-200', label: String(status || '').replace(/_/g, ' ') };
 }
 
 export default function AgentHistoryPage() {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { showToast } = useToast();
   const [online, setOnline] = useState(false);
   const [rows, setRows] = useState([]);
@@ -48,144 +35,108 @@ export default function AgentHistoryPage() {
     if (!user || user.role !== 'agent') return;
     setLoadingRows(true);
     getAgentHistory({ page, limit: 10, ...(statusFilter ? { status: statusFilter } : {}) })
-      .then((res) => {
-        setRows(Array.isArray(res.data?.history) ? res.data.history : []);
-        setPages(Number(res.data?.pages || 1));
-      })
-      .catch((err) => showToast(err.response?.data?.message || 'Unable to load transit history.', 'error'))
+      .then((res) => { setRows(Array.isArray(res.data?.history) ? res.data.history : []); setPages(Number(res.data?.pages || 1)); })
+      .catch((err) => showToast(err.response?.data?.message || 'Unable to load history.', 'error'))
       .finally(() => setLoadingRows(false));
   }, [page, showToast, statusFilter, user]);
 
   const handleOnlineToggle = async () => {
     const next = !online;
-    try {
-      await setAgentOnlineStatus(next);
-      setOnline(next);
-      showToast(next ? 'You are now online for assignments.' : 'You are now offline.', 'success');
-    } catch (err) {
-      showToast(err.response?.data?.message || 'Unable to change online status.', 'error');
-    }
+    try { await setAgentOnlineStatus(next); setOnline(next); } catch {}
   };
 
-  if (loading) return null;
+  if (authLoading) return null;
   if (!user || user.role !== 'agent') return <Navigate to="/login" replace />;
 
   return (
-    <div className="bg-[#f8f9fa] text-[#191c1d] fixed inset-0 overflow-y-auto overflow-x-hidden">
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl flex justify-between items-center px-6 h-16 shadow-sm shadow-zinc-200/50">
-        <div className="flex items-center gap-8">
-          <span className="text-xl font-bold tracking-tight text-zinc-900 font-['Manrope']">MediFlow</span>
-          <div className="hidden md:flex items-center gap-6">
-            <span className="text-green-600 font-semibold border-b-2 border-green-600 font-['Manrope'] text-sm h-16 flex items-center">Transit History</span>
+    <AgentShell user={user} online={online} onToggleOnline={handleOnlineToggle}>
+      <main className="lg:ml-64 pt-20 pb-24 px-6 min-h-screen">
+        <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold font-headline text-slate-900 flex items-center gap-2">
+              <span className="material-symbols-outlined text-slate-500">history</span> Transit Log
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">Full history of all assigned deliveries with customer details.</p>
           </div>
+          <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+            className="text-xs border border-slate-200 rounded-xl px-4 py-2.5 bg-white font-bold text-slate-700 focus:outline-none focus:border-emerald-500 cursor-pointer shadow-sm">
+            <option value="">All Statuses</option>
+            <option value="delivered">Delivered</option>
+            <option value="in_transit">In Transit</option>
+            <option value="ready_for_pickup">Ready for Pickup</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
         </div>
-        <NavLink to="/agent/profile" className="flex items-center gap-4 hover:opacity-80 transition-opacity cursor-pointer">
-          <div className="text-right hidden sm:block">
-            <p className="text-xs font-bold text-slate-900">{user.name || 'Agent'}</p>
-            <p className="text-[10px] text-slate-500">Delivery Partner</p>
-          </div>
-          <div className="w-9 h-9 rounded-full bg-zinc-900 flex items-center justify-center text-white text-xs font-bold ring-2 ring-zinc-900/10">
-            {user.name?.[0]?.toUpperCase() || 'A'}
-          </div>
-        </NavLink>
-      </nav>
 
-      <aside className="fixed left-0 top-0 h-full w-64 z-40 bg-zinc-50 pt-20 pb-6 px-4 hidden lg:flex flex-col">
-        <div className="flex flex-col gap-1 mb-8">
-          <h3 className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500 px-4">Command Center</h3>
-        </div>
-        <nav className="flex-1 space-y-2">
-          <NavLink to="/agent" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
-            <span className="material-symbols-outlined">local_shipping</span> Order Tracking
-          </NavLink>
-          <NavLink to="/agent/performance" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
-            <span className="material-symbols-outlined">monitoring</span> Performance
-          </NavLink>
-          <NavLink to="/agent/history" className="flex items-center gap-3 px-4 py-3 bg-white text-green-600 rounded-xl shadow-sm text-sm font-medium">
-            <span className="material-symbols-outlined">history</span> Transit History
-          </NavLink>
-          <NavLink to="/agent/profile" className="flex items-center gap-3 px-4 py-3 text-zinc-500 rounded-xl text-sm font-medium hover:bg-zinc-100 transition-colors">
-            <span className="material-symbols-outlined">person</span> My Profile
-          </NavLink>
-        </nav>
-      </aside>
-
-      <main className="lg:ml-64 pt-20 pb-8 px-6 min-h-screen">
-        <div className="bg-white rounded-xl border border-zinc-200/60 p-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-            <h2 className="text-lg font-['Manrope'] font-extrabold text-slate-900">All Assigned Transit Entries</h2>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value);
-                setPage(1);
-              }}
-              className="text-xs border border-zinc-200 rounded-lg px-2.5 py-1.5 bg-white"
-            >
-              <option value="">All statuses</option>
-              <option value="delivered">Delivered</option>
-              <option value="in_transit">In transit</option>
-              <option value="ready_for_pickup">Ready for pickup</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="text-[10px] uppercase tracking-[0.08em] text-slate-500 border-b border-zinc-200/60">
-                  <th className="py-2.5 pr-3">Order</th>
-                  <th className="py-2.5 pr-3">Customer</th>
-                  <th className="py-2.5 pr-3">Placed</th>
-                  <th className="py-2.5 pr-3">Delivered</th>
-                  <th className="py-2.5 pr-3">Shops</th>
-                  <th className="py-2.5 pr-3">Items</th>
-                  <th className="py-2.5 pr-3">Value</th>
-                  <th className="py-2.5 pr-3">Duration</th>
-                  <th className="py-2.5 pr-3">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loadingRows ? (
-                  <tr>
-                    <td colSpan={9} className="py-6 text-sm text-slate-500">Loading transit history...</td>
-                  </tr>
-                ) : rows.length === 0 ? (
-                  <tr>
-                    <td colSpan={9} className="py-6 text-sm text-slate-500">No history entries found.</td>
-                  </tr>
-                ) : rows.map((row) => (
-                  <tr key={row.id} className="border-b border-zinc-100">
-                    <td className="py-2.5 pr-3 text-xs font-bold text-slate-900">{row.orderId}</td>
-                    <td className="py-2.5 pr-3"><p className="text-xs font-semibold text-slate-800">{row.customerName || '--'}</p><p className="text-[11px] text-slate-500">{row.customerPhone || '--'}</p></td>
-                    <td className="py-2.5 pr-3 text-xs text-slate-700">{formatDateTime(row.placedAt)}</td>
-                    <td className="py-2.5 pr-3 text-xs text-slate-700">{formatDateTime(row.deliveredAt)}</td>
-                    <td className="py-2.5 pr-3 text-xs text-slate-700">{Number(row.shopStops || 0)}</td>
-                    <td className="py-2.5 pr-3 text-xs text-slate-700">{Number(row.itemCount || 0)}</td>
-                    <td className="py-2.5 pr-3 text-xs font-semibold text-slate-800">{formatMoney(row.total)}</td>
-                    <td className="py-2.5 pr-3 text-xs text-slate-700">{formatDuration(row.deliveryMinutes)}</td>
-                    <td className="py-2.5 pr-3"><span className="px-2 py-0.5 rounded-md bg-zinc-100 text-[10px] font-bold text-slate-700 uppercase">{formatStatus(row.status)}</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-4 flex items-center justify-between">
-            <p className="text-[11px] text-slate-500">Page {page} of {pages}</p>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-slate-600 disabled:opacity-40">Prev</button>
-              <button type="button" onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages} className="px-2.5 py-1.5 rounded-lg border border-zinc-200 text-xs font-semibold text-slate-600 disabled:opacity-40">Next</button>
+        <div className="bg-white rounded-2xl border border-slate-200/60 shadow-sm overflow-hidden">
+          {loadingRows ? (
+            <div className="flex items-center justify-center h-64"><span className="w-8 h-8 border-2 border-slate-200 border-t-emerald-600 rounded-full animate-spin" /></div>
+          ) : rows.length === 0 ? (
+            <div className="p-12 text-center">
+              <span className="material-symbols-outlined text-4xl text-slate-300 mb-2 block">inbox</span>
+              <p className="text-sm font-bold text-slate-700">No Entries Found</p>
+              <p className="text-xs text-slate-500 mt-1">Try adjusting your filter or complete more deliveries.</p>
             </div>
-          </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="text-[9px] uppercase tracking-[0.1em] text-slate-400 font-black border-b border-slate-100 bg-[#f8f9fa]">
+                    <th className="py-3.5 px-5">Order</th>
+                    <th className="py-3.5 px-3">Customer</th>
+                    <th className="py-3.5 px-3">Address</th>
+                    <th className="py-3.5 px-3">Placed</th>
+                    <th className="py-3.5 px-3">Delivered</th>
+                    <th className="py-3.5 px-3">Items</th>
+                    <th className="py-3.5 px-3">Value</th>
+                    <th className="py-3.5 px-3">Duration</th>
+                    <th className="py-3.5 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const cfg = getStatusConfig(row.status);
+                    return (
+                      <tr key={row.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3.5 px-5">
+                          <p className="text-xs font-extrabold text-slate-900">{row.orderId}</p>
+                        </td>
+                        <td className="py-3.5 px-3">
+                          <p className="text-xs font-bold text-slate-800">{row.customerName || '--'}</p>
+                          <p className="text-[10px] text-slate-500">{row.customerPhone || '--'}</p>
+                        </td>
+                        <td className="py-3.5 px-3 max-w-[180px]">
+                          <p className="text-[11px] text-slate-600 truncate">{formatFullAddress(row.deliveryAddress)}</p>
+                        </td>
+                        <td className="py-3.5 px-3 text-xs text-slate-600">{formatDateTime(row.placedAt)}</td>
+                        <td className="py-3.5 px-3 text-xs text-slate-600">{formatDateTime(row.deliveredAt)}</td>
+                        <td className="py-3.5 px-3 text-xs font-bold text-slate-700">{Number(row.itemCount || 0)}</td>
+                        <td className="py-3.5 px-3 text-xs font-extrabold text-slate-900">{formatMoney(row.total)}</td>
+                        <td className="py-3.5 px-3 text-xs font-bold text-slate-700">{formatDuration(row.deliveryMinutes)}</td>
+                        <td className="py-3.5 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${cfg.color}`}>{cfg.label}</span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {rows.length > 0 && (
+            <div className="flex items-center justify-between px-5 py-4 border-t border-slate-100">
+              <p className="text-[11px] text-slate-500 font-bold">Page {page} of {pages}</p>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-extrabold text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition-colors cursor-pointer">Prev</button>
+                <button onClick={() => setPage((p) => Math.min(pages, p + 1))} disabled={page >= pages}
+                  className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-extrabold text-slate-600 disabled:opacity-40 hover:bg-slate-50 transition-colors cursor-pointer">Next</button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
-
-      <nav className="md:hidden fixed bottom-0 w-full bg-white/80 backdrop-blur h-14 flex justify-around items-center border-t border-slate-200 z-40">
-        <NavLink to="/agent" className={({ isActive }) => `text-[10px] font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>Orders</NavLink>
-        <NavLink to="/agent/performance" className={({ isActive }) => `text-[10px] font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>Stats</NavLink>
-        <NavLink to="/agent/history" className={({ isActive }) => `text-[10px] font-semibold ${isActive ? 'text-emerald-700' : 'text-slate-400'}`}>History</NavLink>
-      </nav>
-    </div>
+    </AgentShell>
   );
 }

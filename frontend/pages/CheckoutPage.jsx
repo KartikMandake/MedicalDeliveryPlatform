@@ -47,7 +47,7 @@ function validateAddress(address) {
   return null;
 }
 
-function formatMoney(value) { return `Rs. ${Number(value || 0).toFixed(2)}`; }
+function formatMoney(value) { return `₹${Number(value || 0).toFixed(2)}`; }
 
 function openRazorpayCheckout(options) {
   return new Promise((resolve, reject) => {

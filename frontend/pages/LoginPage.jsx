@@ -137,6 +137,7 @@ export default function LoginPage() {
                     <label className="block text-xs font-['Inter'] font-bold tracking-widest text-[#3d4a3d] uppercase" htmlFor="login-password">
                       Password
                     </label>
+                    <Link to="/forgot-password" className="text-xs font-bold text-[#006e2f] hover:underline">Forgot password?</Link>
                   </div>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#3d4a3d] group-focus-within:text-[#006e2f] transition-colors">
@@ -186,13 +187,7 @@ export default function LoginPage() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="fixed bottom-0 right-0 w-full lg:w-1/2 p-8 flex flex-col md:flex-row justify-between items-center gap-4 bg-transparent pointer-events-none">
-        <div className="text-[10px] font-['Inter'] tracking-widest uppercase text-zinc-400 font-bold pointer-events-auto">
 
-        </div>
-
-      </footer>
     </div>
   );
 }
