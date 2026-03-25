@@ -832,8 +832,13 @@ exports.searchMedicines = async (req, res) => {
 
     const replacements = { retailerId, limit, offset };
 
+    const productType = req.query.productType || 'all';
+
     let medWhere = `WHERE m.is_active = true`;
     let ecomWhere = `WHERE ep.is_active = true`;
+
+    if (productType === 'medicine') ecomWhere += ` AND 1=0`;
+    if (productType === 'ecom') medWhere += ` AND 1=0`;
 
     if (q.trim()) {
       medWhere += ` AND (m.name ILIKE :search OR m.salt_name ILIKE :search OR m.manufacturer ILIKE :search)`;

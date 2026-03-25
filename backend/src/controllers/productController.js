@@ -78,6 +78,7 @@ exports.getProducts = async (req, res) => {
       maxPrice,
       inStockOnly,
       requiresPrescription,
+      productType,
       sort = 'newest',
       page = 1,
       limit = 12,
@@ -164,6 +165,11 @@ exports.getProducts = async (req, res) => {
     if (requiresPrescription !== undefined) {
       replacements.requiresRx = String(requiresPrescription) === 'true';
       where.push('m."requiresPrescription" = :requiresRx');
+    }
+    if (productType === 'medicine') {
+      where.push('m."isEcom" = FALSE');
+    } else if (productType === 'ecom') {
+      where.push('m."isEcom" = TRUE');
     }
     if (String(inStockOnly) === 'true') {
       where.push(`
