@@ -18,6 +18,7 @@ const uploadRoutes = require('./routes/upload');
 const retailerRoutes = require('./routes/retailer');
 const addressRoutes = require('./routes/addresses');
 const notificationRoutes = require('./routes/notifications');
+const aiRoutes = require('./routes/ai');
 
 const { socketHandler } = require('./utils/socket');
 
@@ -75,6 +76,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/retailer', retailerRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/ai', aiRoutes);
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok', db: 'postgresql' }));
 

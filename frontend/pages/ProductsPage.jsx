@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import ProductsNavBar from '../components/products/ProductsNavBar';
 import ProductsSidebar from '../components/products/ProductsSidebar';
@@ -20,11 +20,36 @@ export default function ProductsPage() {
   const [locationStatus, setLocationStatus] = useState('loading');
   
   const loadingMoreRef = useRef(false);
+  const observerTarget = useRef(null);
 
   useEffect(() => {
     setFilters((prev) => ({ ...prev, search: urlSearch }));
     setPage(1);
   }, [urlSearch]);
+
+  const handleObserver = useCallback(
+    (entries) => {
+      const target = entries[0];
+      if (target.isIntersecting && page < totalPages && !loadingMoreRef.current) {
+        setPage((p) => p + 1);
+      }
+    },
+    [page, totalPages]
+  );
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(handleObserver, {
+      root: null,
+      rootMargin: '100px',
+      threshold: 0.1,
+    });
+    
+    if (observerTarget.current) observer.observe(observerTarget.current);
+    
+    return () => {
+      if (observerTarget.current) observer.unobserve(observerTarget.current);
+    };
+  }, [handleObserver, observerTarget]);
 
   useEffect(() => {
     let mounted = true;
@@ -120,16 +145,11 @@ export default function ProductsPage() {
           />
           
           {page < totalPages && (
-            <div className="mt-16 flex justify-center">
-              <button
-                onClick={() => setPage(p => p + 1)}
-                className="group relative inline-flex items-center justify-center px-10 py-3.5 font-bold text-white transition-all bg-slate-900 rounded-full hover:bg-slate-800 hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-slate-900/20 active:scale-95 shadow-xl shadow-slate-900/20"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="tracking-wide">Load More Products</span>
-                  <span className="material-symbols-outlined text-[18px] transition-transform group-hover:translate-y-0.5">expand_more</span>
-                </div>
-              </button>
+            <div ref={observerTarget} className="mt-16 h-20 flex justify-center items-center">
+               <div className="flex items-center gap-3 text-slate-500 font-bold tracking-wide">
+                 <span className="material-symbols-outlined animate-spin text-[24px]">sync</span>
+                 Fetching more catalogue...
+               </div>
             </div>
           )}
         </section>

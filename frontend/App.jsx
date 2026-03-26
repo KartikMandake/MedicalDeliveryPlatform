@@ -140,26 +140,26 @@ function App() {
                 <Route path="/cart" element={<ErrorBoundary><CartPage /></ErrorBoundary>} />
                 <Route path="/checkout" element={<ErrorBoundary><CheckoutPage /></ErrorBoundary>} />
                 <Route path="/orders" element={<ErrorBoundary><OrdersPage /></ErrorBoundary>} />
-                  <Route path="/help" element={<ErrorBoundary><HelpPage /></ErrorBoundary>} />
-                  <Route path="/tracking" element={<ErrorBoundary><TrackingPage /></ErrorBoundary>} />
-                  <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
-                  <Route path="/agent" element={<ErrorBoundary><AgentDashboardPage /></ErrorBoundary>} />
-                  <Route path="/agent/performance" element={<ErrorBoundary><AgentPerformancePage /></ErrorBoundary>} />
-                  <Route path="/agent/history" element={<ErrorBoundary><AgentHistoryPage /></ErrorBoundary>} />
-                  <Route path="/admin" element={<ErrorBoundary><AdminDashboardPage /></ErrorBoundary>} />
-                  <Route path="/payments" element={<ErrorBoundary><PaymentsPage /></ErrorBoundary>} />
-                  <Route path="/upload" element={<ErrorBoundary><UploadPage /></ErrorBoundary>} />
-                  {/* Retailer routes */}
-                  <Route path="/retailer/dashboard" element={<ErrorBoundary><RetailerDashboardPage /></ErrorBoundary>} />
-                  <Route path="/retailer/orders" element={<ErrorBoundary><RetailerOrdersPage /></ErrorBoundary>} />
-                  <Route path="/retailer/inventory" element={<ErrorBoundary><RetailerInventoryPage /></ErrorBoundary>} />
-                  <Route path="/retailer/profile" element={<ErrorBoundary><RetailerProfilePage /></ErrorBoundary>} />
-                  {/* Agent routes improvements */}
-                  <Route path="/agent/profile" element={<ErrorBoundary><AgentProfilePage /></ErrorBoundary>} />
-                  {/* Patient profile */}
-                  <Route path="/profile" element={<ErrorBoundary><PatientProfilePage /></ErrorBoundary>} />
-                </Routes>
-              </Suspense>
+                <Route path="/help" element={<ErrorBoundary><HelpPage /></ErrorBoundary>} />
+                <Route path="/tracking" element={<ErrorBoundary><TrackingPage /></ErrorBoundary>} />
+                <Route path="/dashboard" element={<ErrorBoundary><DashboardPage /></ErrorBoundary>} />
+                <Route path="/agent" element={<ErrorBoundary><AgentDashboardPage /></ErrorBoundary>} />
+                <Route path="/agent/performance" element={<ErrorBoundary><AgentPerformancePage /></ErrorBoundary>} />
+                <Route path="/agent/history" element={<ErrorBoundary><AgentHistoryPage /></ErrorBoundary>} />
+                <Route path="/admin" element={<ErrorBoundary><AdminDashboardPage /></ErrorBoundary>} />
+                <Route path="/payments" element={<ErrorBoundary><PaymentsPage /></ErrorBoundary>} />
+                <Route path="/upload" element={<ErrorBoundary><UploadPage /></ErrorBoundary>} />
+                {/* Retailer routes */}
+                <Route path="/retailer/dashboard" element={<ErrorBoundary><RetailerDashboardPage /></ErrorBoundary>} />
+                <Route path="/retailer/inventory" element={<ErrorBoundary><RetailerInventoryPage /></ErrorBoundary>} />
+                <Route path="/retailer/orders" element={<ErrorBoundary><RetailerOrdersPage /></ErrorBoundary>} />
+                <Route path="/retailer/profile" element={<ErrorBoundary><RetailerProfilePage /></ErrorBoundary>} />
+                {/* Agent routes improvements */}
+                <Route path="/agent/profile" element={<ErrorBoundary><AgentProfilePage /></ErrorBoundary>} />
+                {/* Patient profile */}
+                <Route path="/profile" element={<ErrorBoundary><PatientProfilePage /></ErrorBoundary>} />
+              </Routes>
+            </Suspense>
           </CartProvider>
         </ToastProvider>
       </AuthProvider>
