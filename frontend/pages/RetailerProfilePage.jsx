@@ -5,7 +5,7 @@ import { useToast } from '../context/ToastContext';
 import RetailerSidebar from '../components/retailer/RetailerSidebar';
 import RetailerTopNav from '../components/retailer/RetailerTopNav';
 import RetailerFooter from '../components/retailer/RetailerFooter';
-import { getRetailerProfile } from '../api/retailer';
+import { getRetailerProfile, verifyDocument } from '../api/retailer';
 import { updateProfile } from '../api/auth';
 
 export default function RetailerProfilePage() {
@@ -20,9 +20,12 @@ export default function RetailerProfilePage() {
     drugLicense: '',
     gstin: '',
     address: '',
+    kyc_status: 'pending',
   });
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyFile, setVerifyFile] = useState(null);
 
   useEffect(() => {
     if (!user || user.role !== 'retailer') return;
@@ -39,6 +42,7 @@ export default function RetailerProfilePage() {
           drugLicense: data.drugLicense || '',
           gstin: data.gstin || '',
           address: data.address || user.address || '',
+          kyc_status: data.kyc_status || 'pending',
         });
       } catch (err) {
         showToast('Failed to load profile details.', 'error');
@@ -79,6 +83,74 @@ export default function RetailerProfilePage() {
         </header>
 
         <div className="max-w-4xl space-y-6">
+          {/* Pharmacy Verification Card */}
+          <section className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-100">
+            <h2 className="text-xl font-bold font-headline flex items-center gap-2 mb-6">
+              <span className="material-symbols-outlined text-[#006e2f]">verified_user</span>
+              Pharmacy Verification
+            </h2>
+
+            {profileData.kyc_status === 'verified' && (
+              <div className="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-200">
+                <span className="material-symbols-outlined text-green-600 text-3xl">check_circle</span>
+                <div>
+                  <h4 className="font-bold text-green-800">Verified Pharmacy</h4>
+                  <p className="text-xs text-green-700">Your documents have been successfully verified.</p>
+                </div>
+              </div>
+            )}
+
+            {profileData.kyc_status === 'manual_review' && (
+              <div className="flex items-center gap-3 p-4 bg-orange-50 rounded-xl border border-orange-200">
+                <span className="material-symbols-outlined text-orange-600 text-3xl">pending_actions</span>
+                <div>
+                  <h4 className="font-bold text-orange-800">Verification in Progress</h4>
+                  <p className="text-xs text-orange-700">Your profile will be verified within 48 hours.</p>
+                </div>
+              </div>
+            )}
+
+            {(profileData.kyc_status === 'pending' || !profileData.kyc_status) && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                  <h4 className="font-bold text-blue-800 mb-1">Verify your Pharmacy Shop</h4>
+                  <p className="text-xs text-blue-700 mb-4">Please upload your valid Pharmacy License (Form 20/21) or MSPC Registration Certificate. We use automated verification.</p>
+                  
+                  <div className="flex flex-col gap-3">
+                    <input 
+                      type="file" 
+                      accept="image/*,application/pdf"
+                      onChange={(e) => setVerifyFile(e.target.files[0])}
+                      className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
+                    />
+                    <button 
+                      onClick={async () => {
+                        if (!verifyFile) return showToast('Please select a file first.', 'error');
+                        setVerifyLoading(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append('document', verifyFile);
+                          const res = await verifyDocument(formData);
+                          setProfileData({...profileData, kyc_status: res.data.kyc_status});
+                          showToast(res.data.message || 'Verification submitted!', 'success');
+                          setVerifyFile(null);
+                        } catch (err) {
+                          showToast(err.response?.data?.message || 'Verification failed.', 'error');
+                        } finally {
+                          setVerifyLoading(false);
+                        }
+                      }}
+                      disabled={verifyLoading || !verifyFile}
+                      className="self-start px-6 py-2 bg-[#006e2f] text-white text-sm font-bold rounded-xl hover:opacity-90 transition-all disabled:opacity-60"
+                    >
+                      {verifyLoading ? 'Analyzing Document...' : 'Start Verification'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
           {/* Store Info Card */}
           <section className="bg-white p-6 rounded-2xl shadow-sm border border-zinc-100">
             <div className="flex justify-between items-center mb-6">
