@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { login as apiLogin } from '../api/auth';
 import { useAuth } from '../context/AuthContext';
 
@@ -12,9 +12,16 @@ const ROLES = [
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [form, setForm] = useState({ email: '', password: '', role: 'user' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const requestedRole = String(searchParams.get('role') || '').trim();
+    if (!ROLES.some((option) => option.value === requestedRole)) return;
+    setForm((current) => ({ ...current, role: requestedRole }));
+  }, [searchParams]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -173,7 +180,7 @@ export default function LoginPage() {
                 <div className="text-center">
                   <p className="text-sm text-[#3d4a3d] mb-4">
                     New to MediFlow?{' '}
-                    <Link to="/register" className="font-bold text-[#006e2f] hover:underline underline-offset-4 decoration-2 decoration-[#006e2f]/30 transition-all">
+                    <Link to={`/register?role=${form.role}`} className="font-bold text-[#006e2f] hover:underline underline-offset-4 decoration-2 decoration-[#006e2f]/30 transition-all">
                       Create an account
                     </Link>
                   </p>

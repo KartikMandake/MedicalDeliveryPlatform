@@ -42,13 +42,23 @@ export default function RetailerSidebar() {
             </Link>
           );
         })}
-        <Link
-          to="#"
-          className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-zinc-500 hover:bg-zinc-200/40 rounded-lg transition-all duration-200 group"
-        >
-          <span className="material-symbols-outlined text-[19px] group-hover:text-green-600">insights</span>
-          <span>Demand Forecast</span>
-        </Link>
+        {(() => {
+          const to = '/retailer/forecasting';
+          const isActive = location.pathname === to;
+          return (
+            <Link
+              to={to}
+              className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm ${
+                isActive
+                  ? 'bg-white text-green-700 shadow-sm font-semibold translate-x-0.5'
+                  : 'text-zinc-500 hover:bg-zinc-200/40 group'
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[19px] ${!isActive ? 'group-hover:text-green-600' : ''}`}>insights</span>
+              <span>Demand Forecast</span>
+            </Link>
+          );
+        })()}
       </div>
       <div className="mt-auto space-y-1.5">
         <Link

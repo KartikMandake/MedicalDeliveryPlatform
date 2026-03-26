@@ -7,6 +7,7 @@ import { getProducts } from '../api/products';
 import { getMyOrders } from '../api/orders';
 import { updateProfile, reverseGeocode } from '../api/auth';
 import { getAddresses, createAddress, updateAddress } from '../api/addresses';
+import NotificationDropdown from '../components/ui/NotificationDropdown';
 
 const ACTIVE_STATUSES = new Set(['placed', 'confirmed', 'preparing', 'ready_for_pickup', 'in_transit']);
 
@@ -129,8 +130,6 @@ export default function DashboardPage() {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
-  const [contactOpen, setContactOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [detecting, setDetecting] = useState(false);
 
   const handleDetectLocation = () => {
@@ -351,9 +350,7 @@ export default function DashboardPage() {
               <span className="material-symbols-outlined text-zinc-600">shopping_cart</span>
               <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-primary text-[10px] text-white flex items-center justify-center rounded-full font-bold">{itemCount}</span>
             </button>
-            <button className="p-2 hover:bg-zinc-100 rounded-lg transition-all active:scale-95" type="button" onClick={() => showToast('No new notifications.', 'info')}>
-              <span className="material-symbols-outlined text-zinc-600">notifications</span>
-            </button>
+            <NotificationDropdown />
             <button
               onClick={() => navigate('/profile')}
               className="w-10 h-10 rounded-full border-2 border-white shadow-sm overflow-hidden bg-zinc-900 text-white flex items-center justify-center font-bold hover:border-primary hover:ring-2 hover:ring-primary/30 transition-all active:scale-95"
@@ -746,51 +743,6 @@ export default function DashboardPage() {
         </div>
       </nav>
 
-      <div className="fixed bottom-24 lg:bottom-10 right-10 z-[70] flex flex-col items-center gap-4" data-state={contactOpen ? 'open' : 'closed'} id="floating-contact-menu">
-        <div className="flex flex-col items-center gap-4">
-          <a className={`menu-item group w-12 h-12 lg:w-14 lg:h-14 bg-green-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 hover:shadow-xl active:scale-95 transition-all ${contactOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-5 scale-50 pointer-events-none'}`} href="https://wa.me/91XXXXXXXXXX" target="_blank" rel="noreferrer">
-            <span className="material-symbols-outlined text-2xl lg:text-3xl">chat</span>
-          </a>
-          <a className={`menu-item group w-12 h-12 lg:w-14 lg:h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 hover:shadow-xl active:scale-95 transition-all ${contactOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-5 scale-50 pointer-events-none'}`} href="tel:+91XXXXXXXXXX">
-            <span className="material-symbols-outlined text-2xl lg:text-3xl">call</span>
-          </a>
-          <button className={`menu-item relative group w-12 h-12 lg:w-14 lg:h-14 bg-emerald-600 text-white rounded-full shadow-lg flex items-center justify-center hover:scale-110 hover:shadow-xl active:scale-95 transition-all ${contactOpen ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto' : 'opacity-0 translate-y-5 scale-50 pointer-events-none'}`} onClick={() => { setChatOpen((prev) => !prev); setContactOpen(false); }} type="button">
-            <span className="material-symbols-outlined text-2xl lg:text-3xl">forum</span>
-            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 border-2 border-white rounded-full" />
-          </button>
-        </div>
-        <button className="w-14 h-14 lg:w-16 lg:h-16 bg-gradient-to-br from-primary to-primary-container text-white rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all relative z-10 animate-pulse" onClick={() => setContactOpen((prev) => !prev)} type="button">
-          <span className="material-symbols-outlined text-2xl lg:text-3xl transition-transform duration-300" style={{ transform: contactOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-            {contactOpen ? 'close' : 'chat'}
-          </span>
-        </button>
-      </div>
-
-      {chatOpen && (
-        <div className="fixed bottom-24 lg:bottom-10 right-10 z-[60] flex flex-col items-end gap-4" id="chatbot-modal">
-          <div className="w-80 bg-white rounded-[2rem] shadow-2xl border border-zinc-100 overflow-hidden flex flex-col">
-            <div className="bg-zinc-900 p-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-2 h-2 bg-primary rounded-full animate-pulse" />
-                <span className="text-white text-sm font-bold">AI Clinical Assistant</span>
-              </div>
-              <button className="text-zinc-400 hover:text-white" onClick={() => setChatOpen(false)} type="button"><span className="material-symbols-outlined text-sm">close</span></button>
-            </div>
-            <div className="p-4 h-64 overflow-y-auto space-y-4 text-xs">
-              <div className="bg-zinc-100 p-3 rounded-2xl rounded-tl-none self-start mr-8">
-                Hello {displayName}! How can I assist you with your medicine inventory today?
-              </div>
-              <div className="bg-primary-container/20 p-3 rounded-2xl rounded-tr-none self-end ml-8 text-on-primary-container font-medium">
-                You can ask me to find medicines, suggest alternatives, or check reorder options.
-              </div>
-            </div>
-            <div className="p-4 border-t border-zinc-50 flex gap-2">
-              <input className="flex-1 bg-zinc-50 border-none rounded-xl py-2 px-3 text-xs" placeholder="Type here..." type="text" />
-              <button className="w-8 h-8 bg-zinc-900 text-white rounded-xl flex items-center justify-center" onClick={() => showToast('Chat send is not connected yet.', 'info')} type="button"><span className="material-symbols-outlined text-sm">send</span></button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import ProductsNavBar from '../components/products/ProductsNavBar';
 import CartItemList from '../components/cart/CartItemList';
 import CartOrderSummary from '../components/cart/CartOrderSummary';
+import MediGuardPanel from '../components/cart/MediGuardPanel';
 import ProductsFooter from '../components/products/ProductsFooter';
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
@@ -21,6 +22,11 @@ export default function CartPage() {
             Review your clinical selections and e-commerce additions before dispatch. You currently have <span className="font-bold text-slate-800">{String(totalItems).padStart(2, '0')}</span> items buffered.
           </p>
         </header>
+
+        {/* AI Safety & Insights Panels */}
+        <div className="space-y-4 mb-8">
+          <MediGuardPanel cartItemCount={(cart.items || []).length} />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start relative">
           <div className="lg:col-span-8 space-y-6">

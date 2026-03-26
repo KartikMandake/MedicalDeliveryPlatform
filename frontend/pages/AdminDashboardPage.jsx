@@ -5,6 +5,7 @@ import AdminKPIs from '../components/admin/AdminKPIs';
 import AdminAnalytics from '../components/admin/AdminAnalytics';
 import AdminOrdersTable from '../components/admin/AdminOrdersTable';
 import AdminLiveTracker from '../components/admin/AdminLiveTracker';
+import AdminAIDispatch from '../components/admin/AdminAIDispatch';
 
 export default function AdminDashboardPage() {
   return (
@@ -14,6 +15,7 @@ export default function AdminDashboardPage() {
       <main className="ml-64 p-8 min-h-screen">
         <AdminHeader />
         <AdminKPIs />
+        <AdminAIDispatch />
         <AdminAnalytics />
         <AdminOrdersTable />
       </main>

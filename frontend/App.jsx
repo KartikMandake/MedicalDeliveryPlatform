@@ -3,6 +3,7 @@ import { Component, lazy, Suspense, useEffect } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { ToastProvider } from './context/ToastContext';
+import MediBotWidget from './components/medibot/MediBotWidget';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const LoginPage = lazy(() => import('./pages/LoginPage'));
@@ -163,6 +164,7 @@ function App() {
                 <Route path="/profile" element={<ErrorBoundary><PatientProfilePage /></ErrorBoundary>} />
               </Routes>
             </Suspense>
+            <MediBotWidget />
           </CartProvider>
         </ToastProvider>
       </AuthProvider>

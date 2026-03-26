@@ -206,6 +206,74 @@ exports.acceptDelivery = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+exports.rejectDelivery = async (req, res) => {
+  try {
+    await ensureAgentLocationColumns();
+
+    const orderRows = await sequelize.query(
+      `
+      SELECT id, agent_id, status
+      FROM orders
+      WHERE id = :orderId
+      LIMIT 1
+      `,
+      {
+        type: QueryTypes.SELECT,
+        replacements: { orderId: req.params.orderId },
+      }
+    );
+
+    const order = orderRows[0] || null;
+    if (!order) return res.status(404).json({ message: 'Order not found' });
+    if (order.agent_id !== req.user.id) {
+      return res.status(403).json({ message: 'This pickup is not assigned to you' });
+    }
+
+    const rejectableStatuses = ['ready', 'ready_for_pickup', 'confirmed'];
+    if (!rejectableStatuses.includes(order.status)) {
+      return res.status(400).json({ message: 'This pickup can no longer be rejected' });
+    }
+
+    await sequelize.query(
+      `
+      UPDATE orders
+      SET agent_id = NULL,
+          status = CAST(CASE WHEN status = 'confirmed' THEN 'confirmed' ELSE 'ready' END AS order_status)
+      WHERE id = :orderId
+      `,
+      {
+        replacements: { orderId: order.id },
+      }
+    );
+
+    await sequelize.query(
+      `
+      UPDATE agent_locations
+      SET current_order_id = NULL,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE agent_id = :agentId
+        AND current_order_id = :orderId
+      `,
+      {
+        replacements: {
+          agentId: req.user.id,
+          orderId: order.id,
+        },
+      }
+    );
+
+    const io = req.app.get('io');
+    io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status: 'ready_for_pickup' });
+    io.to(`agent_${req.user.id}`).emit('delivery_rejected', { orderId: order.id });
+
+    res.json({
+      id: order.id,
+      status: 'ready_for_pickup',
+      message: 'Pickup request rejected. The retailer can assign another agent.',
+    });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 exports.setOnlineStatus = async (req, res) => {
   try {
     const { isOnline, lat = 0, lng = 0 } = req.body;

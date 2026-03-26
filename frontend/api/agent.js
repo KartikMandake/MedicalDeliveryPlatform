@@ -2,6 +2,7 @@ import api from './axios';
 
 export const getAgentDeliveries = () => api.get('/agent/deliveries');
 export const acceptAgentDelivery = (orderId) => api.put(`/agent/deliveries/${orderId}/accept`);
+export const rejectAgentDelivery = (orderId) => api.put(`/agent/deliveries/${orderId}/reject`);
 export const setAgentOnlineStatus = (isOnline, lat = 0, lng = 0) =>
   api.put('/agent/status', { isOnline, lat, lng });
 export const getAgentPerformance = () => api.get('/agent/performance');
