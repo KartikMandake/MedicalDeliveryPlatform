@@ -19,3 +19,12 @@ export const extractPrescriptionFromFile = (file) => {
 };
 
 export const extractPrescriptionFromPdf = extractPrescriptionFromFile;
+
+export const verifyPrescriptionForCart = (file) => {
+  const formData = new FormData();
+  formData.append('prescription', file);
+
+  return api.post('/upload/prescription/verify-cart', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};

@@ -44,9 +44,9 @@ export default function ProductDetailsPage() {
     };
   }, [id]);
 
-  const cartItem = (cart.items || []).find((item) => item.productId === Number(id));
+  const cartItem = (cart.items || []).find((item) => item.productId === id);
   const inCartQty = Number(cartItem?.quantity || 0);
-  const mutating = Boolean((cartItem?.id && (isUpdating(cartItem.id) || isRemoving(cartItem.id))) || isAdding(Number(id)));
+  const mutating = Boolean((cartItem?.id && (isUpdating(cartItem.id) || isRemoving(cartItem.id))) || isAdding(id));
 
   const pulseCard = () => {
     setPulse(true);
@@ -60,7 +60,7 @@ export default function ProductDetailsPage() {
     }
 
     try {
-      await addItem(Number(id), 1);
+      await addItem(id, 1);
       pulseCard();
       showToast({ title: 'Cart updated', message: 'Added to cart', type: 'success' });
     } catch (err) {
@@ -221,11 +221,11 @@ export default function ProductDetailsPage() {
                       <button
                         type="button"
                         onClick={handleAdd}
-                        disabled={Number(product.stock || 0) <= 0 || isAdding(Number(id))}
+                        disabled={Number(product.stock || 0) <= 0 || isAdding(id)}
                         className="bg-gradient-to-br from-primary to-primary-container py-4 px-8 rounded-full text-white font-bold text-lg flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <span className="material-symbols-outlined">shopping_bag</span>
-                        {isAdding(Number(id)) ? 'Adding...' : 'Add to Cart'}
+                        {isAdding(id) ? 'Adding...' : 'Add to Cart'}
                       </button>
                     )}
                   </div>

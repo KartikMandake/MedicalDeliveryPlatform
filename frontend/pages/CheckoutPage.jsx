@@ -8,6 +8,7 @@ import { useToast } from '../context/ToastContext';
 import { createOrder } from '../api/orders';
 import { createRazorpayOrder, verifyPayment } from '../api/payments';
 import { getAddresses, createAddress, updateAddress } from '../api/addresses';
+import { verifyPrescriptionForCart } from '../api/upload';
 import AddressPinMap from '../components/checkout/AddressPinMap';
 
 const EMPTY_ADDRESS = {
@@ -109,6 +110,16 @@ export default function CheckoutPage() {
   const [locating, setLocating] = useState(false);
   const [addressType, setAddressType] = useState('home');
 
+  // Prescription states
+  const [prescriptionFile, setPrescriptionFile] = useState(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null); // { verified: boolean, message: string, prescriptionPath: string }
+  const [showPrescriptionSection, setShowPrescriptionSection] = useState(false);
+
+  const prescriptionRequired = useMemo(() => {
+    return (cart.items || []).some((item) => item.requiresPrescription);
+  }, [cart.items]);
+
   const itemCount = useMemo(
     () => (cart.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0),
     [cart.items]
@@ -131,10 +142,16 @@ export default function CheckoutPage() {
         if (list.length) {
           const chosen = list.find((a) => a.isDefault) || list[0];
           setSelectedAddressId(chosen.id);
-          setAddress((prev) => ({ ...prev, ...sanitizeAddress(chosen) }));
+          const sanitized = sanitizeAddress(chosen);
+          // Fallback to user phone if address phone is missing
+          if (!sanitized.phone && user?.phone) {
+            sanitized.phone = user.phone;
+          }
+          setAddress((prev) => ({ ...prev, ...sanitized }));
         } else {
           setSelectedAddressId(null);
-          setAddress(EMPTY_ADDRESS);
+          // Default phone from user profile if available
+          setAddress({ ...EMPTY_ADDRESS, phone: user?.phone || '' });
         }
       })
       .catch(() => {})
@@ -215,6 +232,31 @@ export default function CheckoutPage() {
     setAddressType('home');
   };
 
+  const handlePrescriptionChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setPrescriptionFile(file);
+    setIsVerifying(true);
+    setVerificationResult(null);
+
+    try {
+      const res = await verifyPrescriptionForCart(file);
+      setVerificationResult(res.data);
+      if (res.data.verified) {
+        showToast('Prescription verified successfully.', 'success');
+      } else {
+        showToast(res.data.message || 'Prescription verification failed.', 'error');
+      }
+    } catch (err) {
+      console.error('Verification failed:', err);
+      showToast(err.response?.data?.message || 'Failed to verify prescription with AI.', 'error');
+      setVerificationResult({ verified: false, message: 'AI verification service error.' });
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   const handlePlaceOrder = async () => {
     if (!user) {
       navigate('/login');
@@ -231,6 +273,11 @@ export default function CheckoutPage() {
     const validationError = validateAddress(payloadAddress);
     if (validationError) {
       showToast(validationError, 'error');
+      // Auto-scroll to the first validation error if needed
+      const contactEl = document.getElementById('contact-details-section');
+      if (contactEl && !payloadAddress.phone) {
+        contactEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
       return;
     }
 
@@ -252,7 +299,26 @@ export default function CheckoutPage() {
         }
       }
 
-      const orderRes = await createOrder({ deliveryAddress: payloadAddress });
+      // Sync phone to user profile if missing
+      if (payloadAddress.phone && (!user.phone || user.phone !== payloadAddress.phone)) {
+        try {
+          const { updateProfile } = await import('../api/auth');
+          await updateProfile({ phone: payloadAddress.phone });
+        } catch (err) {
+          console.warn('Failed to sync phone to profile:', err);
+        }
+      }
+
+      if (prescriptionRequired && (!verificationResult || !verificationResult.verified)) {
+        showToast('Please upload a valid prescription for the medicines in your cart.', 'error');
+        setPlacingOrder(false);
+        return;
+      }
+
+      const orderRes = await createOrder({ 
+        deliveryAddress: payloadAddress,
+        prescription: verificationResult?.prescriptionPath || null 
+      });
       const order = orderRes.data;
 
       const rzpRes = await createRazorpayOrder(order.id);
@@ -367,6 +433,41 @@ export default function CheckoutPage() {
                   No saved address found. Please add your address to continue.
                 </div>
               )}
+            </section>
+
+            {/* NEW: Dedicated Contact Info Section */}
+            <section id="contact-details-section" className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-primary/20">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined">call</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-headline font-bold">Contact Information</h2>
+                  <p className="text-xs text-on-surface-variant">We need your mobile number to coordinate delivery.</p>
+                </div>
+              </div>
+
+              <div className="max-w-md">
+                <label className="space-y-2 block">
+                  <span className="text-xs font-label uppercase tracking-widest text-on-surface-variant ml-1">10-Digit Mobile Number *</span>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-on-surface-variant/40">+91</span>
+                    <input
+                      type="tel"
+                      value={address.phone}
+                      onChange={(e) => handleAddressChange('phone', e.target.value)}
+                      className={`w-full bg-surface-container-low border-2 rounded-lg p-3 pl-12 focus:ring-2 focus:ring-primary/20 transition-all ${!address.phone || !/^[0-9]{10}$/.test(address.phone.replace(/\D/g, '')) ? 'border-error/20' : 'border-transparent'}`}
+                      placeholder="Enter 10 digit number"
+                      maxLength={10}
+                    />
+                  </div>
+                  {!address.phone && (
+                    <p className="text-[10px] text-error font-medium ml-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs">error</span> Required for order confirmation
+                    </p>
+                  )}
+                </label>
+              </div>
             </section>
 
             <section className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-outline-variant/10">
@@ -537,6 +638,86 @@ export default function CheckoutPage() {
                 <label className="text-sm text-on-surface-variant font-medium" htmlFor="save_address">Save this address for future use</label>
               </div>
             </section>
+
+            {prescriptionRequired && (
+              <section className="bg-surface-container-lowest p-8 rounded-xl shadow-[0_8px_24px_rgba(25,28,29,0.04)] border border-primary/20">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                    <span className="material-symbols-outlined">description</span>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-headline font-bold">Prescription Required</h2>
+                    <p className="text-xs text-on-surface-variant">Your cart contains medicines that need a doctor's prescription.</p>
+                  </div>
+                </div>
+
+                <div className={`p-6 rounded-xl border-2 border-dashed transition-all ${verificationResult?.verified ? 'bg-secondary-container/10 border-secondary/30' : 'bg-surface-container-low border-outline-variant/30'}`}>
+                  {!verificationResult?.verified ? (
+                    <div className="text-center space-y-4">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className="material-symbols-outlined text-4xl text-on-surface-variant/40">upload_file</span>
+                        <p className="text-sm font-bold">Upload prescription for AI verification</p>
+                        <p className="text-[10px] text-on-surface-variant/60 uppercase tracking-widest font-bold">PDF, JPG or PNG (Max 10MB)</p>
+                      </div>
+                      
+                      <label className="inline-block cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,application/pdf"
+                          onChange={handlePrescriptionChange}
+                          disabled={isVerifying}
+                        />
+                        <div className="px-6 py-2.5 rounded-full bg-primary text-white font-bold text-sm shadow-lg hover:scale-105 active:scale-95 transition-all">
+                          {isVerifying ? 'AI is verifying...' : 'Select File'}
+                        </div>
+                      </label>
+
+                      {isVerifying && (
+                        <div className="flex items-center justify-center gap-3 py-2">
+                          <div className="w-4 h-4 border-2 border-primary border-r-transparent rounded-full animate-spin"></div>
+                          <span className="text-xs font-bold text-primary animate-pulse">Running AI Genuineness Check...</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
+                          <span className="material-symbols-outlined text-3xl">verified</span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-secondary uppercase tracking-tight">Verified by AI</p>
+                          <p className="text-xs text-on-surface-variant font-medium">{prescriptionFile?.name}</p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => { setVerificationResult(null); setPrescriptionFile(null); }}
+                        className="text-xs font-bold text-primary hover:underline uppercase tracking-widest"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {verificationResult && !verificationResult.verified && (
+                  <div className="mt-4 p-4 rounded-xl bg-error/5 border border-error/20 flex gap-3">
+                    <span className="material-symbols-outlined text-error text-xl">error</span>
+                    <div>
+                      <p className="text-sm font-bold text-error">Verification Failed</p>
+                      <p className="text-xs text-on-error-container mt-0.5">{verificationResult.message}</p>
+                    </div>
+                  </div>
+                )}
+                
+                <p className="mt-4 text-[10px] text-on-surface-variant/60 leading-relaxed italic">
+                  * Note: Our AI system matches the medicine names in your cart with those on the prescription. 
+                  Please ensure the image is clear and the medicine names are visible.
+                </p>
+              </section>
+            )}
           </div>
 
           <div className="lg:col-span-4">
@@ -596,10 +777,10 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={handlePlaceOrder}
-                    disabled={placingOrder || loadingAddress || !cart.items?.length}
+                    disabled={placingOrder || loadingAddress || !cart.items?.length || (prescriptionRequired && (!verificationResult || !verificationResult.verified))}
                     className="w-full py-4 rounded-full bg-gradient-to-br from-primary to-primary-container text-white font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all shadow-[0_8px_24px_rgba(25,28,29,0.04)] disabled:opacity-60 disabled:cursor-not-allowed"
                   >
-                    {placingOrder ? 'Processing payment...' : 'Proceed to Payment'}
+                    {placingOrder ? 'Processing payment...' : (prescriptionRequired && (!verificationResult || !verificationResult.verified)) ? 'Prescription Required' : 'Proceed to Payment'}
                   </button>
                   <Link to="/cart" className="block w-full text-center text-sm font-bold text-on-surface-variant hover:text-primary transition-colors py-2">
                     Back to Cart
