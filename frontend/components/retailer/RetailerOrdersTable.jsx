@@ -45,7 +45,7 @@ function AgentPills({ agents = [], selectedAgentId, onSelect }) {
   if (!agents.length) {
     return (
       <div className="rounded-lg border border-dashed border-zinc-200 bg-white p-3">
-        <p className="text-[11px] text-zinc-500">No nearby active agents available right now.</p>
+        <p className="text-[11px] text-zinc-500">No nearby online agents available right now.</p>
       </div>
     );
   }
@@ -255,13 +255,13 @@ export default function RetailerOrdersTable({ compact = false }) {
   useEffect(() => {
     recentOrders.forEach((order) => {
       if (assignableStatuses.has(order.status)) {
-        fetchAgentsForOrder(order.id);
+        fetchAgentsForOrder(order.id, false, order.agentId || '');
       }
     });
   }, [recentOrders]);
 
-  const fetchAgentsForOrder = async (orderId) => {
-    if (!orderId || agentsByOrder[orderId]) return;
+  const fetchAgentsForOrder = async (orderId, forceRefresh = false, preferredAgentId = '') => {
+    if (!orderId || (!forceRefresh && agentsByOrder[orderId])) return;
     try {
       const res = await getAvailableDeliveryAgents({ orderId });
       const list = Array.isArray(res.data) ? res.data : [];
@@ -269,7 +269,9 @@ export default function RetailerOrdersTable({ compact = false }) {
       if (list.length) {
         setSelectedAgentByOrder((prev) => ({
           ...prev,
-          [orderId]: prev[orderId] || list[0].id,
+          [orderId]: prev[orderId]
+            || (preferredAgentId && list.some((agent) => agent.id === preferredAgentId) ? preferredAgentId : '')
+            || list[0].id,
         }));
       }
     } catch (err) {
@@ -303,7 +305,7 @@ export default function RetailerOrdersTable({ compact = false }) {
     }
   };
 
-  const assignableStatuses = useMemo(() => new Set(['preparing', 'confirmed']), []);
+  const assignableStatuses = useMemo(() => new Set(['preparing', 'confirmed', 'ready_for_pickup']), []);
   const recentOrderIdSet = useMemo(
     () => new Set((recentOrders || []).map((order) => String(order.id || ''))),
     [recentOrders]
@@ -400,7 +402,7 @@ export default function RetailerOrdersTable({ compact = false }) {
           recentOrders.map((order) => {
             const status = order.status;
             const needsAgentAssignment = assignableStatuses.has(status);
-            const chosenAgent = selectedAgentByOrder[order.id] || '';
+            const chosenAgent = selectedAgentByOrder[order.id] || order.agentId || '';
 
             return (
               <Fragment key={order.id}>
@@ -421,11 +423,11 @@ export default function RetailerOrdersTable({ compact = false }) {
                       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                         <div>
                           <p className="text-xs font-bold text-zinc-800">Step 2: Assign delivery agent and send pickup request</p>
-                          <p className="text-[11px] text-zinc-500 mt-1">Nearby active agents are sorted by distance. Select one and assign instantly.</p>
+                          <p className="text-[11px] text-zinc-500 mt-1">Online agents are sorted by distance and workload. Even busy agents can receive queued pickup requests.</p>
                         </div>
                         <button
                           type="button"
-                          onClick={() => fetchAgentsForOrder(order.id)}
+                          onClick={() => fetchAgentsForOrder(order.id, true, chosenAgent)}
                           className="px-3 py-1.5 rounded-lg border border-zinc-200 text-[11px] font-bold text-zinc-600 hover:bg-white"
                         >
                           Refresh Nearby Agents
@@ -459,9 +461,9 @@ export default function RetailerOrdersTable({ compact = false }) {
                     </div>
                   )}
 
-                  {status === 'ready_for_pickup' && (
+                  {status === 'ready_for_pickup' && order.agentId && (
                     <div className="mt-4 p-3 rounded-xl bg-violet-50 border border-violet-100 text-[12px] text-violet-800 font-medium">
-                      Pickup request sent. Waiting for agent acceptance. Order will automatically move to in transit when accepted.
+                      Pickup request sent. Waiting for agent acceptance. You can still reassign another agent until someone accepts it.
                     </div>
                   )}
 
@@ -531,3 +533,5 @@ export default function RetailerOrdersTable({ compact = false }) {
     </section>
   );
 }
+
+

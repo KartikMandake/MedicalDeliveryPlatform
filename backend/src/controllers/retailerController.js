@@ -116,12 +116,12 @@ async function getAvailableAgents() {
     LEFT JOIN (
       SELECT agent_id, COUNT(*) AS active_orders
       FROM orders
-      WHERE status IN ('in_transit', 'picked_up')
+      WHERE agent_id IS NOT NULL
+        AND status NOT IN ('delivered', 'cancelled')
       GROUP BY agent_id
     ) stats ON stats.agent_id = u.id
     WHERE u.role = 'agent'
       AND COALESCE(al.is_online, FALSE) = TRUE
-      AND (al.current_order_id IS NULL)
     ORDER BY COALESCE(stats.active_orders, 0) ASC, u.created_at ASC
     `,
     {
@@ -341,7 +341,7 @@ exports.getOrders = async (req, res) => {
 
     const orders = await sequelize.query(
       `SELECT
-        o.id, o.order_number, o.status, o.payment_status,
+        o.id, o.order_number, o.status, o.payment_status, o.agent_id AS "agentId",
         o.subtotal::float, o.delivery_fee::float, o.total_amount::float,
         o.placed_at, o.delivered_at,
         o.delivery_address,
@@ -420,7 +420,7 @@ exports.updateOrderStatus = async (req, res) => {
 
     const order = await sequelize.query(
       `
-      SELECT o.id, o.status
+      SELECT o.id, o.status, o.agent_id
       FROM orders o
       WHERE o.id = :orderId
         AND EXISTS (
@@ -450,9 +450,12 @@ exports.updateOrderStatus = async (req, res) => {
       return res.status(400).json({ message: 'Please select a delivery agent before requesting pickup' });
     }
 
-    if (selectedAgentId && currentAgentId && String(currentAgentId) !== String(selectedAgentId)) {
+    const currentDbStatus = String(order[0]?.status || '').trim();
+    const hasAcceptedOrStarted = ['picked_up', 'in_transit', 'delivered', 'cancelled'].includes(currentDbStatus);
+
+    if (selectedAgentId && currentAgentId && String(currentAgentId) !== String(selectedAgentId) && hasAcceptedOrStarted) {
       return res.status(409).json({
-        message: 'This order already has an assigned delivery agent. Please use the same agent for all shops in this order.',
+        message: 'This pickup has already been accepted or completed by another delivery agent.',
       });
     }
 
@@ -480,7 +483,7 @@ exports.updateOrderStatus = async (req, res) => {
       `
       UPDATE orders
       SET
-        status = :status,
+        status = CAST(:status AS order_status),
         agent_id = COALESCE(:agentId, agent_id)
       WHERE id = :orderId
       RETURNING id, status, agent_id
@@ -505,6 +508,12 @@ exports.updateOrderStatus = async (req, res) => {
     }
 
     const io = req.app.get('io');
+    if (requestedPickupAssignment && currentAgentId && selectedAgentId && String(currentAgentId) !== String(selectedAgentId) && !hasAcceptedOrStarted) {
+      io.to(`agent_${currentAgentId}`).emit('delivery_unassigned', {
+        orderId: req.params.id,
+        replacementAgentId: selectedAgentId,
+      });
+    }
     io.to(`order_${req.params.id}`).emit('order_status_update', {
       orderId: req.params.id,
       status: requestedPickupAssignment
@@ -634,7 +643,7 @@ exports.updateOrderStatus = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
-// GET /retailer/agents/available — online unassigned agents
+// GET /retailer/agents/available — online agents ranked by distance/workload
 exports.getAvailableAgents = async (req, res) => {
   try {
     await ensureAgentLocationColumns();

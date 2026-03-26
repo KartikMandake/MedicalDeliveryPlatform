@@ -26,6 +26,12 @@ export default function CreateAccountPage() {
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    const requestedRole = String(searchParams.get('role') || '').trim();
+    if (!ROLES.some((option) => option.value === requestedRole)) return;
+    setForm((current) => ({ ...current, role: requestedRole }));
+  }, [searchParams]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -206,7 +212,7 @@ export default function CreateAccountPage() {
             <div className="mt-6 text-center">
               <p className="text-[#3d4a3d] font-medium text-sm">
                 Already have an account?{' '}
-                <Link to="/login" className="text-[#006e2f] font-bold hover:underline ml-1">Sign In</Link>
+                <Link to={`/login?role=${form.role}`} className="text-[#006e2f] font-bold hover:underline ml-1">Sign In</Link>
               </p>
             </div>
 

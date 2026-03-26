@@ -9,6 +9,7 @@ import {
   confirmDeliveryWithOtp,
   getAgentDeliveries,
   getAgentPerformance,
+  rejectAgentDelivery,
   setAgentOnlineStatus,
 } from '../api/agent';
 import { updateAgentLocation } from '../api/tracking';
@@ -178,8 +179,13 @@ export default function AgentDashboardPage() {
     if (!socket || !user || user.role !== 'agent') return;
     socket.emit('join_role', 'agent');
     const onNewDelivery = () => { fetchDashboard(true); showToast('New delivery request assigned to you.', 'info'); };
+    const onDeliveryUnassigned = () => { fetchDashboard(true); showToast('A pickup request was reassigned to another agent.', 'info'); };
     socket.on('new_delivery', onNewDelivery);
-    return () => { socket.off('new_delivery', onNewDelivery); };
+    socket.on('delivery_unassigned', onDeliveryUnassigned);
+    return () => {
+      socket.off('new_delivery', onNewDelivery);
+      socket.off('delivery_unassigned', onDeliveryUnassigned);
+    };
   }, [fetchDashboard, showToast, socketRef, user]);
 
   // Silent auto-refresh every 5s
@@ -218,6 +224,13 @@ export default function AgentDashboardPage() {
     setSubmittingOrderId(orderId);
     try { await acceptAgentDelivery(orderId); showToast('Delivery accepted.', 'success'); await fetchDashboard(true); }
     catch (err) { showToast(err.response?.data?.message || 'Unable to accept.', 'error'); }
+    finally { setSubmittingOrderId(''); }
+  };
+
+  const handleReject = async (orderId) => {
+    setSubmittingOrderId(orderId);
+    try { await rejectAgentDelivery(orderId); showToast('Pickup request rejected.', 'info'); await fetchDashboard(true); }
+    catch (err) { showToast(err.response?.data?.message || 'Unable to reject.', 'error'); }
     finally { setSubmittingOrderId(''); }
   };
 
@@ -370,11 +383,18 @@ export default function AgentDashboardPage() {
 
                   <div className="px-5 pb-5 flex items-center justify-between">
                     <span className="text-lg font-black text-emerald-700 font-headline">{formatMoney(order.total)}</span>
-                    <button onClick={() => handleAccept(order.id)} disabled={submittingOrderId === order.id}
-                      className="py-2.5 px-6 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-extrabold disabled:opacity-60 transition-all hover:shadow-lg active:scale-95 cursor-pointer flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px]">check</span>
-                      {submittingOrderId === order.id ? 'Accepting...' : 'Accept Pickup'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleReject(order.id)} disabled={submittingOrderId === order.id}
+                        className="py-2.5 px-4 border border-rose-200 text-rose-600 rounded-xl text-xs font-extrabold disabled:opacity-60 transition-all hover:bg-rose-50 active:scale-95 cursor-pointer flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">close</span>
+                        {submittingOrderId === order.id ? 'Updating...' : 'Reject'}
+                      </button>
+                      <button onClick={() => handleAccept(order.id)} disabled={submittingOrderId === order.id}
+                        className="py-2.5 px-6 bg-slate-900 hover:bg-emerald-600 text-white rounded-xl text-xs font-extrabold disabled:opacity-60 transition-all hover:shadow-lg active:scale-95 cursor-pointer flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[16px]">check</span>
+                        {submittingOrderId === order.id ? 'Accepting...' : 'Accept Pickup'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

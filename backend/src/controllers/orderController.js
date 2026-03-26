@@ -511,7 +511,7 @@ exports.updateOrderStatus = async (req, res) => {
     const order = await Order.findByPk(req.params.id);
     const io = req.app.get('io');
     io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status });
-    await sendNotification(req, order.userId || order.user_id, 'Order Update', `Your order is now ${status.replace(/_/g, ' ')}.`, 'order_update');
+    await sendNotification(req, order.userId, 'Order Update', `Your order is now ${status.replace(/_/g, ' ')}.`, 'order_update');
     res.json(order);
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
@@ -530,7 +530,7 @@ exports.assignAgent = async (req, res) => {
     const io = req.app.get('io');
     io.to(`agent_${agentLoc.agentId}`).emit('new_delivery', order);
     io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status: 'confirmed' });
-    await sendNotification(req, order.userId || order.user_id, 'Agent Assigned', 'A delivery agent is now heading to pick up your order.', 'order_update');
+    await sendNotification(req, order.userId, 'Agent Assigned', 'A delivery agent is now heading to pick up your order.', 'order_update');
 
     res.json(order);
   } catch (err) { res.status(500).json({ message: err.message }); }
@@ -541,11 +541,11 @@ exports.cancelOrder = async (req, res) => {
     const order = await Order.findByPk(req.params.id);
     if (!order) return res.status(404).json({ message: 'Order not found' });
     
-    if (req.user.role === 'user' && order.user_id !== req.user.id) {
+    if (req.user.role === 'user' && order.userId !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized to cancel this order' });
     }
 
-    const uncancelable = ['ready_for_pickup', 'in_transit', 'delivered', 'cancelled'];
+    const uncancelable = ['ready', 'ready_for_pickup', 'picked_up', 'in_transit', 'delivered', 'cancelled'];
     if (uncancelable.includes(order.status)) {
       return res.status(400).json({ message: `Cannot cancel an order that is already ${order.status.replace(/_/g, ' ')}` });
     }
@@ -577,10 +577,10 @@ exports.cancelOrder = async (req, res) => {
       }
 
       // 2. Clear agent location if assigned
-      if (order.agent_id) {
+      if (order.agentId) {
         await AgentLocation.update(
           { currentOrderId: null },
-          { where: { agentId: order.agent_id, currentOrderId: order.id }, transaction }
+          { where: { agentId: order.agentId, currentOrderId: order.id }, transaction }
         );
       }
 
@@ -589,16 +589,16 @@ exports.cancelOrder = async (req, res) => {
     });
 
     // 4. Handle refund stub
-    if (order.payment_status === 'paid') {
-      await order.update({ payment_status: 'refunded' });
+    if (order.paymentStatus === 'paid') {
+      await order.update({ paymentStatus: 'refunded' });
       // In real life, trigger Razorpay refund API here.
     }
 
     // 5. Emit socket events
     const io = req.app.get('io');
     io.to(`order_${order.id}`).emit('order_status_update', { orderId: order.id, status: 'cancelled' });
-    if (order.agent_id) io.to(`agent_${order.agent_id}`).emit('order_cancelled', { orderId: order.id });
-    await sendNotification(req, order.userId || order.user_id, 'Order Cancelled', `Your order #${order.order_number || order.id} has been cancelled.`, 'system');
+    if (order.agentId) io.to(`agent_${order.agentId}`).emit('order_cancelled', { orderId: order.id });
+    await sendNotification(req, order.userId, 'Order Cancelled', `Your order #${order.orderId || order.id} has been cancelled.`, 'system');
 
     res.json({ message: 'Order cancelled successfully', status: 'cancelled' });
   } catch (err) {
