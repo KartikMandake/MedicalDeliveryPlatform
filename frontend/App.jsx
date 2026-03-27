@@ -32,6 +32,7 @@ const RetailerProfilePage = lazy(() => import('./pages/RetailerProfilePage'));
 const PatientProfilePage = lazy(() => import('./pages/PatientProfilePage'));
 const AgentProfilePage = lazy(() => import('./pages/AgentProfilePage'));
 
+
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }

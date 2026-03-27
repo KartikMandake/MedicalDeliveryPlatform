@@ -15,6 +15,7 @@ export const verifyDocument = (formData) => api.post('/retailer/verify', formDat
   headers: { 'Content-Type': 'multipart/form-data' }
 });
 export const searchMedicines = (params) => api.get('/retailer/medicines/search', { params });
+export const getPredictions = () => api.get('/predictions');
 export const getCategories = async () => {
 	const res = await api.get('/products/filters');
 	return { data: res.data?.categories || [] };
