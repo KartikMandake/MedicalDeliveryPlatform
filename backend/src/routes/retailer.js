@@ -3,6 +3,7 @@ const upload = require('../middleware/upload');
 const {
   getDashboard,
   getProfile,
+  updateProfile,
   getOrders,
   updateOrderStatus,
   updateLocation,
@@ -21,6 +22,7 @@ router.use(protect, authorize('retailer'));
 
 router.get('/dashboard', getDashboard);
 router.get('/profile', getProfile);
+router.put('/profile', updateProfile);
 router.get('/orders', getOrders);
 router.get('/agents/available', getAvailableAgents);
 router.put('/orders/:id/status', updateOrderStatus);

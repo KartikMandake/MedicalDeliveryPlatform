@@ -9,6 +9,7 @@ const TOP_LINKS = [
   { to: '/retailer/dashboard', label: 'Global Overview' },
   { to: '/retailer/inventory', label: 'Inventory Hub' },
   { to: '/retailer/orders', label: 'Order Tracking' },
+  { to: '/retailer/forecasting', label: 'Demand Forecast' },
 ];
 
 export default function RetailerTopNav() {
