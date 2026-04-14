@@ -47,6 +47,8 @@ MODEL_FEATURES = [
     "month_cos",
     "dow_sin",
     "dow_cos",
+    "day_of_month",
+    "quarter",
     "week_of_year",
     "is_weekend",
     "season_enc",
@@ -57,15 +59,23 @@ MODEL_FEATURES = [
     "category_name_enc",
     "lag_1_sales",
     "lag_7_sales",
+    "lag_14_sales",
     "rolling_avg_7",
     "rolling_avg_14",
+    "rolling_avg_28",
+    "rolling_std_7",
+    "rolling_min_7",
+    "rolling_max_7",
     "demand_momentum",
+    "demand_momentum_14_28",
+    "demand_volatility",
     "current_stock",
     "days_of_stock_left",
     "reorder_level",
     "stockout_flag",
     "storage_limit",
     "stock_pressure",
+    "stock_coverage_ratio",
     "cost_price",
     "selling_price",
     "margin",
@@ -86,6 +96,24 @@ MODEL_FEATURES = [
     "under_order_bias",
     "retailer_size_enc",
     "retailer_location_enc",
+    "sales_to_stock_ratio",
+    "price_per_unit_demand",
+    "medicine_target_enc",
+    "retailer_target_enc",
+    "category_target_enc",
+    "med_retailer_target_enc",
+    "season_demand_interaction",
+    "stockout_x_momentum",
+]
+
+CATEGORICAL_FEATURE_NAMES = [
+    "season_enc",
+    "medicine_type_enc",
+    "price_segment_enc",
+    "category_name_enc",
+    "weather_condition_enc",
+    "retailer_size_enc",
+    "retailer_location_enc",
 ]
 
 RAW_NUMERIC_COLUMNS = [
@@ -97,8 +125,13 @@ RAW_NUMERIC_COLUMNS = [
     "requires_rx",
     "lag_1_sales",
     "lag_7_sales",
+    "lag_14_sales",
     "rolling_avg_7",
     "rolling_avg_14",
+    "rolling_avg_28",
+    "rolling_std_7",
+    "rolling_min_7",
+    "rolling_max_7",
     "current_stock",
     "days_of_stock_left",
     "reorder_level",
@@ -167,12 +200,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--tune-trials",
         type=int,
-        default=24,
+        default=50,
         help="How many random hyperparameter trials to run.",
     )
     parser.add_argument(
         "--use-xgboost",
         action="store_true",
+        default=True,
         help="Train XGBoost too and auto-select best blend by validation MAE.",
     )
     parser.add_argument(
@@ -334,11 +368,110 @@ def engineer_features(df: pd.DataFrame) -> pd.DataFrame:
     out["month_cos"] = np.cos(2 * np.pi * out["month"] / 12.0)
     out["dow_sin"] = np.sin(2 * np.pi * out["day_of_week"] / 7.0)
     out["dow_cos"] = np.cos(2 * np.pi * out["day_of_week"] / 7.0)
+    out["day_of_month"] = out["date"].dt.day
+    out["quarter"] = out["date"].dt.quarter
+
+    # Lag features — compute from units_sold_today per medicine+retailer group
+    # lag_1 and lag_7 already exist in data; add lag_14
+    if "lag_14_sales" not in out.columns:
+        group_cols = [c for c in ["medicine_id", "retailer_id"] if c in out.columns]
+        if group_cols:
+            out = out.sort_values(group_cols + ["date"])
+            out["lag_14_sales"] = out.groupby(group_cols)["units_sold_today"].shift(14)
+        else:
+            out["lag_14_sales"] = out["units_sold_today"].shift(14)
+
+    # Rolling window features beyond what's in raw data
+    group_cols = [c for c in ["medicine_id", "retailer_id"] if c in out.columns]
+    if group_cols:
+        out = out.sort_values(group_cols + ["date"])
+        grouped = out.groupby(group_cols)["units_sold_today"]
+        if "rolling_avg_28" not in out.columns:
+            out["rolling_avg_28"] = grouped.transform(lambda x: x.shift(1).rolling(28, min_periods=1).mean())
+        if "rolling_std_7" not in out.columns:
+            out["rolling_std_7"] = grouped.transform(lambda x: x.shift(1).rolling(7, min_periods=1).std())
+        if "rolling_min_7" not in out.columns:
+            out["rolling_min_7"] = grouped.transform(lambda x: x.shift(1).rolling(7, min_periods=1).min())
+        if "rolling_max_7" not in out.columns:
+            out["rolling_max_7"] = grouped.transform(lambda x: x.shift(1).rolling(7, min_periods=1).max())
 
     out["demand_momentum"] = (out["rolling_avg_7"] / (out["rolling_avg_14"] + 1e-5)).clip(0, 3)
+    out["demand_momentum_14_28"] = (out["rolling_avg_14"] / (out["rolling_avg_28"] + 1e-5)).clip(0, 3)
+    out["demand_volatility"] = (out["rolling_std_7"] / (out["rolling_avg_7"] + 1e-5)).clip(0, 5)
     out["stock_pressure"] = (out["current_stock"] / (out["reorder_level"] + 1)).clip(0, 10)
+    out["stock_coverage_ratio"] = (out["current_stock"] / (out["rolling_avg_7"] + 1e-5)).clip(0, 60)
     out["budget_utilization"] = (out["inventory_value"] / (out["available_budget"] + 1)).clip(0, 5)
     out["heat_humidity_index"] = (out["temperature_c"] * out["humidity_pct"]) / 100.0
+    out["sales_to_stock_ratio"] = (out["lag_1_sales"] / (out["current_stock"] + 1e-5)).clip(0, 5)
+    out["price_per_unit_demand"] = (out["selling_price"] / (out["rolling_avg_7"] + 1e-5)).clip(0, 500)
+
+    # Interaction features
+    out["season_demand_interaction"] = out["seasonal_factor"] * out["rolling_avg_7"]
+    out["stockout_x_momentum"] = out["stockout_flag"] * out["demand_momentum"]
+
+    return out
+
+
+def fit_target_encodings(
+    train_df: pd.DataFrame, target: str, smoothing: float = 50.0,
+) -> Tuple[Dict[str, Dict], float]:
+    """Compute smoothed target-encoded means from training data only."""
+    global_mean = train_df[target].mean()
+    te_maps: Dict[str, Dict] = {}
+
+    for col in ["medicine_id", "retailer_id", "category_name", "medicine_id__retailer_id"]:
+        if col == "medicine_id__retailer_id":
+            if "medicine_id" in train_df.columns and "retailer_id" in train_df.columns:
+                key = train_df["medicine_id"].astype(str) + "__" + train_df["retailer_id"].astype(str)
+            else:
+                continue
+        else:
+            if col not in train_df.columns:
+                continue
+            key = train_df[col].astype(str)
+
+        agg = pd.DataFrame({"key": key, "target": train_df[target]})
+        stats = agg.groupby("key")["target"].agg(["mean", "count"])
+        # Bayesian smoothing: weighted average of group mean and global mean
+        stats["smoothed"] = (stats["count"] * stats["mean"] + smoothing * global_mean) / (
+            stats["count"] + smoothing
+        )
+        te_maps[col] = stats["smoothed"].to_dict()
+
+    return te_maps, global_mean
+
+
+def apply_target_encodings(
+    df: pd.DataFrame, te_maps: Dict[str, Dict], global_mean: float,
+) -> pd.DataFrame:
+    """Apply pre-fitted target encodings to a dataframe."""
+    out = df.copy()
+
+    col_to_feature = {
+        "medicine_id": "medicine_target_enc",
+        "retailer_id": "retailer_target_enc",
+        "category_name": "category_target_enc",
+        "medicine_id__retailer_id": "med_retailer_target_enc",
+    }
+
+    for col, feat_name in col_to_feature.items():
+        if col not in te_maps:
+            out[feat_name] = global_mean
+            continue
+
+        if col == "medicine_id__retailer_id":
+            if "medicine_id" in out.columns and "retailer_id" in out.columns:
+                key = out["medicine_id"].astype(str) + "__" + out["retailer_id"].astype(str)
+            else:
+                out[feat_name] = global_mean
+                continue
+        else:
+            if col not in out.columns:
+                out[feat_name] = global_mean
+                continue
+            key = out[col].astype(str)
+
+        out[feat_name] = key.map(te_maps[col]).fillna(global_mean).astype(np.float32)
 
     return out
 
@@ -406,9 +539,18 @@ def ensure_model_features(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def make_feature_matrices(train_df: pd.DataFrame, val_df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    x_train = train_df[MODEL_FEATURES].copy()
-    x_val = val_df[MODEL_FEATURES].copy()
+def get_safe_features(target: str) -> List[str]:
+    """Return MODEL_FEATURES minus columns that leak the target."""
+    leaky_columns = set(SUPPORTED_TARGETS)
+    return [f for f in MODEL_FEATURES if f not in leaky_columns]
+
+
+def make_feature_matrices(
+    train_df: pd.DataFrame, val_df: pd.DataFrame, target: str = DEFAULT_TARGET,
+) -> Tuple[pd.DataFrame, pd.DataFrame, List[str]]:
+    features = get_safe_features(target)
+    x_train = train_df[features].copy()
+    x_val = val_df[features].copy()
 
     for frame in (x_train, x_val):
         frame.replace([np.inf, -np.inf], np.nan, inplace=True)
@@ -419,7 +561,7 @@ def make_feature_matrices(train_df: pd.DataFrame, val_df: pd.DataFrame) -> Tuple
     x_train = x_train.fillna(medians).fillna(0.0).astype(np.float32)
     x_val = x_val.fillna(medians).fillna(0.0).astype(np.float32)
 
-    return x_train, x_val
+    return x_train, x_val, features
 
 
 def compute_recency_weights(date_series: pd.Series, half_life_days: float) -> np.ndarray:
@@ -493,16 +635,19 @@ def detect_xgboost_gpu(seed: int) -> bool:
 def sample_lgb_params(rng: random.Random, seed: int, use_gpu: bool) -> Dict[str, float]:
     params = {
         "objective": "regression",
-        "n_estimators": rng.choice([700, 900, 1200, 1500]),
-        "learning_rate": rng.choice([0.02, 0.03, 0.05, 0.07]),
-        "num_leaves": rng.choice([31, 63, 95, 127, 191]),
-        "max_depth": rng.choice([-1, 6, 8, 10, 12]),
-        "min_child_samples": rng.choice([10, 20, 30, 50, 80]),
-        "subsample": rng.choice([0.7, 0.8, 0.9, 1.0]),
+        "metric": "mae",
+        "n_estimators": rng.choice([1500, 2000, 3000, 4000, 5000]),
+        "learning_rate": rng.choice([0.005, 0.01, 0.02, 0.03, 0.05]),
+        "num_leaves": rng.choice([31, 63, 95, 127, 191, 255]),
+        "max_depth": rng.choice([-1, 8, 10, 12, 15]),
+        "min_child_samples": rng.choice([5, 10, 20, 30, 50]),
+        "subsample": rng.choice([0.6, 0.7, 0.8, 0.9, 1.0]),
         "subsample_freq": rng.choice([1, 3, 5, 7]),
-        "colsample_bytree": rng.choice([0.7, 0.8, 0.9, 1.0]),
-        "reg_alpha": rng.choice([0.0, 0.05, 0.1, 0.2, 0.4]),
-        "reg_lambda": rng.choice([0.0, 0.05, 0.1, 0.2, 0.4]),
+        "colsample_bytree": rng.choice([0.6, 0.7, 0.8, 0.9, 1.0]),
+        "reg_alpha": rng.choice([0.0, 0.01, 0.05, 0.1, 0.2, 0.5]),
+        "reg_lambda": rng.choice([0.0, 0.01, 0.05, 0.1, 0.2, 0.5]),
+        "min_split_gain": rng.choice([0.0, 0.001, 0.01, 0.05]),
+        "path_smooth": rng.choice([0.0, 0.1, 1.0, 10.0]),
         "random_state": seed,
         "n_jobs": -1,
         "verbosity": -1,
@@ -533,6 +678,9 @@ def train_lightgbm(
     trials = max(1, int(trials))
     best: Optional[Dict[str, object]] = None
 
+    feature_names = list(x_train.columns)
+    cat_indices = [i for i, col in enumerate(feature_names) if col in CATEGORICAL_FEATURE_NAMES]
+
     for idx in range(1, trials + 1):
         params = sample_lgb_params(rng, seed, use_gpu=use_gpu)
         model = lgb.LGBMRegressor(**params)
@@ -542,7 +690,8 @@ def train_lightgbm(
             sample_weight=sample_weight,
             eval_set=[(x_val, y_val)],
             eval_metric="l1",
-            callbacks=[lgb.early_stopping(stopping_rounds=100, verbose=False)],
+            callbacks=[lgb.early_stopping(stopping_rounds=150, verbose=False)],
+            categorical_feature=cat_indices if cat_indices else "auto",
         )
 
         pred = model.predict(x_val, num_iteration=getattr(model, "best_iteration_", None))
@@ -568,15 +717,16 @@ def sample_xgb_params(rng: random.Random, seed: int, use_gpu: bool) -> Dict[str,
         "objective": "reg:squarederror",
         "eval_metric": "mae",
         "tree_method": "hist",
-        "n_estimators": rng.choice([600, 900, 1200]),
-        "learning_rate": rng.choice([0.02, 0.03, 0.05, 0.07]),
-        "max_depth": rng.choice([4, 6, 8, 10]),
-        "min_child_weight": rng.choice([1, 3, 5, 8]),
-        "subsample": rng.choice([0.7, 0.8, 0.9, 1.0]),
-        "colsample_bytree": rng.choice([0.7, 0.8, 0.9, 1.0]),
-        "gamma": rng.choice([0.0, 0.1, 0.2, 0.4]),
-        "reg_alpha": rng.choice([0.0, 0.05, 0.1, 0.2]),
-        "reg_lambda": rng.choice([0.5, 1.0, 1.5, 2.0]),
+        "n_estimators": rng.choice([1500, 2000, 3000, 4000]),
+        "learning_rate": rng.choice([0.005, 0.01, 0.02, 0.03, 0.05]),
+        "max_depth": rng.choice([6, 8, 10, 12]),
+        "min_child_weight": rng.choice([1, 3, 5, 8, 12]),
+        "subsample": rng.choice([0.6, 0.7, 0.8, 0.9, 1.0]),
+        "colsample_bytree": rng.choice([0.6, 0.7, 0.8, 0.9, 1.0]),
+        "colsample_bylevel": rng.choice([0.7, 0.8, 0.9, 1.0]),
+        "gamma": rng.choice([0.0, 0.01, 0.1, 0.2, 0.5]),
+        "reg_alpha": rng.choice([0.0, 0.01, 0.05, 0.1, 0.5]),
+        "reg_lambda": rng.choice([0.5, 1.0, 1.5, 2.0, 3.0]),
         "random_state": seed,
         "n_jobs": -1,
         "verbosity": 0,
@@ -610,6 +760,7 @@ def train_xgboost(
     for idx in range(1, trials + 1):
         params = sample_xgb_params(rng, seed, use_gpu=use_gpu)
         model = XGBRegressor(**params)
+        model.set_params(early_stopping_rounds=150)
         model.fit(x_train, y_train, sample_weight=sample_weight, eval_set=[(x_val, y_val)], verbose=False)
 
         pred = np.maximum(0.0, model.predict(x_val))
@@ -703,6 +854,10 @@ def save_artifacts(
     xgb_result: Optional[Dict[str, object]],
     selection: Dict[str, object],
     final_metrics: Dict[str, float],
+    active_features: List[str],
+    te_maps: Optional[Dict[str, Dict]] = None,
+    te_global_mean: Optional[float] = None,
+    log_target: bool = False,
 ) -> None:
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -712,13 +867,22 @@ def save_artifacts(
     xgb_model_path = None
     if xgb_result is not None:
         xgb_model_path = artifacts_dir / "xgboost_model.json"
-        xgb_result["model"].save_model(str(xgb_model_path))
+        xgb_result["model"].get_booster().save_model(str(xgb_model_path))
 
     with (artifacts_dir / "encoders.json").open("w", encoding="utf-8") as fp:
         json.dump(encoders, fp, indent=2)
 
     with (artifacts_dir / "feature_schema.json").open("w", encoding="utf-8") as fp:
-        json.dump({"target": target, "features": MODEL_FEATURES}, fp, indent=2)
+        json.dump({"target": target, "features": active_features, "log_target": log_target}, fp, indent=2)
+
+    if te_maps is not None:
+        # Convert any numpy types to native Python for JSON serialization
+        serializable_te = {
+            col: {k: float(v) for k, v in mapping.items()}
+            for col, mapping in te_maps.items()
+        }
+        with (artifacts_dir / "target_encodings.json").open("w", encoding="utf-8") as fp:
+            json.dump({"global_mean": float(te_global_mean or 0.0), "maps": serializable_te}, fp, indent=2)
 
     trained_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     summary = {
@@ -830,12 +994,20 @@ def main() -> None:
     train_df = apply_encoders(train_df, encoders)
     val_df = apply_encoders(val_df, encoders)
 
+    # Target encoding — fit on train only, apply to both (prevents leakage)
+    te_maps, te_global_mean = fit_target_encodings(train_df, target=args.target)
+    train_df = apply_target_encodings(train_df, te_maps, te_global_mean)
+    val_df = apply_target_encodings(val_df, te_maps, te_global_mean)
+    print(f"[info] Target encoding applied (global mean: {te_global_mean:.2f}, groups: {sum(len(v) for v in te_maps.values()):,})")
+
     train_df = ensure_model_features(train_df)
     val_df = ensure_model_features(val_df)
 
-    x_train, x_val = make_feature_matrices(train_df, val_df)
+    x_train, x_val, active_features = make_feature_matrices(train_df, val_df, target=args.target)
+
     y_train = pd.to_numeric(train_df[args.target], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
     y_val = pd.to_numeric(val_df[args.target], errors="coerce").fillna(0.0).to_numpy(dtype=np.float32)
+    use_log_target = False
 
     recency_weight = compute_recency_weights(train_df["date"], half_life_days=args.half_life_days)
     print(f"[info] Recency weighting active with half-life: {args.half_life_days} days")
@@ -859,7 +1031,7 @@ def main() -> None:
 
     xgb_result = None
     if args.use_xgboost:
-        xgb_trials = max(6, args.tune_trials // 2)
+        xgb_trials = max(10, args.tune_trials * 3 // 4)
         xgb_result = train_xgboost(
             x_train=x_train,
             y_train=y_train,
@@ -889,6 +1061,10 @@ def main() -> None:
         xgb_result=xgb_result,
         selection=selection,
         final_metrics=final_metrics,
+        active_features=active_features,
+        te_maps=te_maps,
+        te_global_mean=te_global_mean,
+        log_target=use_log_target,
     )
 
     print("\n" + "-" * 80)

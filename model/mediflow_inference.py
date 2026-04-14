@@ -155,11 +155,94 @@ def resolve_selection(summary: Dict[str, Any]) -> Dict[str, float]:
     }
 
 
-def load_models(artifacts_dir: Path) -> Tuple[lgb.Booster, Optional[Any], Dict[str, float], Dict[str, Any], Dict[str, Dict[str, int]]]:
+def load_target_encodings(path: Path) -> Optional[Dict[str, Any]]:
+    if not path.exists():
+        return None
+
+    raw = load_json_file(path)
+    if not isinstance(raw, dict):
+        return None
+
+    maps = raw.get("maps")
+    if not isinstance(maps, dict):
+        return None
+
+    normalized_maps: Dict[str, Dict[str, float]] = {}
+    for group_name, mapping in maps.items():
+        if not isinstance(mapping, dict):
+            continue
+        normalized_maps[str(group_name)] = {
+            str(key): safe_float(value, 0.0)
+            for key, value in mapping.items()
+        }
+
+    return {
+        "global_mean": safe_float(raw.get("global_mean"), 0.0),
+        "maps": normalized_maps,
+    }
+
+
+def apply_target_encodings_from_artifacts(
+    df: pd.DataFrame,
+    target_encodings: Optional[Dict[str, Any]],
+) -> pd.DataFrame:
+    out = df.copy()
+
+    if not target_encodings:
+        return out
+
+    global_mean = safe_float(target_encodings.get("global_mean"), 0.0)
+    maps = target_encodings.get("maps")
+    if not isinstance(maps, dict):
+        return out
+
+    medicine_map = maps.get("medicine_id") if isinstance(maps.get("medicine_id"), dict) else {}
+    retailer_map = maps.get("retailer_id") if isinstance(maps.get("retailer_id"), dict) else {}
+    category_map = maps.get("category_name") if isinstance(maps.get("category_name"), dict) else {}
+    med_retailer_map = maps.get("medicine_id__retailer_id") if isinstance(maps.get("medicine_id__retailer_id"), dict) else {}
+
+    if "medicine_id" in out.columns:
+        medicine_key = out["medicine_id"].astype(str)
+        out["medicine_target_enc"] = medicine_key.map(medicine_map).fillna(global_mean).astype(np.float32)
+    else:
+        out["medicine_target_enc"] = np.float32(global_mean)
+
+    if "retailer_id" in out.columns:
+        retailer_key = out["retailer_id"].astype(str)
+        out["retailer_target_enc"] = retailer_key.map(retailer_map).fillna(global_mean).astype(np.float32)
+    else:
+        out["retailer_target_enc"] = np.float32(global_mean)
+
+    if "category_name" in out.columns:
+        category_key = out["category_name"].astype(str)
+        out["category_target_enc"] = category_key.map(category_map).fillna(global_mean).astype(np.float32)
+    else:
+        out["category_target_enc"] = np.float32(global_mean)
+
+    if "medicine_id" in out.columns and "retailer_id" in out.columns:
+        med_retailer_key = out["medicine_id"].astype(str) + "__" + out["retailer_id"].astype(str)
+        out["med_retailer_target_enc"] = med_retailer_key.map(med_retailer_map).fillna(global_mean).astype(np.float32)
+    else:
+        out["med_retailer_target_enc"] = np.float32(global_mean)
+
+    return out
+
+
+def load_models(
+    artifacts_dir: Path,
+) -> Tuple[
+    lgb.Booster,
+    Optional[Any],
+    Dict[str, float],
+    Dict[str, Any],
+    Dict[str, Dict[str, int]],
+    Optional[Dict[str, Any]],
+]:
     lgb_path = artifacts_dir / "lightgbm_model.txt"
     encoders_path = artifacts_dir / "encoders.json"
     schema_path = artifacts_dir / "feature_schema.json"
     summary_path = artifacts_dir / "training_summary.json"
+    target_enc_path = artifacts_dir / "target_encodings.json"
     xgb_path = artifacts_dir / "xgboost_model.json"
 
     if not lgb_path.exists():
@@ -183,13 +266,14 @@ def load_models(artifacts_dir: Path) -> Tuple[lgb.Booster, Optional[Any], Dict[s
             summary = loaded
 
     selection = resolve_selection(summary)
+    target_encodings = load_target_encodings(target_enc_path)
 
     xgb_model = None
     if xgb is not None and xgb_path.exists() and selection.get("xgb_weight", 0.0) > 0:
         xgb_model = xgb.Booster()
         xgb_model.load_model(str(xgb_path))
 
-    return lgb_model, xgb_model, selection, schema, encoders
+    return lgb_model, xgb_model, selection, schema, encoders, target_encodings
 
 
 def make_feature_matrix(
@@ -197,11 +281,13 @@ def make_feature_matrix(
     target: str,
     feature_list: List[str],
     encoders: Dict[str, Dict[str, int]],
+    target_encodings: Optional[Dict[str, Any]],
 ) -> pd.DataFrame:
     df = pd.DataFrame(rows)
     df = ensure_inference_columns(df, target=target)
     df = engineer_features(df)
     df = apply_encoders(df, encoders)
+    df = apply_target_encodings_from_artifacts(df, target_encodings)
     df = ensure_model_features(df)
 
     missing = [feature for feature in feature_list if feature not in df.columns]
@@ -268,27 +354,46 @@ def main() -> None:
             )
             return
 
-        lgb_model, xgb_model, selection, schema, encoders = load_models(artifacts_dir)
+        lgb_model, xgb_model, selection, schema, encoders, target_encodings = load_models(artifacts_dir)
         target = args.target or payload.get("target") or str(schema.get("target", "units_sold_today"))
         feature_list = schema.get("features")
         if not isinstance(feature_list, list) or not feature_list:
             feature_list = MODEL_FEATURES
+        log_target = bool(schema.get("log_target", False))
+
+        effective_selection = dict(selection)
+        if xgb_model is None and float(selection.get("xgb_weight", 0.0)) > 0:
+            effective_selection = {
+                "strategy": "lightgbm-fallback",
+                "lgb_weight": 1.0,
+                "xgb_weight": 0.0,
+            }
 
         matrix = make_feature_matrix(
             rows=rows,
             target=target,
             feature_list=[str(name) for name in feature_list],
             encoders=encoders,
+            target_encodings=target_encodings,
         )
 
-        predictions = blend_predictions(matrix, lgb_model=lgb_model, xgb_model=xgb_model, selection=selection)
+        predictions = blend_predictions(
+            matrix,
+            lgb_model=lgb_model,
+            xgb_model=xgb_model,
+            selection=effective_selection,
+        )
+        if log_target:
+            predictions = np.expm1(predictions)
+        predictions = np.clip(predictions, 0, None)
 
         result = {
             "success": True,
             "count": len(predictions),
             "predictions": to_float_list(predictions),
-            "selection": selection,
+            "selection": effective_selection,
             "target": target,
+            "log_target_applied": log_target,
         }
         print(json.dumps(result))
     except Exception as exc:
