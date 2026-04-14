@@ -145,6 +145,8 @@ const buildModelFeatureRow = ({
   const sellingPrice = toNumber(item.sellingPrice, toNumber(item.selling_price, toNumber(item.mrp, 0)));
   const mrp = toNumber(item.mrp, sellingPrice);
   const costPrice = toNumber(item.costPrice, sellingPrice > 0 ? sellingPrice * 0.72 : mrp * 0.72);
+  const medicineId = String(item.medicine_id || item.medicineId || item.id || item.item_id || 'unknown');
+  const retailerId = String(item.retailer_id || item.retailerId || context?.retailerId || 'unknown');
 
   const availableStock = toNumber(item.availableStock, toNumber(item.available_stock, 0));
   const reorderLevel = toNumber(item.reorderLevel, toNumber(item.reorder_level, 10));
@@ -169,8 +171,13 @@ const buildModelFeatureRow = ({
   const trendPct = toNumber(item.trendPct, 0);
   const lag1 = Math.max(0, baselineDaily * (1 + clamp(trendPct / 100, -0.5, 0.5) * 0.2));
   const lag7 = Math.max(0, baselineDaily);
+  const lag14 = Math.max(0, (lag7 * 0.7) + (longWindowDaily * 0.3));
   const rolling7 = Math.max(0, baselineDaily);
   const rolling14 = Math.max(0, (baselineDaily * 0.65) + (longWindowDaily * 0.35));
+  const rolling28 = Math.max(0, (rolling14 * 0.7) + (longWindowDaily * 0.3));
+  const rollingStd7 = Math.max(0.02, rolling7 * 0.35);
+  const rollingMin7 = Math.max(0, rolling7 * 0.55);
+  const rollingMax7 = Math.max(rolling7, rolling7 * 1.45);
 
   const daysOfStockLeft = rolling7 > 0 ? availableStock / rolling7 : 0;
   const margin = sellingPrice - costPrice;
@@ -187,6 +194,8 @@ const buildModelFeatureRow = ({
   const orderFrequencyDays = rolling7 > 0 ? clamp(Math.round(10 / Math.max(rolling7, 0.3)), 1, 14) : 7;
 
   const modelRow = {
+    medicine_id: medicineId,
+    retailer_id: retailerId,
     date: isoDate,
     month,
     day_of_week: dayOfWeek,
@@ -206,8 +215,13 @@ const buildModelFeatureRow = ({
 
     lag_1_sales: roundTo(lag1, 4),
     lag_7_sales: roundTo(lag7, 4),
+    lag_14_sales: roundTo(lag14, 4),
     rolling_avg_7: roundTo(rolling7, 4),
     rolling_avg_14: roundTo(rolling14, 4),
+    rolling_avg_28: roundTo(rolling28, 4),
+    rolling_std_7: roundTo(rollingStd7, 4),
+    rolling_min_7: roundTo(rollingMin7, 4),
+    rolling_max_7: roundTo(rollingMax7, 4),
 
     current_stock: roundTo(availableStock, 3),
     days_of_stock_left: roundTo(daysOfStockLeft, 3),

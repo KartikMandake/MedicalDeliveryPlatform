@@ -197,6 +197,7 @@ async function enhanceDemandForecastWithModel(forecast) {
     localAreaName: forecast?.meta?.localAreaName,
     address: forecast?.meta?.address,
     retailerSizeSignal: forecast?.kpis?.totalProjectedDemand30d,
+    retailerId: forecast?.meta?.retailerId,
   };
 
   const weather = {
