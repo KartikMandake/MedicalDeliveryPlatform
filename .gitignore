@@ -61,6 +61,7 @@ model/artifacts/
 !model/artifacts/lightgbm_model.txt
 !model/artifacts/encoders.json
 !model/artifacts/feature_schema.json
+!model/artifacts/target_encodings.json
 !model/artifacts/training_summary.json
 !model/artifacts/training_history.csv
 model/artifacts/xgboost_model.json

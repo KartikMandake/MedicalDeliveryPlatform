@@ -127,6 +127,10 @@ const predictStock = async (retailerId, weatherData) => {
 
         const modelFeatureRows = rows.map((item) => buildModelFeatureRow({
             item: {
+                id: item.item_id,
+                item_id: item.item_id,
+                medicine_id: item.medicine_id,
+                retailer_id: retailerId,
                 category_name: item.category_name,
                 categoryName: item.category_name,
                 type: item.medicine_type,

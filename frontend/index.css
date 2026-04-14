@@ -59,17 +59,16 @@
     font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
   }
   .glass-header {
-    backdrop-filter: blur(20px);
-    background-color: rgba(247, 249, 252, 0.7);
+    background-color: #ffffff;
+    opacity: 1;
   }
   .tonal-lift {
     box-shadow: 0 12px 32px -4px rgba(25, 28, 30, 0.06);
   }
   .glass-nav {
-    background-color: rgba(255, 255, 255, 0.72);
-    backdrop-filter: saturate(160%) blur(12px);
-    -webkit-backdrop-filter: saturate(160%) blur(12px);
-    border-bottom: 1px solid rgba(188, 203, 185, 0.35);
+    background-color: #ffffff;
+    opacity: 1;
+    border-bottom: 1px solid #e5e7eb;
   }
 
   @supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
@@ -115,8 +114,8 @@
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   .glass-effect {
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background-color: #ffffff;
+      opacity: 1;
   }
 
   /* Delivery Agent Dashboard Styles */

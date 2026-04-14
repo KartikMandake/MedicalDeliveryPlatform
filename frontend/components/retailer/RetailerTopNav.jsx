@@ -88,7 +88,7 @@ export default function RetailerTopNav() {
 
   return (
     <>
-      <header className="fixed top-0 w-full z-50 glass-nav shadow-sm shadow-zinc-200/50">
+      <header className="fixed top-0 w-full z-50 bg-white border-b border-zinc-200 shadow-sm opacity-100">
         <div className="flex justify-between items-center px-6 h-16 w-full">
         <div className="flex items-center gap-8">
           <span className="text-xl font-extrabold tracking-tight text-zinc-900 font-headline">MediFlow</span>
@@ -144,7 +144,7 @@ export default function RetailerTopNav() {
 
       {isLocationModalOpen && (
         <div
-          className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[70] bg-[#111827]/60 flex items-center justify-center p-4"
           onClick={() => setIsLocationModalOpen(false)}
         >
           <div

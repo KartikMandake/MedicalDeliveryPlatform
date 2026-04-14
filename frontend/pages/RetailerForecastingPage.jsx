@@ -227,7 +227,7 @@ export default function RetailerForecastingPage() {
                 <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Demand curve</p>
                   <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">Actual vs projected weekly demand</h2>
-                  <div className="mt-5 h-[320px]">
+                  <div className="mt-5 relative h-[320px] min-h-[320px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={forecast?.weeklyDemand || []} margin={{ top: 10, right: 16, left: -10, bottom: 0 }}>
                         <defs>
@@ -254,7 +254,7 @@ export default function RetailerForecastingPage() {
                 <div className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Category outlook</p>
                   <h2 className="mt-2 text-xl font-black tracking-tight text-slate-950">Demand concentration by category</h2>
-                  <div className="mt-5 h-[320px]">
+                  <div className="mt-5 relative h-[320px] min-h-[320px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={(forecast?.categoryForecasts || []).slice(0, 6)} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                         <CartesianGrid vertical={false} stroke="#e2e8f0" strokeDasharray="3 3" />
