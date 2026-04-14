@@ -1,0 +1,74 @@
+{
+  "trained_at_utc": "2026-04-14T05:23:07+00:00",
+  "dataset_path": "D:\\Downloads\\model\\data.csv",
+  "target": "units_sold_today",
+  "rows": {
+    "train": 427295,
+    "validation": 84150
+  },
+  "validation_cutoff": "2025-04-01",
+  "lightgbm": {
+    "metrics": {
+      "mae": 2.23183149004944,
+      "rmse": 3.6608736238512387,
+      "mape": 60.682771244425574,
+      "wmape": 21.949746956939375
+    },
+    "params": {
+      "objective": "regression",
+      "n_estimators": 700,
+      "learning_rate": 0.03,
+      "num_leaves": 191,
+      "max_depth": -1,
+      "min_child_samples": 10,
+      "subsample": 1.0,
+      "subsample_freq": 1,
+      "colsample_bytree": 0.8,
+      "reg_alpha": 0.05,
+      "reg_lambda": 0.2,
+      "random_state": 42,
+      "n_jobs": -1,
+      "verbosity": -1,
+      "device_type": "gpu"
+    },
+    "model_path": "D:\\Downloads\\model\\artifacts\\lightgbm_model.txt"
+  },
+  "xgboost": {
+    "metrics": {
+      "mae": 2.231411933898926,
+      "rmse": 3.6633595522311673,
+      "mape": 60.693721771240234,
+      "wmape": 21.945621490478516
+    },
+    "params": {
+      "objective": "reg:squarederror",
+      "eval_metric": "mae",
+      "tree_method": "hist",
+      "n_estimators": 1200,
+      "learning_rate": 0.03,
+      "max_depth": 8,
+      "min_child_weight": 5,
+      "subsample": 1.0,
+      "colsample_bytree": 1.0,
+      "gamma": 0.2,
+      "reg_alpha": 0.1,
+      "reg_lambda": 1.0,
+      "random_state": 42,
+      "n_jobs": -1,
+      "verbosity": 0,
+      "device": "cuda"
+    },
+    "model_path": "D:\\Downloads\\model\\artifacts\\xgboost_model.json"
+  },
+  "selection": {
+    "strategy": "blend",
+    "lgb_weight": 0.5,
+    "xgb_weight": 0.5
+  },
+  "final_metrics": {
+    "mae": 2.2261820373263164,
+    "rmse": 3.6528801920315166,
+    "mape": 60.64882579827611,
+    "wmape": 21.8941853886621
+  }
+}

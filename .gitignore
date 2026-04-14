@@ -52,4 +52,17 @@ server/
 *.sln
 *.sw?
 
+# Forecasting (commit runtime artifacts, ignore local training-only files)
+model/.venv/
+model/__pycache__/
+model/*.csv
+model/artifacts/
+!model/artifacts/
+!model/artifacts/lightgbm_model.txt
+!model/artifacts/encoders.json
+!model/artifacts/feature_schema.json
+!model/artifacts/training_summary.json
+!model/artifacts/training_history.csv
+model/artifacts/xgboost_model.json
+
 temp.sql

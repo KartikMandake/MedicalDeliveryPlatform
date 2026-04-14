@@ -2,6 +2,7 @@ const axios = require('axios');
 const { QueryTypes } = require('sequelize');
 const sequelize = require('../db');
 const { buildRetailerDemandForecast } = require('../utils/businessForecast');
+const { enhanceDemandForecastWithModel } = require('../utils/demandForecastEnhancer');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -308,8 +309,25 @@ Return ONLY valid JSON:
 // Analyzes historical order trends spanning the last 12 months to predict future 30-day demand.
 exports.getDemandForecast = async (req, res) => {
   try {
-    const forecast = await buildRetailerDemandForecast(req.user.id);
-    res.json(forecast);
+    const baseForecast = await buildRetailerDemandForecast(req.user.id);
+    const enhanced = await enhanceDemandForecastWithModel(baseForecast);
+
+    if (!enhanced.applied) {
+      const fallbackWarnings = Array.isArray(baseForecast.warnings)
+        ? [...baseForecast.warnings]
+        : [];
+
+      if (enhanced.reason) {
+        fallbackWarnings.push(`ML demand model fallback: ${enhanced.reason}`);
+      }
+
+      return res.json({
+        ...baseForecast,
+        warnings: fallbackWarnings,
+      });
+    }
+
+    return res.json(enhanced.forecast);
   } catch (err) {
     console.error('Demand forecast error:', err.message);
     res.status(err.statusCode || 500).json({ message: err.message || 'Forecasting engine unavailable.' });
