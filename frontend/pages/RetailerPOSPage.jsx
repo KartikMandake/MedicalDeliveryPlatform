@@ -437,6 +437,21 @@ export default function RetailerPOSPage() {
                     <p className="absolute bottom-2 inset-x-0 text-center text-[11px] text-emerald-300 font-bold">
                       Point camera at barcode on medicine box
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (inventory.length > 0) {
+                          const randomItem = inventory[Math.floor(Math.random() * inventory.length)];
+                          handleBarcodeScanned(randomItem.barcode || randomItem.name);
+                        } else {
+                          showToast({ type: 'warning', message: 'Inventory is empty' });
+                        }
+                      }}
+                      className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 border border-white/40 text-white px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md transition-all z-10 pointer-events-auto flex items-center gap-1.5 shadow-lg"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">science</span>
+                      Simulate Scan
+                    </button>
                   </div>
                 )}
               </div>
