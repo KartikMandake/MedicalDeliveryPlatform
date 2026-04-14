@@ -117,6 +117,13 @@ export default function RetailerDashboardPage() {
                   </div>
                   <span className="material-symbols-outlined text-zinc-400 text-sm">chevron_right</span>
                 </Link>
+                <Link to="/retailer/pos" className="flex items-center justify-between p-3 bg-[#006e2f]/8 rounded-xl hover:bg-[#006e2f]/15 transition-colors border border-[#006e2f]/15">
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-[#006e2f] text-[19px]">point_of_sale</span>
+                    <span className="text-xs font-semibold text-[#006e2f]">POS Billing</span>
+                  </div>
+                  <span className="material-symbols-outlined text-[#006e2f] text-sm">chevron_right</span>
+                </Link>
                 <Link to="/retailer/orders" className="flex items-center justify-between p-3 bg-[#f3f4f5] rounded-xl hover:bg-zinc-200/50 transition-colors">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-[#006e2f] text-[19px]">local_shipping</span>
