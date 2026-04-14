@@ -1,0 +1,59 @@
+{
+  "season": {
+    "autumn": 0,
+    "monsoon": 1,
+    "summer": 2,
+    "winter": 3
+  },
+  "medicine_type": {
+    "cream": 0,
+    "device": 1,
+    "drops": 2,
+    "injection": 3,
+    "syrup": 4,
+    "tablet": 5
+  },
+  "price_segment": {
+    "high": 0,
+    "low": 1,
+    "medium": 2
+  },
+  "weather_condition": {
+    "Clear": 0,
+    "Cloudy": 1,
+    "Drizzle": 2,
+    "Hazy": 3,
+    "Heavy Rain": 4,
+    "Overcast": 5,
+    "Partly Cloudy": 6,
+    "Rain": 7,
+    "Sunny": 8
+  },
+  "category_name": {
+    "Allergy": 0,
+    "Antibiotics": 1,
+    "Blood Pressure": 2,
+    "Cold & Cough": 3,
+    "Diabetes": 4,
+    "Digestive Care": 5,
+    "Fever & Pain": 6,
+    "General Medicine": 7,
+    "Heart Care": 8,
+    "Hydration & ORS": 9,
+    "Pain Relief": 10,
+    "Skin Disease": 11,
+    "Vitamins & Supplements": 12
+  },
+  "retailer_size": {
+    "large": 0,
+    "medium": 1,
+    "small": 2
+  },
+  "retailer_location": {
+    "Hadapsar": 0,
+    "Kothrud": 1,
+    "Shivajinagar": 2,
+    "Sinhagad Rd": 3,
+    "Wakad": 4
+  }
+}

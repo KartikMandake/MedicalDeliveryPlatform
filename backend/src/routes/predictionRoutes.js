@@ -7,6 +7,12 @@ const { QueryTypes } = require('sequelize');
 
 let manualSimulation = null;
 
+const normalizeWeatherCondition = (condition) => {
+  if (!condition) return 'Clear';
+  if (condition === 'Heatwave') return 'Clear';
+  return condition;
+};
+
 async function getRetailerId(userId) {
   let rows = await sequelize.query(
     `SELECT id FROM retailers WHERE user_id = :userId LIMIT 1`,
@@ -36,8 +42,9 @@ router.get('/', protect, authorize('retailer'), async (req, res) => {
         // Use manual simulation if set, otherwise fetch latest from DB
         let weather = manualSimulation;
         if (!weather) {
-            const [weatherRows] = await sequelize.query(
-                `SELECT condition, temperature FROM weather_data ORDER BY timestamp DESC LIMIT 1`
+            const weatherRows = await sequelize.query(
+                `SELECT condition, temperature FROM weather_data ORDER BY "timestamp" DESC LIMIT 1`,
+                { type: QueryTypes.SELECT }
             );
             weather = weatherRows[0] || { condition: 'Clear', temperature: 25 };
         }
@@ -53,13 +60,25 @@ router.get('/', protect, authorize('retailer'), async (req, res) => {
 // POST /api/weather/simulate
 router.post('/simulate', protect, async (req, res) => {
     const { condition, temp } = req.body;
-    manualSimulation = { condition, temperature: temp };
+    const normalizedCondition = normalizeWeatherCondition(condition);
+    const normalizedTemp = Number(temp);
+    const temperature = Number.isFinite(normalizedTemp) ? normalizedTemp : 25;
+    manualSimulation = { condition: normalizedCondition, temperature };
   
     try {
         await sequelize.query(
-            `INSERT INTO weather_data (condition, temperature, humidity, timestamp) 
-             VALUES (?, ?, ?, NOW())`,
-            { replacements: [condition || 'Clear', temp || 25, 50] }
+            `
+            INSERT INTO weather_data (condition, temperature, humidity, timestamp)
+            VALUES (:condition, :temperature, :humidity, NOW())
+            `,
+            {
+              replacements: {
+                condition: normalizedCondition,
+                temperature,
+                humidity: 50,
+              },
+              type: QueryTypes.INSERT,
+            }
         );
         res.json({ message: "Weather simulated successfully", simulation: manualSimulation });
     } catch (err) {

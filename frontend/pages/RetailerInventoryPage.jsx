@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 
 import RetailerSidebar from '../components/retailer/RetailerSidebar';
@@ -9,6 +9,12 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
 import SaltComposition from '../components/ui/SaltComposition';
+
+const WEATHER_SCENARIOS = [
+  { value: 'Clear', label: 'Clear', icon: 'wb_sunny' },
+  { value: 'Rain', label: 'Rain', icon: 'rainy' },
+  { value: 'Heatwave', label: 'Heatwave', icon: 'device_thermostat' },
+];
 
 export default function RetailerInventoryPage() {
   const { user, loading: authLoading } = useAuth();
@@ -39,6 +45,7 @@ export default function RetailerInventoryPage() {
   const [stockModal, setStockModal] = useState(null);
   const [predictions, setPredictions] = useState([]);
   const [predictionsLoading, setPredictionsLoading] = useState(false);
+  const [simulatingWeather, setSimulatingWeather] = useState('');
   const [modalMode, setModalMode] = useState('add');
   const [stockQty, setStockQty] = useState(50);
   const [reorderLevel, setReorderLevel] = useState(10);
@@ -237,6 +244,7 @@ export default function RetailerInventoryPage() {
   }, [fetchPredictions]);
 
   const simulateWeather = async (type) => {
+    setSimulatingWeather(type);
     try {
       let temp = 25;
       if (type === 'Rain') temp = 18;
@@ -253,6 +261,8 @@ export default function RetailerInventoryPage() {
       fetchPredictions();
     } catch (err) {
       showToast({ type: 'error', message: 'Failed to simulate weather' });
+    } finally {
+      setSimulatingWeather('');
     }
   };
 
@@ -294,7 +304,7 @@ export default function RetailerInventoryPage() {
         showToast({ type: 'success', title: 'Added to Inventory', message: `${medName} added with ${stockQty} units` });
       } else if (modalMode === 'update') {
         await updateInventoryItem(invId, { stockQuantity: stockQty, reorderLevel });
-        showToast({ type: 'success', title: 'Stock Updated', message: `${medName} â†’ ${stockQty} units` });
+        showToast({ type: 'success', title: 'Stock Updated', message: `${medName} -> ${stockQty} units` });
       }
       setStockModal(null);
       fetchMedicines(1, false);
@@ -503,14 +513,29 @@ export default function RetailerInventoryPage() {
               </h2>
 
               <div className="flex items-center gap-3">
-                <select
-                  onChange={(e) => simulateWeather(e.target.value)}
-                  className="text-[11px] font-bold bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#006e2f]/20 transition-all opacity-80 hover:opacity-100 cursor-pointer shadow-sm"
-                >
-                  <option value="Clear">â˜€ï¸ Simulate Clear</option>
-                  <option value="Rain">ðŸŒ§ï¸ Simulate Rain</option>
-                  <option value="Heatwave">ðŸ”¥ Simulate Heatwave</option>
-                </select>
+                <div className="flex flex-wrap items-center gap-2">
+                  {WEATHER_SCENARIOS.map((scenario) => {
+                    const isLoading = simulatingWeather === scenario.value;
+                    return (
+                      <button
+                        key={scenario.value}
+                        type="button"
+                        onClick={() => simulateWeather(scenario.value)}
+                        disabled={Boolean(simulatingWeather)}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-bold shadow-sm transition-all ${
+                          isLoading
+                            ? 'border-[#006e2f] bg-[#006e2f] text-white'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-[#006e2f]/30 hover:text-[#006e2f]'
+                        } disabled:cursor-not-allowed disabled:opacity-70`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {scenario.icon}
+                        </span>
+                        {isLoading ? `Applying ${scenario.label}` : scenario.label}
+                      </button>
+                    );
+                  })}
+                </div>
 
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-slate-100 px-2 py-1 rounded-md">
                   AI Insights
@@ -783,8 +808,8 @@ export default function RetailerInventoryPage() {
                                 {catName && <p className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">{catIcon && renderCategoryIcon(catIcon, 'w-3 h-3 object-contain')} {catName}</p>}
                               </td>
                               <td className="px-6 py-4">
-                                <p className="text-sm font-extrabold text-[#15803d]">â‚¹{(med.selling_price || med.mrp || 0).toFixed(2)}</p>
-                                {med.mrp && med.selling_price && med.mrp !== med.selling_price && <p className="text-[10px] font-black text-slate-400 line-through">â‚¹{med.mrp.toFixed(2)}</p>}
+                                <p className="text-sm font-extrabold text-[#15803d]">Rs {(med.selling_price || med.mrp || 0).toFixed(2)}</p>
+                                {med.mrp && med.selling_price && med.mrp !== med.selling_price && <p className="text-[10px] font-black text-slate-400 line-through">Rs {med.mrp.toFixed(2)}</p>}
                               </td>
                               <td className="px-6 py-4">
                                 {isOutOfStock ? (
@@ -925,8 +950,8 @@ export default function RetailerInventoryPage() {
 
                           <div className="mt-auto flex items-end justify-between pt-2 border-t border-slate-50">
                             <div>
-                              {med.mrp && med.selling_price && med.mrp !== med.selling_price && <span className="text-[10px] font-bold text-slate-400 line-through block mb-0.5">â‚¹{med.mrp.toFixed(2)}</span>}
-                              <span className="text-xl font-extrabold text-[#15803d] tracking-tight">â‚¹{(med.selling_price || med.mrp || 0).toFixed(2)}</span>
+                              {med.mrp && med.selling_price && med.mrp !== med.selling_price && <span className="text-[10px] font-bold text-slate-400 line-through block mb-0.5">Rs {med.mrp.toFixed(2)}</span>}
+                              <span className="text-xl font-extrabold text-[#15803d] tracking-tight">Rs {(med.selling_price || med.mrp || 0).toFixed(2)}</span>
                             </div>
 
                             {inInventory ? (
@@ -1011,14 +1036,14 @@ export default function RetailerInventoryPage() {
                     <div className="flex-1 border-r border-slate-200/60 pr-4">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Selling Price</p>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black text-[#15803d]">₹{(stockModal.selling_price || stockModal.mrp || 0).toFixed(2)}</span>
+                        <span className="text-2xl font-black text-[#15803d]">â‚¹{(stockModal.selling_price || stockModal.mrp || 0).toFixed(2)}</span>
                       </div>
                     </div>
                     <div className="flex-1 pl-2">
                       <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">MRP</p>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm font-black ${stockModal.mrp !== stockModal.selling_price ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                          ₹{stockModal.mrp?.toFixed(2) || '0.00'}
+                          â‚¹{stockModal.mrp?.toFixed(2) || '0.00'}
                         </span>
                         {stockModal.mrp > stockModal.selling_price && (
                           <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded flex items-center text-[10px] font-bold">
@@ -1119,3 +1144,4 @@ export default function RetailerInventoryPage() {
     </div>
   );
 }
+

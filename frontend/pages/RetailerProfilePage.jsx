@@ -5,11 +5,10 @@ import { useToast } from '../context/ToastContext';
 import RetailerSidebar from '../components/retailer/RetailerSidebar';
 import RetailerTopNav from '../components/retailer/RetailerTopNav';
 import RetailerFooter from '../components/retailer/RetailerFooter';
-import { getRetailerProfile, verifyDocument } from '../api/retailer';
-import { updateProfile } from '../api/auth';
+import { getRetailerProfile, updateRetailerProfile, verifyDocument } from '../api/retailer';
 
 export default function RetailerProfilePage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState({
@@ -22,6 +21,7 @@ export default function RetailerProfilePage() {
     address: '',
     kyc_status: 'pending',
   });
+  const [savedProfileData, setSavedProfileData] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -34,16 +34,18 @@ export default function RetailerProfilePage() {
       try {
         const res = await getRetailerProfile();
         const data = res.data || {};
-        setProfileData({
-          name: user.name || '',
-          email: user.email || '',
+        const normalizedProfile = {
+          name: data.name || user.name || '',
+          email: data.email || user.email || '',
           phone: data.phone || user.phone || '',
-          shopName: data.shopName || user.shopName || '',
-          drugLicense: data.drugLicense || '',
+          shopName: data.shopName || data.shop_name || user.shopName || user.shop_name || '',
+          drugLicense: data.drugLicense || data.drug_license || '',
           gstin: data.gstin || '',
           address: data.address || user.address || '',
           kyc_status: data.kyc_status || 'pending',
-        });
+        };
+        setProfileData(normalizedProfile);
+        setSavedProfileData(normalizedProfile);
       } catch (err) {
         showToast('Failed to load profile details.', 'error');
       } finally {
@@ -56,12 +58,34 @@ export default function RetailerProfilePage() {
 
   if (authLoading) return null;
   if (!user || user.role !== 'retailer') return <Navigate to="/login" replace />;
+  if (loading) return null;
 
   const handleUpdate = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await updateProfile(profileData);
+      const res = await updateRetailerProfile(profileData);
+      const updated = res.data?.profile || res.data || {};
+      const normalizedProfile = {
+        name: updated.name || profileData.name,
+        email: updated.email || profileData.email,
+        phone: updated.phone || profileData.phone,
+        shopName: updated.shopName || updated.shop_name || profileData.shopName,
+        drugLicense: updated.drugLicense || updated.drug_license || profileData.drugLicense,
+        gstin: updated.gstin || profileData.gstin,
+        address: updated.address || profileData.address,
+        kyc_status: updated.kyc_status || profileData.kyc_status || 'pending',
+      };
+      setProfileData(normalizedProfile);
+      setSavedProfileData(normalizedProfile);
+      updateUser((current) => current ? {
+        ...current,
+        name: normalizedProfile.name,
+        phone: normalizedProfile.phone,
+        address: normalizedProfile.address,
+        shopName: normalizedProfile.shopName,
+        shop_name: normalizedProfile.shopName,
+      } : current);
       showToast('Profile updated successfully.', 'success');
       setIsEditing(false);
     } catch (err) {
@@ -259,7 +283,10 @@ export default function RetailerProfilePage() {
                   </button>
                   <button 
                     type="button"
-                    onClick={() => setIsEditing(false)}
+                    onClick={() => {
+                      if (savedProfileData) setProfileData(savedProfileData);
+                      setIsEditing(false);
+                    }}
                     className="px-6 py-2.5 bg-zinc-100 text-zinc-600 text-sm font-bold rounded-xl hover:bg-zinc-200 transition-all"
                   >
                     Cancel

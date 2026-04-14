@@ -99,6 +99,24 @@ const haversineKm = (fromLat, fromLng, toLat, toLng) => {
   return R * c;
 };
 
+const mapRetailerProfile = (row) => ({
+  id: row.id,
+  userId: row.user_id,
+  name: row.name || '',
+  email: row.email || '',
+  phone: row.phone || '',
+  address: row.address || '',
+  shopName: row.shop_name || '',
+  shop_name: row.shop_name || '',
+  drugLicense: row.drug_license || '',
+  drug_license: row.drug_license || '',
+  gstin: row.gstin || '',
+  lat: row.lat,
+  lng: row.lng,
+  kycStatus: row.kyc_status || 'pending',
+  kyc_status: row.kyc_status || 'pending',
+});
+
 async function getAvailableAgents() {
   return sequelize.query(
     `
@@ -166,9 +184,22 @@ exports.getProfile = async (req, res) => {
 
     const rows = await sequelize.query(
       `
-      SELECT id, shop_name, lat, lng, kyc_status
-      FROM retailers
-      WHERE id = :retailerId
+      SELECT
+        r.id,
+        r.user_id,
+        r.shop_name,
+        r.drug_license,
+        r.gstin,
+        r.lat,
+        r.lng,
+        r.kyc_status,
+        u.name,
+        u.email,
+        u.phone,
+        u.address
+      FROM retailers r
+      JOIN users u ON u.id = r.user_id
+      WHERE r.id = :retailerId
       LIMIT 1
       `,
       {
@@ -177,9 +208,102 @@ exports.getProfile = async (req, res) => {
       }
     );
 
-    const profile = rows[0] || null;
+    const profile = rows[0] ? mapRetailerProfile(rows[0]) : null;
     if (!profile) return res.status(404).json({ message: 'Retailer profile not found' });
     return res.json(profile);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+exports.updateProfile = async (req, res) => {
+  try {
+    await ensureRetailerLocationColumns();
+    const retailerId = await getRetailerId(req.user.id);
+    if (!retailerId) return res.status(404).json({ message: 'Retailer profile not found' });
+
+    const {
+      name = '',
+      phone = '',
+      address = '',
+      shopName = '',
+      drugLicense = '',
+      gstin = '',
+    } = req.body || {};
+
+    await sequelize.transaction(async (transaction) => {
+      await sequelize.query(
+        `
+        UPDATE users
+        SET name = :name,
+            phone = :phone,
+            address = :address
+        WHERE id = :userId
+        `,
+        {
+          replacements: {
+            userId: req.user.id,
+            name: String(name).trim(),
+            phone: String(phone).trim(),
+            address: String(address).trim(),
+          },
+          transaction,
+        }
+      );
+
+      await sequelize.query(
+        `
+        UPDATE retailers
+        SET shop_name = :shopName,
+            drug_license = :drugLicense,
+            gstin = :gstin
+        WHERE id = :retailerId
+        `,
+        {
+          replacements: {
+            retailerId,
+            shopName: String(shopName).trim(),
+            drugLicense: String(drugLicense).trim(),
+            gstin: String(gstin).trim(),
+          },
+          transaction,
+        }
+      );
+    });
+
+    const rows = await sequelize.query(
+      `
+      SELECT
+        r.id,
+        r.user_id,
+        r.shop_name,
+        r.drug_license,
+        r.gstin,
+        r.lat,
+        r.lng,
+        r.kyc_status,
+        u.name,
+        u.email,
+        u.phone,
+        u.address
+      FROM retailers r
+      JOIN users u ON u.id = r.user_id
+      WHERE r.id = :retailerId
+      LIMIT 1
+      `,
+      {
+        type: QueryTypes.SELECT,
+        replacements: { retailerId },
+      }
+    );
+
+    const profile = rows[0] ? mapRetailerProfile(rows[0]) : null;
+    if (!profile) return res.status(404).json({ message: 'Retailer profile not found' });
+
+    return res.json({
+      message: 'Retailer profile updated successfully',
+      profile,
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

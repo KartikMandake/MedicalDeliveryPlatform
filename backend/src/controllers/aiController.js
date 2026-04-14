@@ -1,6 +1,8 @@
 const axios = require('axios');
 const { QueryTypes } = require('sequelize');
 const sequelize = require('../db');
+const { buildRetailerDemandForecast } = require('../utils/businessForecast');
+const { enhanceDemandForecastWithModel } = require('../utils/demandForecastEnhancer');
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
@@ -307,79 +309,27 @@ Return ONLY valid JSON:
 // Analyzes historical order trends spanning the last 12 months to predict future 30-day demand.
 exports.getDemandForecast = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const retailerResult = await sequelize.query(
-      'SELECT id FROM retailers WHERE user_id = :userId LIMIT 1',
-      { type: QueryTypes.SELECT, replacements: { userId } }
-    );
+    const baseForecast = await buildRetailerDemandForecast(req.user.id);
+    const enhanced = await enhanceDemandForecastWithModel(baseForecast);
 
-    if (!retailerResult.length) {
-      return res.status(403).json({ message: 'Retailer profile not found.' });
-    }
-    const retailerId = retailerResult[0].id;
+    if (!enhanced.applied) {
+      const fallbackWarnings = Array.isArray(baseForecast.warnings)
+        ? [...baseForecast.warnings]
+        : [];
 
-    // Fetch monthly aggregated sales for this retailer over the last 12 months
-    const historicalSales = await sequelize.query(
-      `
-      SELECT 
-        TO_CHAR(o.placed_at, 'YYYY-MM') as month,
-        SUM(oi.quantity) as total_sold,
-        COALESCE(m.name, ep.name) as product_name,
-        COALESCE(m.category_id::text, 'other') as category
-      FROM order_items oi
-      JOIN orders o ON o.id = oi.order_id
-      LEFT JOIN medicines m ON m.id = oi.medicine_id
-      LEFT JOIN ecommerce_products ep ON ep.id = oi.ecommerce_product_id
-      WHERE o.retailer_id = :retailerId
-        AND o.placed_at >= NOW() - INTERVAL '12 months'
-        AND o.status = 'delivered'
-      GROUP BY TO_CHAR(o.placed_at, 'YYYY-MM'), COALESCE(m.name, ep.name), COALESCE(m.category_id::text, 'other')
-      ORDER BY month ASC, total_sold DESC
-      `,
-      { type: QueryTypes.SELECT, replacements: { retailerId } }
-    );
+      if (enhanced.reason) {
+        fallbackWarnings.push(`ML demand model fallback: ${enhanced.reason}`);
+      }
 
-    if (!historicalSales.length) {
-      return res.json({ 
-        chartData: [], 
-        insights: [{ text: 'Insufficient historical data.', reason: 'Need at least 1 month of sales history to forecast.' }]
+      return res.json({
+        ...baseForecast,
+        warnings: fallbackWarnings,
       });
     }
 
-    const currentMonth = new Date().toLocaleString('en-US', { month: 'long' });
-
-    const systemPrompt = `You are a B2B Pharmaceutical Demand Forecasting AI.
-You have been provided with 12 months of historical sales data for a specific retailer.
-The current month is ${currentMonth}.
-
-Task:
-1. Analyze the historical trends (identifying seasonal spikes).
-2. Project the expected demand (in unit quantity) for the top 5 products for the NEXT 30 days.
-3. Provide 3 actionable business insights based on the upcoming season and past data.
-
-Return ONLY valid JSON in this exact structure:
-{
-  "chartData": [
-    { "name": "Product A", "last30Days": 120, "projected30Days": 150, "trend": "up" },
-    { "name": "Product B", "last30Days": 80, "projected30Days": 60, "trend": "down" }
-  ],
-  "insights": [
-    { "text": "Stock up on Paracetamol immediately.", "reason": "Expected 30% surge due to incoming monsoon season based on last year's pattern." }
-  ]
-}`;
-
-    // Compress the historical sales string so it fits easily within token limits
-    const userPrompt = `Historical Data (Month | Product | Qty Sold):\n${historicalSales.map(r => `${r.month} | ${r.product_name} | ${r.total_sold}`).join('\n')}`;
-
-    const forecast = await callGroq(systemPrompt, userPrompt, { temperature: 0.2, maxTokens: 1000 });
-
-    if (!forecast || !Array.isArray(forecast.chartData)) {
-      throw new Error('LLM failed to generate forecast.');
-    }
-
-    res.json({ success: true, ...forecast });
+    return res.json(enhanced.forecast);
   } catch (err) {
     console.error('Demand forecast error:', err.message);
-    res.status(500).json({ message: 'Forecasting engine unavailable.' });
+    res.status(err.statusCode || 500).json({ message: err.message || 'Forecasting engine unavailable.' });
   }
 };

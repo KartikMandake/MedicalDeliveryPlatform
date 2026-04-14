@@ -2,6 +2,7 @@ import api from './axios';
 
 export const getDashboard = () => api.get('/retailer/dashboard');
 export const getRetailerProfile = () => api.get('/retailer/profile');
+export const updateRetailerProfile = (data) => api.put('/retailer/profile', data);
 export const updateRetailerLocation = (lat, lng) => api.put('/retailer/location', { lat, lng });
 export const getRetailerOrders = (params) => api.get('/retailer/orders', { params });
 export const getAvailableDeliveryAgents = (params) => api.get('/retailer/agents/available', { params });
