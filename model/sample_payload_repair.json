@@ -1,0 +1,18 @@
+{
+  "rows": [
+    {
+      "date": "2026-04-14",
+      "medicine_id": 1,
+      "retailer_id": 1,
+      "current_stock": 100,
+      "rolling_avg_7": 10,
+      "cost_price": 50,
+      "selling_price": 75,
+      "temperature_c": 22.5,
+      "humidity_pct": 60,
+      "weather_condition": "Clear",
+      "category_name": "General"
+    }
+  ],
+  "target": "units_sold_today"
+}

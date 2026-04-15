@@ -17,7 +17,7 @@ export default function RetailerSidebar() {
   const handleLogout = () => { logout(); navigate('/login'); };
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-56 z-40 bg-zinc-50/80 backdrop-blur-sm border-r border-zinc-200/70 flex-col pt-20 pb-5 px-3 hidden lg:flex">
+    <aside className="fixed left-0 top-0 h-full w-56 z-40 bg-zinc-50 border-r border-zinc-200 flex-col pt-20 pb-5 px-3 hidden lg:flex opacity-100">
       <div className="mb-6 px-3">
         <h2 className="text-[15px] font-bold text-zinc-900 font-headline tracking-tight">Command Center</h2>
         <p className="text-[11px] text-zinc-500">Precision Logistics</p>

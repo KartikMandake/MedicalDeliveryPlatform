@@ -224,8 +224,17 @@ async function runLocalInference(rows, target) {
       });
     });
 
-    child.stdin.write(payload);
-    child.stdin.end();
+    child.stdin.on('error', (err) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      reject(new Error(`${pythonBin} (stdin): ${err.message}`));
+    });
+
+    if (child.stdin.writable) {
+      child.stdin.write(payload);
+      child.stdin.end();
+    }
   });
 
   const failures = [];
@@ -236,6 +245,7 @@ async function runLocalInference(rows, target) {
     }
 
     try {
+      console.log(`[inference] Attempting local inference with: ${pythonBin}`);
       return await runWithBinary(pythonBin);
     } catch (error) {
       failures.push(error.message);
