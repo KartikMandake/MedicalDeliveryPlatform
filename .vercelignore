@@ -1,0 +1,14 @@
+# Large ML artifacts (causing Vercel upload size errors)
+model/
+models/
+
+# Local/dev-only folders
+.venv/
+node_modules/
+dist/
+
+# Backend code is not needed for this static Vite deployment
+backend/
+
+# Local runtime uploads
+uploads/

@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
 import { getInventory, createOfflineSale, getOfflineSales } from '../api/retailer';
+import { BrowserMultiFormatReader } from '@zxing/library';
 
 // ── helpers ──────────────────────────────────────────────────────
 const fmt = (n) => `₹${Number(n || 0).toFixed(2)}`;
@@ -145,10 +146,9 @@ export default function RetailerPOSPage() {
   const startScanner = useCallback(async () => {
     setScannerActive(true);
     try {
-      const { BrowserMultiFormatReader } = await import('@zxing/browser');
       const reader = new BrowserMultiFormatReader();
       scannerControlRef.current = reader;
-      const devices = await BrowserMultiFormatReader.listVideoInputDevices();
+      const devices = await reader.listVideoInputDevices();
       const deviceId = devices[devices.length - 1]?.deviceId; // prefer rear cam
       reader.decodeFromVideoDevice(deviceId, videoRef.current, (result, err) => {
         if (result) {
