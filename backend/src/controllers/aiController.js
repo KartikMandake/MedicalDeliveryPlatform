@@ -1,45 +1,50 @@
-const axios = require('axios');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { QueryTypes } = require('sequelize');
 const sequelize = require('../db');
 const { buildRetailerDemandForecast } = require('../utils/businessForecast');
 const { enhanceDemandForecastWithModel } = require('../utils/demandForecastEnhancer');
 
-const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions';
-
-function getGroqKey() {
-  return process.env.GROQ_API_KEY || '';
+function getGeminiKey() {
+  return process.env.GEMINI_API_KEY || '';
 }
 
-function getTextModel() {
-  return process.env.GROQ_TEXT_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+function getAIModel() {
+  return process.env.AI_MODEL || 'gemini-1.5-flash';
 }
 
-async function callGroq(systemPrompt, userPrompt, { temperature = 0.3, maxTokens = 1500 } = {}) {
-  const apiKey = getGroqKey();
-  if (!apiKey) throw Object.assign(new Error('GROQ_API_KEY not configured'), { statusCode: 503 });
+async function callAI(systemPrompt, userPrompt, { temperature = 0.2, maxTokens = 2000 } = {}) {
+  const apiKey = getGeminiKey();
+  if (!apiKey) throw Object.assign(new Error('GEMINI_API_KEY not configured'), { statusCode: 503 });
 
-  const res = await axios.post(
-    GROQ_API_URL,
-    {
-      model: getTextModel(),
-      temperature,
-      max_tokens: maxTokens,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-    },
-    {
-      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      timeout: 20000,
-    }
-  );
-
-  const raw = res?.data?.choices?.[0]?.message?.content || '';
   try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ 
+      model: getAIModel(),
+      systemInstruction: systemPrompt,
+      generationConfig: {
+        temperature,
+        maxOutputTokens: maxTokens,
+        responseMimeType: "application/json",
+      },
+      safetySettings: [
+        { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+        { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" },
+      ],
+    });
+
+    const result = await model.generateContent(userPrompt);
+    const response = await result.response;
+    const raw = response.text();
+    
     return JSON.parse(raw.replace(/^```json\s*/i, '').replace(/```$/i, '').trim());
-  } catch {
+  } catch (err) {
+    if (err.message.includes('429')) {
+      console.error('Gemini Rate Limit Exceeded (429)');
+      throw Object.assign(new Error('AI is currently busy (Rate Limit). Please wait 30 seconds and try again.'), { statusCode: 429 });
+    }
+    console.error('Gemini call error:', err.message, err.stack);
     return null;
   }
 }
@@ -102,7 +107,7 @@ Rules:
 
     const userPrompt = `Analyze these medicines in my cart for interactions:\n\n${medicineList}`;
 
-    const analysis = await callGroq(systemPrompt, userPrompt, { temperature: 0.1, maxTokens: 1200 });
+    const analysis = await callAI(systemPrompt, userPrompt, { temperature: 0.1, maxTokens: 1200 });
 
     if (!analysis) {
       return res.json({ hasCritical: false, warnings: [], message: 'Analysis unavailable.' });
@@ -189,7 +194,7 @@ ${JSON.stringify(activeAgents, null, 2)}
 
 Provide the optimal dispatch mapping.`;
 
-    const plan = await callGroq(systemPrompt, userPrompt, { temperature: 0.1, maxTokens: 1500 });
+    const plan = await callAI(systemPrompt, userPrompt, { temperature: 0.1, maxTokens: 1500 });
 
     if (!plan || !Array.isArray(plan.assignments)) {
       return res.status(500).json({ message: 'AI failed to generate a routing plan.' });
@@ -287,10 +292,48 @@ Return ONLY valid JSON:
 
     const userPrompt = `Current Inventory Data:\n${JSON.stringify(currentInventory, null, 2)}`;
 
-    const analytics = await callGroq(systemPrompt, userPrompt, { temperature: 0.2, maxTokens: 1000 });
+    let analytics;
+    try {
+      analytics = await callAI(systemPrompt, userPrompt, { temperature: 0.2, maxTokens: 1000 });
+    } catch (aiErr) {
+      console.log('API Error thrown:', aiErr.message);
+    }
 
-    if (!analytics || !Array.isArray(analytics.insights)) {
-      return res.json({ insights: [], summary: 'Analytics currently unavailable.' });
+    if (!analytics || !Array.isArray(analytics.insights) || analytics.insights.length === 0) {
+      console.log('[AI FALLBACK] Using local rule engine due to empty or null AI response.');
+      
+      const insights = [];
+      let criticalCount = 0;
+      
+      for (const item of currentInventory) {
+        const stock = item.currentStock !== undefined ? item.currentStock : item.currentstock;
+        const name = item.productName !== undefined ? item.productName : item.productname;
+        
+        if (stock <= 15) {
+          insights.push({
+            type: "stockout_risk",
+            productName: name,
+            currentStock: stock,
+            severity: "high",
+            recommendation: `Restock immediately. Critical stock warning for ${name}.`
+          });
+          criticalCount++;
+        } else if (stock >= 100) {
+          insights.push({
+            type: "dead_stock_warning",
+            productName: name,
+            currentStock: stock,
+            severity: "medium",
+            recommendation: "Consider launching a discount campaign to rotate excess inventory."
+          });
+        }
+      }
+      
+      return res.json({ 
+        success: true,
+        insights, 
+        summary: criticalCount > 0 ? `Action Required: Detected ${criticalCount} critical stockout risks.` : 'Inventory is within stable parameters.'
+      });
     }
 
     res.json({
