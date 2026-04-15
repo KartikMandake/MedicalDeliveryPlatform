@@ -18,6 +18,7 @@ const RetailerDecisionDashboard = () => {
     lastUpdated: null
   });
 
+  const [selectedCategory, setSelectedCategory] = useState('General');
   const [loading, setLoading] = useState({
     kpis: true,
     forecast: true,
@@ -35,9 +36,9 @@ const RetailerDecisionDashboard = () => {
     }
   };
 
-  const fetchForecast = async () => {
+  const fetchForecast = async (cat = 'General') => {
     try {
-      const res = await getDemandForecast();
+      const res = await getDemandForecast(cat);
       const raw = res.data || res;
       setData(prev => ({ 
         ...prev, 
@@ -72,7 +73,7 @@ const RetailerDecisionDashboard = () => {
   const fetchData = () => {
     setLoading({ kpis: true, forecast: true, insights: true });
     fetchKPIs();
-    fetchForecast();
+    fetchForecast(selectedCategory);
     fetchInsights();
   };
 
@@ -92,6 +93,14 @@ const RetailerDecisionDashboard = () => {
       fetchData();
     }
   }, [user, authLoading]);
+
+  // Re-fetch forecast when category changes
+  useEffect(() => {
+    if (user && !authLoading && data.lastUpdated) {
+      setLoading(prev => ({ ...prev, forecast: true }));
+      fetchForecast(selectedCategory);
+    }
+  }, [selectedCategory]);
 
   if (authLoading) return null;
   if (!user || user.role !== 'retailer') return <Navigate to="/login" replace />;
@@ -149,7 +158,15 @@ const RetailerDecisionDashboard = () => {
                  {/* Quick Filters / Tips */}
                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     {['General', 'Cold & Flu', 'Chronic', 'First Aid'].map(cat => (
-                      <button key={cat} className="py-3 px-4 bg-white border border-slate-200/50 rounded-xl text-[11px] font-bold text-slate-500 hover:border-indigo-500 hover:text-indigo-600 transition-all shadow-sm">
+                      <button 
+                        key={cat} 
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`py-3 px-4 rounded-xl text-[11px] font-bold transition-all shadow-sm border ${
+                          selectedCategory === cat 
+                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-200/50' 
+                            : 'bg-white border-slate-200/50 text-slate-500 hover:border-indigo-500 hover:text-indigo-600'
+                        }`}
+                      >
                         {cat}
                       </button>
                     ))}

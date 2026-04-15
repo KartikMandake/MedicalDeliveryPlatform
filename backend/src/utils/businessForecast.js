@@ -42,6 +42,13 @@ const WEATHER_SIGNAL_RULES = [
   },
 ];
 
+const UI_CATEGORY_MAP = {
+  'Cold & Flu': ['Cold & Cough', 'Allergy'],
+  'Chronic': ['Blood Pressure', 'Heart Care', 'Diabetes', 'Digestive Care'],
+  'First Aid': ['Pain Relief', 'Fever & Pain'],
+  'General': []
+};
+
 const safeNumber = (value, fallback = 0) => {
   const numeric = Number(value);
   return Number.isFinite(numeric) ? numeric : fallback;
@@ -415,7 +422,7 @@ function buildInsights({
   ).slice(0, 4);
 }
 
-async function buildRetailerDemandForecast(userId) {
+async function buildRetailerDemandForecast(userId, categoryFilter = 'General') {
   const retailerResult = await sequelize.query(
     'SELECT id FROM retailers WHERE user_id = :userId LIMIT 1',
     { type: QueryTypes.SELECT, replacements: { userId } }
@@ -428,12 +435,22 @@ async function buildRetailerDemandForecast(userId) {
   }
 
   const retailerId = retailerResult[0].id;
-  const [retailerContext, medicines, orderRows, addressRows] = await Promise.all([
+  const [retailerContext, allMedicines, allOrderRows, addressRows] = await Promise.all([
     getRetailerContext(retailerId),
     getAllMedicines(retailerId),
     getRecentDeliveredMedicineOrders(),
     getAddressSignals(),
   ]);
+
+  // Apply category filtering
+  let medicines = allMedicines;
+  let orderRows = allOrderRows;
+
+  if (categoryFilter && categoryFilter !== 'General') {
+    const targetCategories = UI_CATEGORY_MAP[categoryFilter] || [];
+    medicines = allMedicines.filter(m => targetCategories.includes(m.category_name));
+    orderRows = allOrderRows.filter(o => targetCategories.includes(o.category_name));
+  }
 
   if (!retailerContext) {
     const error = new Error('Retailer context not found.');

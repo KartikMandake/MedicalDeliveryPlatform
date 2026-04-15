@@ -309,7 +309,8 @@ Return ONLY valid JSON:
 // Analyzes historical order trends spanning the last 12 months to predict future 30-day demand.
 exports.getDemandForecast = async (req, res) => {
   try {
-    const baseForecast = await buildRetailerDemandForecast(req.user.id);
+    const { category = 'General' } = req.body;
+    const baseForecast = await buildRetailerDemandForecast(req.user.id, category);
     const enhanced = await enhanceDemandForecastWithModel(baseForecast);
 
     if (!enhanced.applied) {
