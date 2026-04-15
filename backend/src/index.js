@@ -25,6 +25,10 @@ const aiRoutes = require('./routes/ai');
 
 const { socketHandler } = require('./utils/socket');
 
+// POS models — imported so sequelize.sync() creates their tables
+require('./models/OfflineSale');
+require('./models/OfflineSaleItem');
+
 const app = express();
 const server = http.createServer(app);
 

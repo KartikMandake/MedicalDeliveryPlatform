@@ -15,6 +15,9 @@ const {
   searchMedicines,
   getCategories,
   verifyDocument,
+  createOfflineSale,
+  getOfflineSales,
+  getOfflineSaleById,
 } = require('../controllers/retailerController');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -35,4 +38,10 @@ router.get('/medicines/search', searchMedicines);
 router.get('/categories', getCategories);
 router.post('/verify', upload.single('document'), verifyDocument);
 
+// Offline POS routes
+router.post('/pos/sale', createOfflineSale);
+router.get('/pos/sales', getOfflineSales);
+router.get('/pos/sales/:id', getOfflineSaleById);
+
 module.exports = router;
+

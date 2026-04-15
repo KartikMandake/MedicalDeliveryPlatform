@@ -31,6 +31,7 @@ const RetailerInventoryPage = lazy(() => import('./pages/RetailerInventoryPage')
 const RetailerDecisionDashboard = lazy(() => import('./pages/RetailerDecisionDashboard'));
 const RetailerForecastingPage = RetailerDecisionDashboard; // Transition to 2.0
 const RetailerProfilePage = lazy(() => import('./pages/RetailerProfilePage'));
+const RetailerPOSPage = lazy(() => import('./pages/RetailerPOSPage'));
 const PatientProfilePage = lazy(() => import('./pages/PatientProfilePage'));
 const AgentProfilePage = lazy(() => import('./pages/AgentProfilePage'));
 
@@ -108,6 +109,7 @@ function RouteTitleManager() {
       '/retailer/inventory': 'Retailer Inventory',
       '/retailer/forecasting': 'Demand Forecast',
       '/retailer/profile': 'Store Profile',
+      '/retailer/pos': 'POS Billing',
       '/agent/profile': 'Agent Profile',
       '/profile': 'My Profile',
     };
@@ -162,6 +164,7 @@ function App() {
                 <Route path="/retailer/orders" element={<ErrorBoundary><RetailerOrdersPage /></ErrorBoundary>} />
                 <Route path="/retailer/forecasting" element={<ErrorBoundary><RetailerDecisionDashboard /></ErrorBoundary>} />
                 <Route path="/retailer/profile" element={<ErrorBoundary><RetailerProfilePage /></ErrorBoundary>} />
+                <Route path="/retailer/pos" element={<ErrorBoundary><RetailerPOSPage /></ErrorBoundary>} />
                 {/* Agent routes improvements */}
                 <Route path="/agent/profile" element={<ErrorBoundary><AgentProfilePage /></ErrorBoundary>} />
                 {/* Patient profile */}

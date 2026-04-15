@@ -21,3 +21,8 @@ export const getCategories = async () => {
 	const res = await api.get('/products/filters');
 	return { data: res.data?.categories || [] };
 };
+
+// ── Offline POS ──────────────────────────────────────────────────
+export const createOfflineSale = (data) => api.post('/retailer/pos/sale', data);
+export const getOfflineSales = (params) => api.get('/retailer/pos/sales', { params });
+export const getOfflineSaleById = (id) => api.get(`/retailer/pos/sales/${id}`);

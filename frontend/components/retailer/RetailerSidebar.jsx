@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 const NAV_ITEMS = [
   { to: '/retailer/dashboard', icon: 'dashboard', label: 'Global Overview', fill: true },
   { to: '/retailer/inventory', icon: 'inventory_2', label: 'Inventory Hub' },
+  { to: '/retailer/pos', icon: 'point_of_sale', label: 'POS Billing' },
   { to: '/retailer/orders', icon: 'local_shipping', label: 'Order Tracking' },
   { to: '/retailer/profile', icon: 'person', label: 'Store Profile' },
 ];

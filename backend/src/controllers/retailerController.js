@@ -1135,3 +1135,229 @@ exports.verifyDocument = async (req, res) => {
     res.status(500).json({ message: 'Verification failed. ' + err.message });
   }
 };
+
+// ─────────────────────────────────────────────────────────────────
+// OFFLINE POS CONTROLLERS
+// ─────────────────────────────────────────────────────────────────
+
+// POST /retailer/pos/sale — record offline sale and deduct stock
+exports.createOfflineSale = async (req, res) => {
+  try {
+    const retailerId = await getRetailerId(req.user.id);
+    if (!retailerId) return res.status(404).json({ message: 'Retailer profile not found' });
+
+    const { items, paymentMethod = 'cash', customerName = null, customerPhone = null, notes = null } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Cart is empty. Please add items before completing the sale.' });
+    }
+
+    const validPayments = ['cash', 'card', 'upi'];
+    if (!validPayments.includes(paymentMethod)) {
+      return res.status(400).json({ message: 'Invalid payment method. Must be cash, card, or upi.' });
+    }
+
+    // Validate all items and check stock availability before transaction
+    for (const item of items) {
+      if (!item.inventoryId || !item.quantity || item.quantity < 1) {
+        return res.status(400).json({ message: 'Each item must have a valid inventoryId and quantity >= 1.' });
+      }
+    }
+
+    let saleId, totalAmount;
+
+    await sequelize.transaction(async (t) => {
+      let computedTotal = 0;
+      const enrichedItems = [];
+
+      for (const item of items) {
+        // Fetch inventory row — JOIN to medicines/ecommerce_products for name & price
+        const [invRow] = await sequelize.query(
+          `SELECT
+             i.id,
+             i.stock_quantity,
+             i.retailer_id,
+             COALESCE(m.name, ep.name) AS medicine_name,
+             COALESCE(m.selling_price, ep.selling_price, m.mrp, ep.mrp, 0)::float AS price
+           FROM inventory i
+           LEFT JOIN medicines m ON m.id = i.medicine_id
+           LEFT JOIN ecommerce_products ep ON ep.id = i.ecommerce_product_id
+           WHERE i.id = :invId AND i.retailer_id = :retailerId
+           LIMIT 1`,
+          { type: QueryTypes.SELECT, replacements: { invId: item.inventoryId, retailerId }, transaction: t }
+        );
+
+        if (!invRow) {
+          throw new Error(`Item with inventoryId "${item.inventoryId}" not found in your inventory.`);
+        }
+
+        if (invRow.stock_quantity < item.quantity) {
+          throw new Error(
+            `Insufficient stock for "${invRow.medicine_name}". Available: ${invRow.stock_quantity}, Requested: ${item.quantity}`
+          );
+        }
+
+        const unitPrice = Number(item.unitPrice) > 0 ? Number(item.unitPrice) : Number(invRow.price) || 0;
+        const subtotal = unitPrice * item.quantity;
+        computedTotal += subtotal;
+
+        // Deduct stock
+        await sequelize.query(
+          `UPDATE inventory SET stock_quantity = stock_quantity - :qty WHERE id = :invId`,
+          { replacements: { qty: item.quantity, invId: item.inventoryId }, transaction: t }
+        );
+
+        enrichedItems.push({
+          inventory_id: item.inventoryId,
+          medicine_name: invRow.medicine_name,
+          quantity: item.quantity,
+          unit_price: unitPrice,
+          subtotal,
+        });
+      }
+
+      totalAmount = computedTotal;
+
+      // Create the sale record
+      const [saleRow] = await sequelize.query(
+        `INSERT INTO offline_sales (id, retailer_id, total_amount, payment_method, customer_name, customer_phone, notes, status, created_at, updated_at)
+         VALUES (gen_random_uuid(), :retailerId, :totalAmount, :paymentMethod, :customerName, :customerPhone, :notes, 'completed', NOW(), NOW())
+         RETURNING id`,
+        {
+          type: QueryTypes.SELECT,
+          replacements: {
+            retailerId,
+            totalAmount,
+            paymentMethod,
+            customerName: customerName || null,
+            customerPhone: customerPhone || null,
+            notes: notes || null,
+          },
+          transaction: t,
+        }
+      );
+
+      saleId = saleRow.id;
+
+      // Create line items
+      for (const item of enrichedItems) {
+        await sequelize.query(
+          `INSERT INTO offline_sale_items (id, sale_id, inventory_id, medicine_name, quantity, unit_price, subtotal, created_at, updated_at)
+           VALUES (gen_random_uuid(), :saleId, :inventoryId, :medicineName, :quantity, :unitPrice, :subtotal, NOW(), NOW())`,
+          {
+            type: QueryTypes.INSERT,
+            replacements: {
+              saleId,
+              inventoryId: item.inventory_id,
+              medicineName: item.medicine_name,
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              subtotal: item.subtotal,
+            },
+            transaction: t,
+          }
+        );
+      }
+    });
+
+    // Fetch the created sale with items for the receipt
+    const saleItems = await sequelize.query(
+      `SELECT medicine_name, quantity, unit_price, subtotal FROM offline_sale_items WHERE sale_id = :saleId`,
+      { type: QueryTypes.SELECT, replacements: { saleId } }
+    );
+
+    return res.status(201).json({
+      message: 'Sale completed successfully',
+      sale: {
+        id: saleId,
+        totalAmount,
+        paymentMethod,
+        customerName,
+        customerPhone,
+        items: saleItems,
+        createdAt: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    console.error('POS Sale Error:', err.message);
+    return res.status(400).json({ message: err.message });
+  }
+};
+
+// GET /retailer/pos/sales — list past offline sales
+exports.getOfflineSales = async (req, res) => {
+  try {
+    const retailerId = await getRetailerId(req.user.id);
+    if (!retailerId) return res.status(404).json({ message: 'Retailer profile not found' });
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, parseInt(req.query.limit) || 20);
+    const offset = (page - 1) * limit;
+
+    const [countRow] = await sequelize.query(
+      `SELECT COUNT(*)::int AS total FROM offline_sales WHERE retailer_id = :retailerId AND status = 'completed'`,
+      { type: QueryTypes.SELECT, replacements: { retailerId } }
+    );
+    const total = countRow.total || 0;
+
+    const sales = await sequelize.query(
+      `SELECT id, total_amount, payment_method, customer_name, customer_phone, status, created_at
+       FROM offline_sales
+       WHERE retailer_id = :retailerId AND status = 'completed'
+       ORDER BY created_at DESC
+       LIMIT :limit OFFSET :offset`,
+      { type: QueryTypes.SELECT, replacements: { retailerId, limit, offset } }
+    );
+
+    // Attach items to each sale
+    const saleIds = sales.map(s => s.id);
+    let allItems = [];
+    if (saleIds.length > 0) {
+      allItems = await sequelize.query(
+        `SELECT sale_id, medicine_name, quantity, unit_price, subtotal
+         FROM offline_sale_items
+         WHERE sale_id IN (:saleIds)`,
+        { type: QueryTypes.SELECT, replacements: { saleIds } }
+      );
+    }
+
+    const itemsBySale = {};
+    allItems.forEach(item => {
+      if (!itemsBySale[item.sale_id]) itemsBySale[item.sale_id] = [];
+      itemsBySale[item.sale_id].push(item);
+    });
+
+    const enriched = sales.map(s => ({ ...s, items: itemsBySale[s.id] || [] }));
+
+    return res.json({ sales: enriched, total, page, pages: Math.ceil(total / limit) });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+// GET /retailer/pos/sales/:id — single sale with items
+exports.getOfflineSaleById = async (req, res) => {
+  try {
+    const retailerId = await getRetailerId(req.user.id);
+    if (!retailerId) return res.status(404).json({ message: 'Retailer profile not found' });
+
+    const [sale] = await sequelize.query(
+      `SELECT id, total_amount, payment_method, customer_name, customer_phone, notes, status, created_at
+       FROM offline_sales
+       WHERE id = :saleId AND retailer_id = :retailerId
+       LIMIT 1`,
+      { type: QueryTypes.SELECT, replacements: { saleId: req.params.id, retailerId } }
+    );
+
+    if (!sale) return res.status(404).json({ message: 'Sale not found' });
+
+    const items = await sequelize.query(
+      `SELECT medicine_name, quantity, unit_price, subtotal FROM offline_sale_items WHERE sale_id = :saleId`,
+      { type: QueryTypes.SELECT, replacements: { saleId: req.params.id } }
+    );
+
+    return res.json({ ...sale, items });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
